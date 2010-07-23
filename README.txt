@@ -78,10 +78,11 @@ Fabien Fleutot for Metalua.
 == Changes ==
 
 ?
-  SciTE: mark all range of selected variable's scope in margin
-  SciTE: new command to rename all occurrences of selected variable
-  SciTE: significant performance gain utilizing loadstring in addition
+  SciTE: Mark all range of selected variable's scope in margin
+  SciTE: New command to rename all occurrences of selected variable
+  SciTE: Significant performance gain utilizing loadstring in addition
     to metalua libraries
+  SciTE: Fix handling multiple buffers.
 
 20100720
   core: support for detecting unused locals (white on blue)

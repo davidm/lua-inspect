@@ -11,10 +11,12 @@ local LS = require "luainspect.signatures"
 
 local M = {}
 
-local ast -- last successfully compiled AST
-local text  -- text corresponding to `ast`
-local lasttext  -- last attempted `text` (might not be successfully compiled)
-local notes  -- notes corresponding to `ast`
+-- variables stored in `buffer`:
+-- ast -- last successfully compiled AST
+-- text  -- text corresponding to `ast`
+-- lasttext  -- last attempted `text` (might not be successfully compiled)
+-- notes  -- notes corresponding to `ast`
+-- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
 
 -- Style IDs
 -- 2DO:improve: define default styles here in Lua in case these are not defined in the properties file.
@@ -34,8 +36,8 @@ local S_COMPILER_ERROR = 9
 local function update_ast()
   -- skip if text unchanged
   local newtext = editor:GetText()
-  if newtext == lasttext then return false end
-  lasttext = newtext
+  if newtext == buffer.lasttext then return false end
+  buffer.lasttext = newtext
 
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
@@ -60,7 +62,7 @@ local function update_ast()
         colnum = 0
       end
     else
-      ast = ast_
+      buffer.ast = ast_
     end
   end -- 2DO: filename
   --unused: editor.IndicStyle[0]=
@@ -82,8 +84,8 @@ local function update_ast()
      editor:AnnotationSetText(linenum-1, "error " .. err)
      return
   else
-     notes = LI.inspect(ast)
-     text = newtext
+     buffer.notes = LI.inspect(buffer.ast)
+     buffer.text = newtext
      --old: editor:CallTipCancel()
      editor.IndicatorCurrent = 0
      editor:IndicatorClearRange(0, editor.Length)
@@ -94,10 +96,10 @@ end
 
 -- Helper function used by rename_selected_variable
 local function getselectedvariable()
-  if text ~= editor:GetText() then return end  -- skip if AST not up-to-date
+  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectednote
   local pos = editor.CurrentPos+1
-  for i,note in ipairs(notes) do
+  for i,note in ipairs(buffer.notes) do
     if pos >= note[1] and pos <= note[2] then
       if note.ast.id then
         selectednote = note
@@ -116,8 +118,8 @@ function M.rename_selected_variable(newname)
     local id = selectednote.ast.id
     editor:BeginUndoAction()
     local lastnote
-    for i=#notes,1,-1 do
-      local note = notes[i]
+    for i=#buffer.notes,1,-1 do
+      local note = buffer.notes[i]
       if note.ast.id == id then
         editor:SetSel(note[1]-1, note[2])
 	editor:ReplaceSel(newname)
@@ -133,27 +135,26 @@ function M.rename_selected_variable(newname)
 end
 
 -- Respond to UI updates.  This includes moving the cursor.
-local lastline
-scite_OnUpdateUI(function(x)
+scite_OnUpdateUI(function()
   -- 2DO:FIX: how to make the occur only in Lua buffers.
   if editor.Lexer ~= 0 then return end -- 2DO: hack: probably won't work with multiple Lua-based lexers
 
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
     local currentline = editor:LineFromPosition(editor.CurrentPos)
-    if currentline ~= lastline then
+    if currentline ~= buffer.lastline then
       update_ast()
-      lastline = currentline
+      buffer.lastline = currentline
     end
   end
 
-  if text ~= editor:GetText() then return end -- skip if AST is not up-to-date
+  if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
   local id, selectednote
-  if text == lasttext then -- valid compile
+  if buffer.text == buffer.lasttext then -- valid compile
     local pos = editor.CurrentPos+1
-    for i,note in ipairs(notes) do
+    for i,note in ipairs(buffer.notes) do
       if pos >= note[1] and pos <= note[2] then
         if note.ast.id then
           selectednote = note
@@ -179,7 +180,7 @@ scite_OnUpdateUI(function(x)
     editor.IndicatorCurrent = 1
     editor:IndicatorClearRange(0, editor.Length)
     local first, last -- first and last occurances
-    for _,note in ipairs(notes) do
+    for _,note in ipairs(buffer.notes) do
       if note.ast.id == id then
         last = note
 	if not first then first = note end
@@ -240,13 +241,13 @@ local function OnStyle(styler)
   -- update AST if needed
   if UPDATE_ALWAYS then
     update_ast()
-  elseif not lasttext then
+  elseif not buffer.lasttext then
     -- this ensures that AST compiling is attempted when file is first loaded since OnUpdateUI
     -- is not called on load.
     update_ast()
   end
 
-  if text ~= editor:GetText() then return end  -- skip if AST not up-to-date
+  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
 
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
@@ -255,8 +256,8 @@ local function OnStyle(styler)
   styler:StartStyling(0, editor.Length, 0)
   local i=1
   local inote = 1
-  local note = notes[inote]
-  local function nextnote() inote = inote+1; note = notes[inote] end
+  local note = buffer.notes[inote]
+  local function nextnote() inote = inote+1; note = buffer.notes[inote] end
   while styler:More() do
     while note and i > note[2] do
       nextnote()
