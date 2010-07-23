@@ -41,6 +41,7 @@ function M.walk(ast, f)
   end
 end
 
+local unescape = {['d'] = '.'}
 
 function M.inspect(ast)
   local globals = inspect_globals.globals(ast)
@@ -51,13 +52,27 @@ function M.inspect(ast)
   local id = 0
   local seen_globals = {}
   M.walk(ast, function(ast)
-    if ast.tag == 'Id' then
+    if ast.tag == 'Id' or ast.isfield then
       if ast.localdefinition then
         if ast.isdefinition then
           id = id + 1
           ast.id = id
         else
           ast.id = ast.localdefinition.id
+        end
+      elseif ast.isfield then
+        local parentid = ast.parent.id
+        local name = parentid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+        if not seen_globals[name] then
+          id = id + 1
+          seen_globals[name] = id
+        end
+        ast.id = seen_globals[name]
+
+        -- also resolve name
+        local parentresolvedname = ast.parent.resolvedname
+        if parentresolvedname then
+          ast.resolvedname = parentresolvedname .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
         end
       else -- global
         local name = ast[1]
@@ -66,20 +81,40 @@ function M.inspect(ast)
           seen_globals[name] = id
         end
         ast.id = seen_globals[name]
+
+        -- also resolve name
+        ast.resolvedname = ast[1]
       end
     end
   end)
+
+  local function eval_name_helper(name)
+    local var = _G
+    for part in (name .. '.'):gmatch("([^.]*)%.") do
+      part = part:gsub('%%(.)', unescape)
+      if type(var) ~= 'table' and type(var) ~= 'userdata' then return nil end  --TODO:improve?
+      var = var[part]
+      if var == nil then return nil end
+    end
+    return var
+  end
+  local function eval_name(name)
+    local ok, o = pcall(eval_name_helper, name)
+    if ok then return o else return nil end
+  end
 
   -- Create notes.
   local seen_comment = {}
   M.walk(ast, function(ast)
     --print(ast.tag)
-    if ast.tag == 'Id' and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
+    if (ast.tag == 'Id' or ast.isfield) and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
       local vname = ast[1]
       local fchar = ast.lineinfo.first[3]
       local lchar = ast.lineinfo.last[3]
-      local atype = ast.localdefinition and 'local' or 'global'
-      local definedglobal = atype == 'global' and (_G[vname] or globals[vname] and globals[vname].set) or nil
+      local atype = ast.localdefinition and 'local' or ast.isfield and 'field' or 'global'
+      --TODO: rename definedglobal to definedfield for clarity
+      local definedglobal = ast.resolvedname and eval_name(ast.resolvedname) ~= nil or
+                 atype == 'global' and (globals[vname] and globals[vname].set) or nil
       -- FIX: _G includes modules imported by inspect.lua, which is not desired
       local isparam = ast.localdefinition and ast.localdefinition.isparam or nil
       table.insert(notes, {fchar, lchar, ast=ast, type=atype, definedglobal=definedglobal, isparam=isparam})

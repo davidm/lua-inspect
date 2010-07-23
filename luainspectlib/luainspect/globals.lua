@@ -13,12 +13,12 @@ local function traverse(ast, scope, globals, level, functionlevel)
 
   local blockrecurse
 
+  -- operations on walking down the AST
   if ast.tag == "Local" or ast.tag == "Localrec" then
     local vnames, vvalues = ast[1], ast[2]
     for i,v in ipairs(vnames) do
       assert(v.tag == "Id")
       local vname = v[1]
-      --print(level, "deflocal",v[1])
       local parentscope = getmetatable(scope).__index
       parentscope[vname] = v
 
@@ -29,11 +29,12 @@ local function traverse(ast, scope, globals, level, functionlevel)
     blockrecurse = 1
   elseif ast.tag == "Id" then
     local vname = ast[1]
-    --print(level, "ref", vname, scope[vname])
     if scope[vname] then
       ast.localdefinition = scope[vname]
       scope[vname].isused = true
       ast.functionlevel = functionlevel
+    else
+      ast.isglobal = true
     end
     --if not scope[vname] then
     --  print(string.format("undefined %s at line %d", vname, ast.lineinfo.first[1]))
@@ -65,6 +66,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
           if not globals[vname] then
             globals[vname] = {set=v}
           end
+          ast.isglobal = true
         end
       end
     end
@@ -88,7 +90,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
     blockrecurse = 1
   end
 
-  -- recurse (depth-first search through AST)
+  -- recurse (depth-first search down the AST)
   if ast.tag == "Repeat" then
     local scope = scope
     for i,v in ipairs(ast[1]) do
@@ -103,6 +105,23 @@ local function traverse(ast, scope, globals, level, functionlevel)
         local scope = setmetatable({}, {__index = scope})
         traverse(v, scope, globals, level+1, functionlevel)
       end
+    end
+  end
+
+  -- operations on walking up the AST
+  if ast.tag == "Index" then
+    local parent = ast[1].tag == 'Id' and ast[1] or ast[1].containid
+    if parent and ast[2].tag == "String" then
+      ast[2].isfield = true
+      ast[2].parent = parent
+      ast.containid = ast[2]
+    end
+  elseif ast.tag == "Invoke" then
+    local parent = ast[1].tag == 'Id' and ast[1] or ast[1].containid
+    if parent then
+      ast[2].isfield = true
+      ast[2].parent = parent
+      ast.containid = ast[2]
     end
   end
 end

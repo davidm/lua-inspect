@@ -32,6 +32,8 @@ local S_LOCAL_UNUSED = 7
 local S_LOCAL_PARAM = 8
 local S_COMPILER_ERROR = 9
 local S_LOCAL_UPVALUE = 10
+local S_TABLE_FIELD = 11
+local S_TABLE_FIELD_RECOGNIZED = 12
 
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
@@ -208,8 +210,8 @@ scite_OnUpdateUI(function()
   end
 
   -- Display callinfo help on function.
-  if selectednote and selectednote.definedglobal and LS.global_signatures[selectednote.ast[1]] then
-    local name = selectednote.ast[1]
+  if selectednote and selectednote.ast.resolvedname and LS.global_signatures[selectednote.ast.resolvedname] then
+    local name = selectednote.ast.resolvedname
     editor:CallTipShow(editor.Anchor, LS.global_signatures[name])
   else
     --editor:CallTipCancel()
@@ -248,6 +250,8 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_LOCAL_UPVALUE] = true
   editor.StyleHotSpot[S_RECOGNIZED_GLOBAL] = true
   editor.StyleHotSpot[S_UNRECOGNIZED_GLOBAL] = true
+  editor.StyleHotSpot[S_TABLE_FIELD] = true
+  editor.StyleHotSpot[S_TABLE_FIELD_RECOGNIZED] = true
   --2DO: use SCN_HOTSPOTCLICK somehow?
   styler:StartStyling(0, editor.Length, 0)
   local i=1
@@ -276,6 +280,12 @@ local function OnStyle(styler)
         else
           styler:SetState(S_LOCAL)
 	end
+      elseif note.type == 'field' then
+        if note.definedglobal then
+          styler:SetState(S_TABLE_FIELD_RECOGNIZED)
+        else
+          styler:SetState(S_TABLE_FIELD)
+        end
       elseif note.type == 'comment' then
         styler:SetState(S_COMMENT)
       elseif note.type == 'string' then
@@ -315,6 +325,9 @@ scite_OnDoubleClick(function()
         info = info .. "param "
       end
       info = info .. "local "
+    elseif note.type == "field" then
+      info = info .. "field "
+      if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
     else
       info = info .. "? "
     end

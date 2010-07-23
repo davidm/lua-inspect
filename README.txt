@@ -38,7 +38,7 @@ Add this to your SciTEGlobal.properties, SciTEUser.properties, or SciTE.properti
 lexer.*.lua=script_lua
 style.script_lua.0=fore:#000000 # default
 style.script_lua.1=fore:#000080 # local
-style.script_lua.2=fore:#800000  # recognized global
+style.script_lua.2=fore:#600000  # recognized global
 style.script_lua.3=fore:#ffffff,back:#ff0000,bold  # unrecognized global
 style.script_lua.4=fore:#008000  # comment
 style.script_lua.5=fore:#00c000  # string
@@ -47,6 +47,8 @@ style.script_lua.7=fore:#ffffff,back:#0000ff  # local unused
 style.script_lua.8=fore:#000040 # local param
 style.script_lua.9=fore:#800000,back:#ffffc0  # compiler error
 style.script_lua.10=fore:#0000ff # local upvalue
+style.script_lua.11=fore:#c00000 # table field
+style.script_lua.12=fore:#600000 # table field recognized
 =============================
 
 Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
@@ -86,6 +88,7 @@ Fabien Fleutot for Metalua.
   SciTE: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
   SciTE: display variable info on double click
+  SciTE: Initial support for table fields
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
