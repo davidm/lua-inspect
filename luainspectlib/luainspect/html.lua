@@ -83,8 +83,8 @@ function M.ast_to_html(ast, src, notes)
         class = class .. " id" .. note.ast.localdefinition.id
       end
 
-      if note.definedglobal and LS.global_signatures[note.ast[1]] then
-        local name = note.ast[1]
+      if note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
+        local name = note.ast.resolvedname
         desc_html = desc_html .. "<br>" .. escape_html(LS.global_signatures[name])
       end
       return "<span class='id " .. class .. "'" .. id_html .. ">" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
