@@ -90,7 +90,6 @@ local function update_ast()
      editor:MarkerDeleteAll(0)
      editor:AnnotationClearAll()
   end
-  return ast_ ~= nil
 end
 
 -- Helper function used by rename_selected_variable
