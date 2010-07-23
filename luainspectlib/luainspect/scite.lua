@@ -99,16 +99,18 @@ end
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectednote
+  local id
   local pos = editor.CurrentPos+1
   for i,note in ipairs(buffer.notes) do
     if pos >= note[1] and pos <= note[2] then
       if note.ast.id then
         selectednote = note
+        id = note.ast.id
       end
       break
     end
   end
-  return selectednote
+  return selectednote, id
 end
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
@@ -152,19 +154,7 @@ scite_OnUpdateUI(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
-  local id, selectednote
-  if buffer.text == buffer.lasttext then -- valid compile
-    local pos = editor.CurrentPos+1
-    for i,note in ipairs(buffer.notes) do
-      if pos >= note[1] and pos <= note[2] then
-        if note.ast.id then
-          selectednote = note
-  	  id = note.ast.id
-        end
-        break
-      end
-    end
-  end
+  local selectednote, id = getselectedvariable()
 
   --test: adding items to context menu upon variable selection
   --if id then
