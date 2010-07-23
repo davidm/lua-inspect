@@ -1,0 +1,128 @@
+<html>
+<head>
+  <title></title>
+  <script src="jquery-1.4.2.min.js" type="text/javascript"></script>
+  <script src="luainspect.js" type="text/javascript"></script>
+  <link rel="stylesheet" type="text/css" href="luainspect.css">
+</head>
+<body><pre>
+    1: <span class='comment'>-- luainspect.init - core LuaInspect source analysis
+    2: </span><span class='comment'>--
+    3: </span><span class='comment'>-- (c) 2010 David Manura, MIT License.
+    4: </span>
+    5: local <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span> = {}
+    6: 
+    7: <span class='comment'>-- boilerplate/utility
+    8: </span><span class='comment'>-- LUA_PATH=&quot;?.lua;/path/to/metalua/src/compiler/?.lua;/path/to/metalua/src/lib/?.lua&quot;
+    9: </span><span class='comment'>-- import modules -- order is important
+   10: </span><span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;lexer&quot;</span>
+   11: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;gg&quot;</span>
+   12: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_lexer&quot;</span>
+   13: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_misc&quot;</span>
+   14: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_table&quot;</span>
+   15: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_meta&quot;</span>
+   16: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_expr&quot;</span>
+   17: <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;mlp_stat&quot;</span>
+   18: <span class='comment'>--require &quot;mlp_ext&quot;
+   19: </span><span class='id global probablydefined id3' id='id3'>_G</span><span class='info'>global probably-defined<br>(table)</span>.<span class='string'>mlc</span> = {} <span class='comment'>-- make gg happy
+   20: </span>
+   21: local <span class='id local constbind id4' id='id4'>inspect_globals</span><span class='info'>local defined-line:21</span> = <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;luainspect.globals&quot;</span>
+   22: 
+   23: <span class='comment'>-- Converts Lua source string to Lua AST (via mlp/gg)
+   24: </span>function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>ast_from_string</span>(<span class='id local param constbind id5' id='id5'>src</span><span class='info'>local param defined-line:24</span>, <span class='id local param mutatebind id6' id='id6'>filename</span><span class='info'>local param mutate-bind defined-line:24</span>)
+   25:   <span class='id local param mutatebind id6' id='id6'>filename</span><span class='info'>local param mutate-bind defined-line:24</span> = <span class='id local param mutatebind id6' id='id6'>filename</span><span class='info'>local param mutate-bind defined-line:24</span> or <span class='string'>'(string)'</span>
+   26:   local  <span class='id local constbind id7' id='id7'>lx</span><span class='info'>local defined-line:26</span>  = <span class='id global probablydefined id8' id='id8'>mlp</span><span class='info'>global probably-defined</span>.<span class='string'>lexer</span>:<span class='string'>newstream</span> (<span class='id local param constbind id5' id='id5'>src</span><span class='info'>local param defined-line:24</span>, <span class='id local param mutatebind id6' id='id6'>filename</span><span class='info'>local param mutate-bind defined-line:24</span>)
+   27:   local  <span class='id local constbind id9' id='id9'>ast</span><span class='info'>local defined-line:27</span> = <span class='id global probablydefined id8' id='id8'>mlp</span><span class='info'>global probably-defined</span>.<span class='string'>chunk</span>(<span class='id local constbind id7' id='id7'>lx</span><span class='info'>local defined-line:26</span>)
+   28:   return <span class='id local constbind id9' id='id9'>ast</span><span class='info'>local defined-line:27</span>
+   29: end
+   30: 
+   31: <span class='comment'>-- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `f(n)`.
+   32: </span>function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>walk</span>(<span class='id local param constbind id10' id='id10'>ast</span><span class='info'>local param defined-line:32</span>, <span class='id local param constbind id11' id='id11'>f</span><span class='info'>local param defined-line:32</span>)
+   33:   <span class='id global probablydefined id12' id='id12'>assert</span><span class='info'>global probably-defined<br>assert (v [, message])</span>(<span class='id global probablydefined id13' id='id13'>type</span><span class='info'>global probably-defined<br>type (v)</span>(<span class='id local param constbind id10' id='id10'>ast</span><span class='info'>local param defined-line:32</span>) == <span class='string'>'table'</span>)
+   34:   if <span class='id local param constbind id10' id='id10'>ast</span><span class='info'>local param defined-line:32</span>.<span class='string'>tag</span> then
+   35:     <span class='id local param constbind id11' id='id11'>f</span><span class='info'>local param defined-line:32</span>(<span class='id local param constbind id10' id='id10'>ast</span><span class='info'>local param defined-line:32</span>)
+   36:   end
+   37:   for <span class='id local unused constbind id14' id='id14'>i</span><span class='info'>local defined-line:37</span>,<span class='id local constbind id15' id='id15'>bast</span><span class='info'>local defined-line:37</span> in <span class='id global probablydefined id16' id='id16'>ipairs</span><span class='info'>global probably-defined<br>ipairs (t)</span>(<span class='id local param constbind id10' id='id10'>ast</span><span class='info'>local param defined-line:32</span>) do
+   38:     if <span class='id global probablydefined id13' id='id13'>type</span><span class='info'>global probably-defined<br>type (v)</span>(<span class='id local constbind id15' id='id15'>bast</span><span class='info'>local defined-line:37</span>) == <span class='string'>'table'</span> then
+   39:       <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>walk</span>(<span class='id local constbind id15' id='id15'>bast</span><span class='info'>local defined-line:37</span>, <span class='id local param constbind id11' id='id11'>f</span><span class='info'>local param defined-line:32</span>)
+   40:     end
+   41:   end
+   42: end
+   43: 
+   44: 
+   45: function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>inspect</span>(<span class='id local param constbind id17' id='id17'>ast</span><span class='info'>local param defined-line:45</span>)
+   46:   local <span class='id local constbind id18' id='id18'>globals</span><span class='info'>local defined-line:46</span> = <span class='id local constbind id4' id='id4'>inspect_globals</span><span class='info'>local defined-line:21</span>.<span class='string'>globals</span>(<span class='id local param constbind id17' id='id17'>ast</span><span class='info'>local param defined-line:45</span>)
+   47: 
+   48:   local <span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span> = {}
+   49: 
+   50:   <span class='comment'>-- Label variables with unique identifiers.
+   51: </span>  local <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span> = 0
+   52:   local <span class='id local constbind id21' id='id21'>seen_globals</span><span class='info'>local defined-line:52</span> = {}
+   53:   <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>walk</span>(<span class='id local param constbind id17' id='id17'>ast</span><span class='info'>local param defined-line:45</span>, function(<span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>)
+   54:     if <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>tag</span> == <span class='string'>'Id'</span> then
+   55:       if <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>localdefinition</span> then
+   56:         if <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>isdefinition</span> then
+   57:           <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span> = <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span> + 1
+   58:           <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>id</span> = <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span>
+   59:         else
+   60:           <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>id</span> = <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>localdefinition</span>.<span class='string'>id</span>
+   61:         end
+   62:       else <span class='comment'>-- global
+   63: </span>        local <span class='id local constbind id23' id='id23'>name</span><span class='info'>local defined-line:63</span> = <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>[1]
+   64:         if not <span class='id local constbind id21' id='id21'>seen_globals</span><span class='info'>local defined-line:52</span>[<span class='id local constbind id23' id='id23'>name</span><span class='info'>local defined-line:63</span>] then
+   65:           <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span> = <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span> + 1
+   66:           <span class='id local constbind id21' id='id21'>seen_globals</span><span class='info'>local defined-line:52</span>[<span class='id local constbind id23' id='id23'>name</span><span class='info'>local defined-line:63</span>] = <span class='id local mutatebind id20' id='id20'>id</span><span class='info'>local mutate-bind defined-line:51</span>
+   67:         end
+   68:         <span class='id local param constbind id22' id='id22'>ast</span><span class='info'>local param defined-line:53</span>.<span class='string'>id</span> = <span class='id local constbind id21' id='id21'>seen_globals</span><span class='info'>local defined-line:52</span>[<span class='id local constbind id23' id='id23'>name</span><span class='info'>local defined-line:63</span>]
+   69:       end
+   70:     end
+   71:   end)
+   72: 
+   73:   <span class='comment'>-- Create notes.
+   74: </span>  local <span class='id local constbind id24' id='id24'>seen_comment</span><span class='info'>local defined-line:74</span> = {}
+   75:   <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='string'>walk</span>(<span class='id local param constbind id17' id='id17'>ast</span><span class='info'>local param defined-line:45</span>, function(<span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>)
+   76:     <span class='comment'>--print(ast.tag)
+   77: </span>    if <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>tag</span> == <span class='string'>'Id'</span> and <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span> then <span class='comment'>-- note: e.g. `Id &quot;self&quot; may have no lineinfo
+   78: </span>      local <span class='id local constbind id26' id='id26'>vname</span><span class='info'>local defined-line:78</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>[1]
+   79:       local <span class='id local constbind id27' id='id27'>fchar</span><span class='info'>local defined-line:79</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>first</span>[3]
+   80:       local <span class='id local constbind id28' id='id28'>lchar</span><span class='info'>local defined-line:80</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>last</span>[3]
+   81:       local <span class='id local constbind id29' id='id29'>atype</span><span class='info'>local defined-line:81</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>localdefinition</span> and <span class='string'>'local'</span> or <span class='string'>'global'</span>
+   82:       local <span class='id local constbind id30' id='id30'>definedglobal</span><span class='info'>local defined-line:82</span> = <span class='id local constbind id29' id='id29'>atype</span><span class='info'>local defined-line:81</span> == <span class='string'>'global'</span> and (<span class='id global probablydefined id3' id='id3'>_G</span><span class='info'>global probably-defined<br>(table)</span>[<span class='id local constbind id26' id='id26'>vname</span><span class='info'>local defined-line:78</span>] or <span class='id local constbind id18' id='id18'>globals</span><span class='info'>local defined-line:46</span>[<span class='id local constbind id26' id='id26'>vname</span><span class='info'>local defined-line:78</span>] and <span class='id local constbind id18' id='id18'>globals</span><span class='info'>local defined-line:46</span>[<span class='id local constbind id26' id='id26'>vname</span><span class='info'>local defined-line:78</span>].<span class='string'>set</span>) or nil
+   83:       <span class='comment'>-- FIX: _G includes modules imported by inspect.lua, which is not desired
+   84: </span>      local <span class='id local constbind id31' id='id31'>isparam</span><span class='info'>local defined-line:84</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>localdefinition</span> and <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>localdefinition</span>.<span class='string'>isparam</span> or nil
+   85:       <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>insert</span>(<span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span>, {<span class='id local constbind id27' id='id27'>fchar</span><span class='info'>local defined-line:79</span>, <span class='id local constbind id28' id='id28'>lchar</span><span class='info'>local defined-line:80</span>, <span class='string'>ast</span>=<span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>, <span class='string'>type</span>=<span class='id local constbind id29' id='id29'>atype</span><span class='info'>local defined-line:81</span>, <span class='string'>definedglobal</span>=<span class='id local constbind id30' id='id30'>definedglobal</span><span class='info'>local defined-line:82</span>, <span class='string'>isparam</span>=<span class='id local constbind id31' id='id31'>isparam</span><span class='info'>local defined-line:84</span>})
+   86:     elseif <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>tag</span> == <span class='string'>'String'</span> then
+   87:       local <span class='id local constbind id33' id='id33'>fchar</span><span class='info'>local defined-line:87</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>first</span>[3]
+   88:       local <span class='id local constbind id34' id='id34'>lchar</span><span class='info'>local defined-line:88</span> = <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>last</span>[3]
+   89:       <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>insert</span>(<span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span>, {<span class='id local constbind id33' id='id33'>fchar</span><span class='info'>local defined-line:87</span>, <span class='id local constbind id34' id='id34'>lchar</span><span class='info'>local defined-line:88</span>, <span class='string'>ast</span>=<span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>, <span class='string'>type</span>=<span class='string'>'string'</span>})
+   90:     end
+   91: 
+   92:     <span class='comment'>-- comments
+   93: </span>    if <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span> then
+   94:       local <span class='id local constbind id35' id='id35'>commentss</span><span class='info'>local defined-line:94</span> = {}
+   95:       if <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>first</span>.<span class='string'>comments</span> then <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>insert</span>(<span class='id local constbind id35' id='id35'>commentss</span><span class='info'>local defined-line:94</span>, <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>first</span>.<span class='string'>comments</span>) end
+   96:       if <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>last</span>.<span class='string'>comments</span>  then <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>insert</span>(<span class='id local constbind id35' id='id35'>commentss</span><span class='info'>local defined-line:94</span>, <span class='id local param constbind id25' id='id25'>ast</span><span class='info'>local param defined-line:75</span>.<span class='string'>lineinfo</span>.<span class='string'>last</span>.<span class='string'>comments</span>) end
+   97:       for <span class='id local unused constbind id36' id='id36'>_</span><span class='info'>local defined-line:97</span>,<span class='id local constbind id37' id='id37'>comments</span><span class='info'>local defined-line:97</span> in <span class='id global probablydefined id16' id='id16'>ipairs</span><span class='info'>global probably-defined<br>ipairs (t)</span>(<span class='id local constbind id35' id='id35'>commentss</span><span class='info'>local defined-line:94</span>) do
+   98:         for <span class='id local unused constbind id38' id='id38'>i</span><span class='info'>local defined-line:98</span>,<span class='id local constbind id39' id='id39'>comment</span><span class='info'>local defined-line:98</span> in <span class='id global probablydefined id16' id='id16'>ipairs</span><span class='info'>global probably-defined<br>ipairs (t)</span>(<span class='id local constbind id37' id='id37'>comments</span><span class='info'>local defined-line:97</span>) do
+   99:           local <span class='id local unused constbind id40' id='id40'>text</span><span class='info'>local defined-line:99</span>,<span class='id local constbind id41' id='id41'>fchar</span><span class='info'>local defined-line:99</span>,<span class='id local constbind id42' id='id42'>lchar</span><span class='info'>local defined-line:99</span> = <span class='id global probablydefined id43' id='id43'>unpack</span><span class='info'>global probably-defined<br>unpack (list [, i [, j]])</span>(<span class='id local constbind id39' id='id39'>comment</span><span class='info'>local defined-line:98</span>)
+  100:           if not <span class='id local constbind id24' id='id24'>seen_comment</span><span class='info'>local defined-line:74</span>[<span class='id local constbind id41' id='id41'>fchar</span><span class='info'>local defined-line:99</span>] then
+  101:             <span class='id local constbind id24' id='id24'>seen_comment</span><span class='info'>local defined-line:74</span>[<span class='id local constbind id41' id='id41'>fchar</span><span class='info'>local defined-line:99</span>] = true
+  102:             <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>insert</span>(<span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span>, {<span class='id local constbind id41' id='id41'>fchar</span><span class='info'>local defined-line:99</span>, <span class='id local constbind id42' id='id42'>lchar</span><span class='info'>local defined-line:99</span>, <span class='string'>ast</span>=<span class='id local constbind id39' id='id39'>comment</span><span class='info'>local defined-line:98</span>, <span class='string'>type</span>=<span class='string'>'comment'</span>})
+  103:           end
+  104:         end
+  105:       end
+  106:     end
+  107:   end)
+  108: 
+  109: 
+  110:   <span class='id global probablydefined id32' id='id32'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='string'>sort</span>(<span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span>, function(<span class='id local param constbind id44' id='id44'>a</span><span class='info'>local param defined-line:110</span>,<span class='id local param constbind id45' id='id45'>b</span><span class='info'>local param defined-line:110</span>) return <span class='id local param constbind id44' id='id44'>a</span><span class='info'>local param defined-line:110</span>[1] &lt; <span class='id local param constbind id45' id='id45'>b</span><span class='info'>local param defined-line:110</span>[1] end)
+  111: 
+  112:   return <span class='id local constbind id19' id='id19'>notes</span><span class='info'>local defined-line:48</span>
+  113: end
+  114: 
+  115: return <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>
+  116: 
+  117: 
+  118: 
+  119: 
+</pre></body></html>

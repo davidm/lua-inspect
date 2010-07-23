@@ -1,0 +1,17 @@
+// LuaInspect CSS styles
+
+.id { cursor: pointer }
+.id.local { color: #0000c0; }
+.id.global { color: #800000 }
+.id.global.possiblyundefined { color: white; background-color: red }
+.id.local.param { color: #000080 }
+.id.mutatebind { font-style: italic }
+.id.unused { color: #ffffff; background-color: #000080 }
+
+.id.highlight {background-color: #ffe0e0}
+
+
+.info { position: absolute; display: none; padding: 0.5em; background-color: #f0f0f0; border: 1px solid #808080; margin: 1.5em 0.5em }
+
+.comment { color: #008000 }
+.string { color: #00c000 }
