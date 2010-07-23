@@ -253,6 +253,9 @@ local function OnStyle(styler)
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
+  editor.StyleHotSpot[S_LOCAL_UNUSED] = true
+  editor.StyleHotSpot[S_LOCAL_PARAM] = true
+  editor.StyleHotSpot[S_LOCAL_UPVALUE] = true
   --2DO: use SCN_HOTSPOTCLICK somehow?
   styler:StartStyling(0, editor.Length, 0)
   local i=1
