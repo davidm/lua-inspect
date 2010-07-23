@@ -72,6 +72,12 @@ Depenedencies:
 
 See LICENSE file.
 
+== Credits ==
+
+David Manura, original author.
+Steve Donovan for discussions on design and SciTE.
+Fabien Fleutot for Metalua.  
+
 == References ==
 
 [1] http://www.scintilla.org/SciTE.html
