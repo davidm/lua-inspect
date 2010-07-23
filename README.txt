@@ -83,8 +83,9 @@ Fabien Fleutot for Metalua.
   SciTE: New command to rename all occurrences of selected variable
   SciTE: Significant performance gain utilizing loadstring in addition
     to metalua libraries
-  Scite: Mark upvalues (lighter blue)
+  SciTE: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
+  SciTE: display variable info on double click
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720

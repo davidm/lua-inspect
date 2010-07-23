@@ -100,7 +100,7 @@ local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectednote
   local id
-  local pos = editor.CurrentPos+1
+  local pos = editor.Anchor+1
   for i,note in ipairs(buffer.notes) do
     if pos >= note[1] and pos <= note[2] then
       if note.ast.id then
@@ -131,7 +131,7 @@ function M.rename_selected_variable(newname)
     end
     if lastnote then
       editor:SetSel(lastnote[1]-1, lastnote[1] + newname:len())
-      editor.CurrentPos = lastnote[1]-1
+      editor.Anchor = lastnote[1]-1
     end
     editor:EndUndoAction()
   end
@@ -144,7 +144,7 @@ scite_OnUpdateUI(function()
 
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
-    local currentline = editor:LineFromPosition(editor.CurrentPos)
+    local currentline = editor:LineFromPosition(editor.Anchor)
     if currentline ~= buffer.lastline then
       update_ast()
       buffer.lastline = currentline
@@ -210,9 +210,9 @@ scite_OnUpdateUI(function()
   -- Display callinfo help on function.
   if selectednote and selectednote.definedglobal and LS.global_signatures[selectednote.ast[1]] then
     local name = selectednote.ast[1]
-    editor:CallTipShow(editor.CurrentPos, LS.global_signatures[name])
+    editor:CallTipShow(editor.Anchor, LS.global_signatures[name])
   else
-    editor:CallTipCancel()
+    --editor:CallTipCancel()
   end
 end)
 
@@ -246,6 +246,8 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_LOCAL_UNUSED] = true
   editor.StyleHotSpot[S_LOCAL_PARAM] = true
   editor.StyleHotSpot[S_LOCAL_UPVALUE] = true
+  editor.StyleHotSpot[S_RECOGNIZED_GLOBAL] = true
+  editor.StyleHotSpot[S_UNRECOGNIZED_GLOBAL] = true
   --2DO: use SCN_HOTSPOTCLICK somehow?
   styler:StartStyling(0, editor.Length, 0)
   local i=1
@@ -290,6 +292,36 @@ local function OnStyle(styler)
   end
   styler:EndStyling()
 end
+
+scite_OnDoubleClick(function()
+  if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
+  
+  -- check if selection if currently on identifier
+  local note, id = getselectedvariable()
+  if note then
+    local info = ""
+    if note.type == "global" then
+      info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
+    elseif note.type == "local" then
+      if not note.ast.localdefinition.isused then
+        info = info .. "unused "
+      end
+      if note.ast.localdefinition.isset then
+        info = info .. "mutable "
+      end
+      if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
+        info = info .. "upvalue "
+      elseif note.ast.localdefinition.isparam then
+        info = info .. "param "
+      end
+      info = info .. "local "
+    else
+      info = info .. "? "
+    end
+
+    editor:CallTipShow(note[1]-1, info)
+  end
+end)
 
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|CTRL+Alt+R")
