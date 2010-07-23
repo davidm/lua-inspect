@@ -31,6 +31,7 @@ local S_LOCAL_MUTATE = 6
 local S_LOCAL_UNUSED = 7
 local S_LOCAL_PARAM = 8
 local S_COMPILER_ERROR = 9
+local S_LOCAL_UPVALUE = 10
 
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
@@ -273,6 +274,8 @@ local function OnStyle(styler)
           styler:SetState(S_LOCAL_UNUSED)
         elseif note.ast.localdefinition.isset then
           styler:SetState(S_LOCAL_MUTATE)
+        elseif note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
+          styler:SetState(S_LOCAL_UPVALUE)
         elseif note.ast.localdefinition.isparam then
           styler:SetState(S_LOCAL_PARAM)
         else

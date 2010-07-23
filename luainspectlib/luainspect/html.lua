@@ -43,7 +43,12 @@ function M.ast_to_html(ast, src, notes)
         class = class .. ' param'
         desc_html = desc_html .. ' param'
       end
-      if not note.ast.localdefinition then
+      if note.ast.localdefinition then
+        if note.ast.functionlevel > note.ast.localdefinition.functionlevel then
+          class = class .. ' upvalue'
+          desc_html = desc_html .. ' upvalue'
+        end
+      else
         if note.definedglobal then
           class = class .. ' probablydefined'
           desc_html = desc_html .. ' probably-defined'

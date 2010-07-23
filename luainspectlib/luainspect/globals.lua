@@ -8,8 +8,7 @@
 local M = {}
 
 -- Helper function: Parse current node in AST recursively.
-local function traverse(ast, scope, globals, level)
-  level = level or 1
+local function traverse(ast, scope, globals, level, functionlevel)
   scope = scope or {}
 
   local blockrecurse
@@ -25,6 +24,7 @@ local function traverse(ast, scope, globals, level)
 
       v.localdefinition = v
       v.isdefinition = true
+      v.functionlevel = functionlevel
     end
     blockrecurse = 1
   elseif ast.tag == "Id" then
@@ -33,6 +33,7 @@ local function traverse(ast, scope, globals, level)
     if scope[vname] then
       ast.localdefinition = scope[vname]
       scope[vname].isused = true
+      ast.functionlevel = functionlevel
     end
     --if not scope[vname] then
     --  print(string.format("undefined %s at line %d", vname, ast.lineinfo.first[1]))
@@ -40,6 +41,7 @@ local function traverse(ast, scope, globals, level)
   elseif ast.tag == "Function" then
     local params = ast[1]
     local body = ast[2]
+    functionlevel = functionlevel + 1
     for i,v in ipairs(params) do
       local vname = v[1]
       assert(v.tag == "Id" or v.tag == "Dots")
@@ -48,6 +50,7 @@ local function traverse(ast, scope, globals, level)
         v.localdefinition = v
         v.isdefinition = true
         v.isparam = true
+        v.functionlevel = functionlevel
       end
     end
     blockrecurse = 1
@@ -71,6 +74,7 @@ local function traverse(ast, scope, globals, level)
     scope[vname] = v
     v.localdefinition = v
     v.isdefinition = true
+    v.functionlevel = functionlevel
     blockrecurse = 1
   elseif ast.tag == "Forin" then
     local vnames = ast[1]
@@ -79,6 +83,7 @@ local function traverse(ast, scope, globals, level)
       scope[vname] = v
       v.localdefinition = v
       v.isdefinition = true
+      v.functionlevel = functionlevel
     end
     blockrecurse = 1
   end
@@ -88,15 +93,15 @@ local function traverse(ast, scope, globals, level)
     local scope = scope
     for i,v in ipairs(ast[1]) do
       scope = setmetatable({}, {__index = scope})
-      traverse(v, scope, globals, level+1)
+      traverse(v, scope, globals, level+1, functionlevel)
     end
     scope = setmetatable({}, {__index = scope})
-    traverse(ast[2], scope, globals, level+1)
+    traverse(ast[2], scope, globals, level+1, functionlevel)
   else
     for i,v in ipairs(ast) do
       if i ~= blockrecurse and type(v) == "table" then
         local scope = setmetatable({}, {__index = scope})
-        traverse(v, scope, globals, level+1)
+        traverse(v, scope, globals, level+1, functionlevel)
       end
     end
   end
@@ -106,7 +111,7 @@ function M.globals(ast)
   -- Default list of defined variables.
   local scope = setmetatable({}, {})
   local globals = {}
-  traverse(ast, scope, globals) -- Start check.
+  traverse(ast, scope, globals, 1, 1) -- Start check.
 
   return globals
 end

@@ -46,6 +46,7 @@ style.script_lua.6=fore:#000080,italics,  # local mutate
 style.script_lua.7=fore:#ffffff,back:#0000ff  # local unused
 style.script_lua.8=fore:#000040 # local param
 style.script_lua.9=fore:#800000,back:#ffffc0  # compiler error
+style.script_lua.10=fore:#0000ff # local upvalue
 =============================
 
 Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
@@ -82,7 +83,9 @@ Fabien Fleutot for Metalua.
   SciTE: New command to rename all occurrences of selected variable
   SciTE: Significant performance gain utilizing loadstring in addition
     to metalua libraries
+  Scite: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
+  Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
   core: support for detecting unused locals (white on blue)
