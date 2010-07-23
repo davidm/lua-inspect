@@ -46,6 +46,13 @@ style.script_lua.6=fore:#000080,italics,  # local mutate
 style.script_lua.7=fore:#ffffff,back:#0000ff  # local unused
 style.script_lua.8=fore:#000040 # local param
 style.script_lua.9=fore:#800000,back:#ffffc0  # compiler error
+
+command.name.2.*.lua=Rename all instances of selected variable
+command.mode.2.*.lua=subsystem:lua,savebefore:no
+command.2.*.lua=*luainspect_rename_selected_variable $(1)
+user.context.menu=Rename all instances of selected variable|1102
+#warning: above context menu applies to all files, not just *.lua.
+#scite_OnOpenSwitch with props['user.contextmenu'] kind-of might help, though not entirely
 =============================
 
 Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
@@ -71,6 +78,12 @@ See LICENSE file.
 
 == Changes ==
 
+?
+  SciTE: mark all range of selected variable's scope in margin
+  SciTE: new command to rename all occurrences of selected variable
+  SciTE: significant performance gain utilizing loadstring in addition
+    to metalua libraries
+
 20100720
   core: support for detecting unused locals (white on blue)
   SciTE: display callinfo help on top-level standard library globals
@@ -88,11 +101,14 @@ See LICENSE file.
   SciTE: Add "!" marker near compiler error.
   SciTE: Add hotspots on local variables
 
-20100717-2 - SciTE: highlight all instances of selected identifier
-                    Now requires http://lua-users.org/wiki/SciteExtMan
+20100717-2
+  SciTE: highlight all instances of selected identifier
+  Now requires http://lua-users.org/wiki/SciteExtMan
 
-20100717 - added initial SciTE text editor plugin
+20100717
+  added initial SciTE text editor plugin
 
-20100622 - initial version with HTML output
+20100622
+  initial version with HTML output
 
 --David Manura

@@ -30,7 +30,6 @@ local S_LOCAL_UNUSED = 7
 local S_LOCAL_PARAM = 8
 local S_COMPILER_ERROR = 9
 
-
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
   -- skip if text unchanged
@@ -39,19 +38,33 @@ local function update_ast()
   lasttext = newtext
 
   -- Analyze code using LuaInspect, and apply decorations
-  local ok, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua") -- 2DO: filename
+  -- loadstring is much faster than Metalua, so try that first.
+  local linenum, colnum, err
+  local ok, err_ = loadstring(newtext, "fake.lua") --2DO more
+  if not ok then
+    err = err_
+    linenum = assert(err:match(":(%d+)"))
+    colnum = 0
+  end
+  if ok then
+    local ok, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua")
+    if not ok then
+      err = ast_
+      err = err:match('[^\n]*')
+      err = err:gsub("^.-:%s*line", "line") -- 2DO: improve Metalua libraries to avoid LI.ast_from_string prepending this?
+      linenum, colnum = err:match("line (%d+), char (%d+)")
+      if not linenum then
+        --2DO: improve Metalua libraries since it may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
+        --without the normal line/char numbers given things like "if x then end end"
+        linenum = editor.LineCount - 1
+        colnum = 0
+      end
+    else
+      ast = ast_
+    end
+  end -- 2DO: filename
   --unused: editor.IndicStyle[0]=
   if not ok then
-     local err = ast_
-     err = err:match('[^\n]*')
-     err = err:gsub("^.-:%s*line", "line") -- 2DO: improve Metalua libraries to avoid LI.ast_from_string prepending this?
-     local linenum, colnum = err:match("line (%d+), char (%d+)")
-     if not linenum then
-       --2DO: improve Metalua libraries since it may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
-       --without the normal line/char numbers given things like "if x then end end"
-       linenum = editor.LineCount - 1
-       colnum = 0
-     end
      local pos = linenum and editor:PositionFromLine(linenum-1) + colnum - 1
      --old: editor:CallTipShow(pos, err)
      --old: editor:BraceHighlight(pos,pos) -- highlight position of error (hack: using brace highlight)
@@ -69,7 +82,6 @@ local function update_ast()
      editor:AnnotationSetText(linenum-1, "error " .. err)
      return
   else
-     ast = ast_
      notes = LI.inspect(ast)
      text = newtext
      --old: editor:CallTipCancel()
@@ -81,6 +93,45 @@ local function update_ast()
   return ast_ ~= nil
 end
 
+-- Helper function used by rename_selected_variable
+local function getselectedvariable()
+  if text ~= editor:GetText() then return end  -- skip if AST not up-to-date
+  local selectednote
+  local pos = editor.CurrentPos+1
+  for i,note in ipairs(notes) do
+    if pos >= note[1] and pos <= note[2] then
+      if note.ast.id then
+        selectednote = note
+      end
+      break
+    end
+  end
+  return selectednote
+end
+
+-- Command for replacing all occurances of selected variable (if any) with given text `newname`
+-- Usage in SciTE properties file:
+function M.rename_selected_variable(newname)
+  local selectednote = getselectedvariable()
+  if selectednote then
+    local id = selectednote.ast.id
+    editor:BeginUndoAction()
+    local lastnote
+    for i=#notes,1,-1 do
+      local note = notes[i]
+      if note.ast.id == id then
+        editor:SetSel(note[1]-1, note[2])
+	editor:ReplaceSel(newname)
+        lastnote = note
+      end
+    end
+    if lastnote then
+      editor:SetSel(lastnote[1]-1, lastnote[1] + newname:len())
+      editor.CurrentPos = lastnote[1]-1
+    end
+    editor:EndUndoAction()
+  end
+end
 
 -- Respond to UI updates.  This includes moving the cursor.
 local lastline
@@ -114,16 +165,52 @@ scite_OnUpdateUI(function(x)
     end
   end
 
+  --test: adding items to context menu upon variable selection
+  --if id then
+  --  props['user.context.menu'] = selectednote.ast[1] .. '|1101'
+  --  --Q: how to reliably remove this upon a buffer switch?
+  --end
+
   -- hightlight all instances of that identifier
+  editor:MarkerDeleteAll(1)
+  editor:MarkerDeleteAll(2)
+  editor:MarkerDeleteAll(3)
   if id then
     editor.IndicStyle[1] = INDIC_ROUNDBOX
     editor.IndicatorCurrent = 1
     editor:IndicatorClearRange(0, editor.Length)
+    local first, last -- first and last occurances
     for _,note in ipairs(notes) do
       if note.ast.id == id then
+        last = note
+	if not first then first = note end
         editor:IndicatorFillRange(note[1]-1, note[2]-note[1]+1)
       end
     end
+
+    -- mark entire scope
+    local firstline = editor:LineFromPosition(first[1]-1)
+    local lastline = editor:LineFromPosition(last[2]-1)
+    if firstline ~= lastline then
+      --2DO: not rendering exactly as desired
+      editor:MarkerDefine(1, SC_MARK_TCORNERCURVE)
+      editor:MarkerDefine(2, SC_MARK_VLINE)
+      editor:MarkerDefine(3, SC_MARK_LCORNERCURVE)
+      editor:MarkerSetFore(1, 0x0000ff)
+      editor:MarkerSetFore(2, 0x0000ff)
+      editor:MarkerSetFore(3, 0x0000ff)
+
+      editor:MarkerAdd(firstline, 1)
+      for n=firstline+1,lastline-1 do
+        editor:MarkerAdd(n, 2)
+      end
+      editor:MarkerAdd(lastline, 3)
+    else
+      editor:MarkerDefine(2, SC_MARK_VLINE)
+      editor:MarkerSetFore(2, 0x0000ff)
+      editor:MarkerAdd(firstline, 2)
+    end
+
   else
     editor.IndicatorCurrent = 1
     editor:IndicatorClearRange(0, editor.Length)
@@ -210,6 +297,7 @@ end
 
 function M.install()
    _G.OnStyle = OnStyle
+  _G.luainspect_rename_selected_variable = M.rename_selected_variable
 end
 
 return M
