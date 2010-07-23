@@ -46,13 +46,6 @@ style.script_lua.6=fore:#000080,italics,  # local mutate
 style.script_lua.7=fore:#ffffff,back:#0000ff  # local unused
 style.script_lua.8=fore:#000040 # local param
 style.script_lua.9=fore:#800000,back:#ffffc0  # compiler error
-
-command.name.2.*.lua=Rename all instances of selected variable
-command.mode.2.*.lua=subsystem:lua,savebefore:no
-command.2.*.lua=*luainspect_rename_selected_variable $(1)
-user.context.menu=Rename all instances of selected variable|1102
-#warning: above context menu applies to all files, not just *.lua.
-#scite_OnOpenSwitch with props['user.contextmenu'] kind-of might help, though not entirely
 =============================
 
 Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):

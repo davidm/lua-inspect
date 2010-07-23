@@ -295,6 +295,8 @@ local function OnStyle(styler)
 end
 
 function M.install()
+  scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|CTRL+Alt+R")
+  --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
    _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
 end
