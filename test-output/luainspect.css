@@ -4,6 +4,8 @@
 .id.local { color: #0000a0; }
 .id.global { color: #800000 }
 .id.global.possiblyundefined { color: white; background-color: red }
+.id.field { color: #600000 }
+.id.field.possiblyundefined { color: #c00000 }
 .id.local.param { color: #000080 }
 .id.local.upvalue { color: #0000ff }
 .id.mutatebind { font-style: italic }

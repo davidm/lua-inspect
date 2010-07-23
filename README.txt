@@ -88,7 +88,7 @@ Fabien Fleutot for Metalua.
   SciTE: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
   SciTE: display variable info on double click
-  SciTE: Initial support for table fields
+  SciTE/HTML: Initial support for table fields
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
