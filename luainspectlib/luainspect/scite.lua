@@ -107,12 +107,13 @@ local function update_ast()
 
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
-  local linenum, colnum, err
+  local linenum, colnum, err, linenum2
   local ok, err_ = loadstring(newtext, "fake.lua") --2DO more
   if not ok then
     err = err_
     linenum = assert(err:match(":(%d+)"))
     colnum = 0
+    linenum2 = err:match(":%d+: '[^']+' expected %(to close '[^']+' at line (%d+)")
   else
     local ok_, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua"); ok = ok_
     if not ok then
@@ -148,6 +149,10 @@ local function update_ast()
      editor.AnnotationVisible = ANNOTATION_BOXED
      editor.AnnotationStyle[linenum-1] = S_COMPILER_ERROR
      editor:AnnotationSetText(linenum-1, "error " .. err)
+     if linenum2 then -- display error in two locations
+       editor.AnnotationStyle[linenum2-1] = S_COMPILER_ERROR
+       editor:AnnotationSetText(linenum2-1, "error " .. err)
+     end
      return
   else
     buffer.notes = LI.inspect(buffer.ast)
