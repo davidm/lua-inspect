@@ -28,6 +28,7 @@ For further details, see
        and defined-ness of members of imported modules:
        `local mt = require "math"; math.sqrtt(2) -- undefined`
     * jump (goto) definition of selected variable (currently locals only in SciTE)
+    * list all uses of selected variable (currently locals only in SciTE)
     * command to rename all occurrences of selected variable (SciTE only)
     * inspect members of selected table.
     * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
@@ -106,6 +107,9 @@ Fabien Fleutot for Metalua.
 [1] http://www.scintilla.org/SciTE.html
 
 == Changes ==
+
+20100724
+  SciTE: list all uses of selected variable (currently locals only)
 
 20100723
   core/SciTE/HTML: Initial support for table fields

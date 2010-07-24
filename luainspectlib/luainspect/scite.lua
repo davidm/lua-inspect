@@ -244,6 +244,23 @@ function M.inspect_variable_contents()
   end
 end
 
+-- Command to show all uses of selected variable
+function M.show_all_variable_uses()
+  local snote = getselectedvariable()
+  if not snote then return end
+  local ast = snote.ast
+  
+  editor.AutoCSeparator = 1
+  local infos = {}
+  for _,note in ipairs(buffer.notes) do
+    if note.ast.id == snote.ast.id then
+      local linenum0 = editor:LineFromPosition(note[1]-1)
+      infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
+    end
+  end
+  editor:AutoCShow(0, table.concat(infos, "\1"))
+end
+
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
   -- 2DO:FIX: how to make the occur only in Lua buffers.
@@ -423,12 +440,14 @@ end)
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
+  scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
   scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
   _G.luainspect_goto_definition = M.goto_definition
   _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
+  _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
 end
 
 return M
