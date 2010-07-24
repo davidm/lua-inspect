@@ -24,6 +24,9 @@ For further details, see
     * displays signatures of known global functions
     * identifies range of lines/scope where the local is defined (currently SciTE only) 
     * identifies fields and methods as interrogatable variables (e.g. a.b or a:b)
+    * infers values of variables (e.g. `local sum = math.pi + 2` is 5.14.
+       and defined-ness of members of imported modules:
+       `local mt = require "math"; math.sqrtt(2) -- undefined`
 
 == Files in this directory ==
 

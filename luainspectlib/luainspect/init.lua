@@ -20,6 +20,8 @@ _G.mlc = {} -- make gg happy
 
 local inspect_globals = require "luainspect.globals"
 
+local LS = require "luainspect.signatures"
+
 -- Converts Lua source string to Lua AST (via mlp/gg)
 function M.ast_from_string(src, filename)
   filename = filename or '(string)'
@@ -46,6 +48,24 @@ local function tindex(t, k) return t[k] end
 
 local unescape = {['d'] = '.'}
 
+
+local ops = {}
+ops["add"] = function(a,b) return a+b end
+ops["sub"] = function(a,b) return a-b end
+ops["mul"] = function(a,b) return a*b end
+ops["div"] = function(a,b) return a/b end
+ops["mod"] = function(a,b) return a%b end
+ops["pow"] = function(a,b) return a^b end
+ops["concat"] = function(a,b) return a..b end
+ops["eq"] = function(a,b) return a==b end
+ops["lt"] = function(a,b) return a<b end
+ops["le"] = function(a,b) return a<=b end
+ops["and"] = function(a,b) return a and b end
+ops["or"] = function(a,b) return a or b end
+ops["not"] = function(a) return not a end
+ops["len"] = function(a) return #a end
+ops["unm"] = function(a) return -a end
+
 function M.inspect(ast)
   local globals = inspect_globals.globals(ast)
 
@@ -65,6 +85,10 @@ function M.inspect(ast)
         end
       elseif ast.isfield then
         local previousid = ast.previous.id
+        if not previousid then -- note: ("abc"):upper() has no previous ID
+          id = id + 1
+          previousid = id
+        end
         local name = previousid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
         if not seen_globals[name] then
           id = id + 1
@@ -123,6 +147,18 @@ function M.inspect(ast)
 	  ast.valueknown = true
 	end
       end
+    elseif ast.tag == "Call" then
+      local args_known = true
+      for i=2,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
+      if ast[1].valueknown and args_known then
+        local func = ast[1].value
+        if LS.safe_function[func] then
+          local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
+	  local ok, res = pcall(func, unpack(values,1,#ast-1))
+	  if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+	  --TODO: handle multiple return values
+        end
+      end
     elseif ast.tag == "Invoke" then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
@@ -132,11 +168,18 @@ function M.inspect(ast)
 	  ast.idxvalueknown = true
 	end
       end
-    elseif ast.tag == "Call" then
-      if ast[1].value == require and ast[2] and type(ast[2].value) == "string" then
-        local module_name = ast[2].value
-	local ok, mod = pcall(require, module_name)
-	if ok then ast.value = mod; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
+
+      -- note: similar to "Call" code
+      local args_known = true
+      for i=3,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
+      if ast.idxvalueknown and args_known then
+        local func = ast.idxvalue
+        if LS.safe_function[func] then
+          local values = {}; for i=1,#ast-2 do values[i] = ast[i+2].value end
+	  local ok, res = pcall(func, t_ast.value, unpack(values,1,#ast-2))
+	  if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+	  --TODO: handle multiple return values
+        end
       end
     elseif ast.tag == "String" or ast.tag == "Number" then
       ast.value = ast[1]
@@ -144,6 +187,21 @@ function M.inspect(ast)
     elseif ast.tag == "True" or ast.tag == "False" then
       ast.value = (ast.tag == "True")
       ast.valueknown = true
+    elseif ast.tag == "Paren" then
+      ast.value = ast[1].value
+      ast.valueknown = ast[1].valueknown
+    elseif ast.tag == "Op" then
+      local opid, aast, bast = ast[1], ast[2], ast[3]
+      if aast.valueknown and (not bast or bast.valueknown) then
+        local ok, val = pcall(ops[opid], aast.value, bast.value)
+        if ok then
+          ast.value = val
+          ast.valueknown = true
+        else
+	  ast.value = val
+          ast.valueknown = "error"
+        end
+      end
     end
   end)
   
