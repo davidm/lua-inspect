@@ -6,6 +6,10 @@
 -- is moved to a different line (false).  false can be more efficient for large files.
 local UPDATE_ALWAYS = true
 
+-- Experimental feature: display types/values of all known locals as annotations.
+-- Allows Lua to be used like a Mathcad worksheet.
+local ANNOTATE_ALL_LOCALS = false
+
 local LI = require "luainspect.init"
 local LS = require "luainspect.signatures"
 
@@ -34,6 +38,65 @@ local S_COMPILER_ERROR = 9
 local S_LOCAL_UPVALUE = 10
 local S_TABLE_FIELD = 11
 local S_TABLE_FIELD_RECOGNIZED = 12
+
+local function formatvariabledetails(note)
+  local info = ""
+  if note.type == "global" then
+    info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
+  elseif note.type == "local" then
+    if not note.ast.localdefinition.isused then
+      info = info .. "unused "
+    end
+    if note.ast.localdefinition.isset then
+      info = info .. "mutable "
+    end
+    if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
+      info = info .. "upvalue "
+    elseif note.ast.localdefinition.isparam then
+      info = info .. "param "
+    end
+    info = info .. "local "
+  elseif note.type == "field" then
+    info = info .. "field "
+    if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
+  else
+    info = info .. "? "
+  end
+
+  if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
+    local name = note.ast.resolvedname
+    info = LS.global_signatures[name] .. "\n" .. info
+  end
+ 
+  local vast = note.ast.seevalue or note.ast
+  if vast.valueknown then
+    info = info .. "\nvalue= " .. tostring(vast.value) .. " "
+  end
+  return info
+end
+
+
+-- Used for ANNOTATE_ALL_LOCALS feature.
+local function annotate_all_locals()
+  -- Build list of annotations.
+  local annotations = {}
+  for i=1,#buffer.notes do
+    local note = buffer.notes[i]
+    if note.ast.localdefinition == note.ast then
+      local info = formatvariabledetails(note)
+      local linenum = editor:LineFromPosition(note[2]-1)
+      annotations[linenum] = (annotations[linenum] or "") .. "detail: " .. info
+    end
+  end
+  -- Apply annotations.
+  editor.AnnotationVisible = ANNOTATION_BOXED
+  for linenum=0,table.maxn(annotations) do
+    if annotations[linenum] then
+      editor.AnnotationStyle[linenum] = S_DEFAULT
+      editor:AnnotationSetText(linenum, annotations[linenum])
+    end
+  end
+end
 
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
@@ -87,13 +150,15 @@ local function update_ast()
      editor:AnnotationSetText(linenum-1, "error " .. err)
      return
   else
-     buffer.notes = LI.inspect(buffer.ast)
-     buffer.text = newtext
-     --old: editor:CallTipCancel()
-     editor.IndicatorCurrent = 0
-     editor:IndicatorClearRange(0, editor.Length)
-     editor:MarkerDeleteAll(0)
-     editor:AnnotationClearAll()
+    buffer.notes = LI.inspect(buffer.ast)
+    buffer.text = newtext
+    --old: editor:CallTipCancel()
+    editor.IndicatorCurrent = 0
+    editor:IndicatorClearRange(0, editor.Length)
+    editor:MarkerDeleteAll(0)
+    editor:AnnotationClearAll()
+
+    if ANNOTATE_ALL_LOCALS then annotate_all_locals() end
   end
 end
 
@@ -302,42 +367,6 @@ local function OnStyle(styler)
     i = i + 1
   end
   styler:EndStyling()
-end
-
-local function formatvariabledetails(note)
-  local info = ""
-  if note.type == "global" then
-    info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
-  elseif note.type == "local" then
-    if not note.ast.localdefinition.isused then
-      info = info .. "unused "
-    end
-    if note.ast.localdefinition.isset then
-      info = info .. "mutable "
-    end
-    if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
-      info = info .. "upvalue "
-    elseif note.ast.localdefinition.isparam then
-      info = info .. "param "
-    end
-    info = info .. "local "
-  elseif note.type == "field" then
-    info = info .. "field "
-    if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
-  else
-    info = info .. "? "
-  end
-
-  if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
-    local name = note.ast.resolvedname
-    info = LS.global_signatures[name] .. "\n" .. info
-  end
- 
-  local vast = note.ast.seevalue or note.ast
-  if vast.valueknown then
-    info = info .. "\nvalue= " .. tostring(vast.value) .. " "
-  end
-  return info
 end
 
 scite_OnDoubleClick(function()

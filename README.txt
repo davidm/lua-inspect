@@ -27,6 +27,8 @@ For further details, see
     * infers values of variables (e.g. `local sum = math.pi + 2` is 5.14.
        and defined-ness of members of imported modules:
        `local mt = require "math"; math.sqrtt(2) -- undefined`
+    * display real-time annotations of all local variables, like a Mathcad worksheet
+      (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
 
 == Files in this directory ==
 
@@ -110,6 +112,8 @@ Fabien Fleutot for Metalua.
   SciTE: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
   SciTE: display variable info on double click
+  SciTE: display real-time annotations of all local variables, like a Mathcad worksheet
+         (experimental feature via ANNOTATE_ALL_LOCALS)
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
