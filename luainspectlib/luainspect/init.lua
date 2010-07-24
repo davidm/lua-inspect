@@ -28,18 +28,21 @@ function M.ast_from_string(src, filename)
   return ast
 end
 
--- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `f(n)`.
-function M.walk(ast, f)
+-- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `fdown(n)` (if specified)
+-- when doing down and `fup(n)` (if specified) when going if.
+function M.walk(ast, fdown, fup)
   assert(type(ast) == 'table')
-  if ast.tag then
-    f(ast)
-  end
-  for i,bast in ipairs(ast) do
+  if ast.tag and fdown then fdown(ast) end
+  for _,bast in ipairs(ast) do
     if type(bast) == 'table' then
-      M.walk(bast, f)
+      M.walk(bast, fdown, fup)
     end
   end
+  if ast.tag and fup then fup(ast) end
 end
+
+-- function for t[k]
+local function tindex(t, k) return t[k] end
 
 local unescape = {['d'] = '.'}
 
@@ -61,8 +64,8 @@ function M.inspect(ast)
           ast.id = ast.localdefinition.id
         end
       elseif ast.isfield then
-        local parentid = ast.parent.id
-        local name = parentid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+        local previousid = ast.previous.id
+        local name = previousid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
         if not seen_globals[name] then
           id = id + 1
           seen_globals[name] = id
@@ -70,9 +73,9 @@ function M.inspect(ast)
         ast.id = seen_globals[name]
 
         -- also resolve name
-        local parentresolvedname = ast.parent.resolvedname
-        if parentresolvedname then
-          ast.resolvedname = parentresolvedname .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+        local previousresolvedname = ast.previous.resolvedname
+        if previousresolvedname then
+          ast.resolvedname = previousresolvedname .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
         end
       else -- global
         local name = ast[1]
@@ -88,6 +91,62 @@ function M.inspect(ast)
     end
   end)
 
+  -- infer values
+  M.walk(ast, nil, function(ast)
+    -- process `require` statements.
+    if ast.tag == "Local" then
+      local vars_ast, values_ast = ast[1], ast[2]
+      for i=1,#vars_ast do
+        local var_ast, value_ast = vars_ast[i], values_ast[i]
+        if value_ast and value_ast.valueknown then
+	  var_ast.valueknown = value_ast.valueknown
+	  var_ast.value = value_ast.value
+	end
+      end
+    elseif ast.tag == "Id" then
+      if ast.isglobal then
+        local ok, val = pcall(tindex, _G, ast[1])
+	if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
+      else
+        local localdefinition = ast.localdefinition
+        if localdefinition.valueknown and not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
+	  ast.value = localdefinition.value
+	  ast.valueknown = localdefinition.valueknown
+	end
+      end
+    elseif ast.tag == "Index" then
+      local t_ast, k_ast = ast[1], ast[2]
+      if t_ast.valueknown and k_ast.valueknown then
+        local ok, val = pcall(tindex, t_ast.value, k_ast.value)
+	if ok then
+	  ast.value = val
+	  ast.valueknown = true
+	end
+      end
+    elseif ast.tag == "Invoke" then
+      local t_ast, k_ast = ast[1], ast[2]
+      if t_ast.valueknown and k_ast.valueknown then
+        local ok, val = pcall(tindex, t_ast.value, k_ast.value)
+	if ok then
+	  ast.idxvalue = val
+	  ast.idxvalueknown = true
+	end
+      end
+    elseif ast.tag == "Call" then
+      if ast[1].value == require and ast[2] and type(ast[2].value) == "string" then
+        local module_name = ast[2].value
+	local ok, mod = pcall(require, module_name)
+	if ok then ast.value = mod; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
+      end
+    elseif ast.tag == "String" or ast.tag == "Number" then
+      ast.value = ast[1]
+      ast.valueknown = true
+    elseif ast.tag == "True" or ast.tag == "False" then
+      ast.value = (ast.tag == "True")
+      ast.valueknown = true
+    end
+  end)
+  
   local function eval_name_helper(name)
     local var = _G
     for part in (name .. '.'):gmatch("([^.]*)%.") do
@@ -103,10 +162,20 @@ function M.inspect(ast)
     if ok then return o else return nil end
   end
 
+  -- Make some nodes as having values related to its parent.
+  -- This allows clicking on `bar` in `foo.bar` to display
+  -- the value of `foo.bar` rather than just "bar".
+  M.walk(ast, function(ast)
+    if ast.tag == "Index" then
+      ast[2].seevalue = ast
+    elseif ast.tag == "Invoke" then
+      ast[2].seevalue = {value=ast.idxvalue, valueknown=ast.idxvalueknown}
+    end
+  end)
+
   -- Create notes.
   local seen_comment = {}
   M.walk(ast, function(ast)
-    --print(ast.tag)
     if (ast.tag == 'Id' or ast.isfield) and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
       local vname = ast[1]
       local fchar = ast.lineinfo.first[3]

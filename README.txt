@@ -60,9 +60,14 @@ package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
 require "luainspect.scite" : install()
 =============================
 
-Depenedencies:
+Dependencies:
   Tested with SciTE version 2.12 (older versions might not work).  
   Requires http://lua-users.org/wiki/SciteExtMan
+
+== Design Notes ==
+
+The font styles are intended to make the more dangerous
+or questionable code stand out more.
 
 == LICENSE ==
 
@@ -80,7 +85,9 @@ Fabien Fleutot for Metalua.
 
 == Changes ==
 
-?
+20100723
+  core/SciTE/HTML: Initial support for table fields
+  core/SciTE: initial dynamic value determination
   SciTE: Mark all range of selected variable's scope in margin
   SciTE: New command to rename all occurrences of selected variable
   SciTE: Significant performance gain utilizing loadstring in addition
@@ -88,7 +95,6 @@ Fabien Fleutot for Metalua.
   SciTE: Mark upvalues (lighter blue)
   SciTE: Fix handling multiple buffers.
   SciTE: display variable info on double click
-  SciTE/HTML: Initial support for table fields
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
@@ -102,7 +108,7 @@ Fabien Fleutot for Metalua.
   SciTE: workaround for Metalua libraries sometimes not returning line number in error report
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
-20100719 -
+20100719
   core: Fixed "repeat" statement scope handling (globals.lua)
   SciTE: Improve performance (not recompile when code not changing)
   SciTE: Add "!" marker near compiler error.

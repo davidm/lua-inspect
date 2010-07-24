@@ -208,7 +208,7 @@ scite_OnUpdateUI(function()
     editor.IndicatorCurrent = 1
     editor:IndicatorClearRange(0, editor.Length)
   end
-
+--[[
   -- Display callinfo help on function.
   if selectednote and selectednote.ast.resolvedname and LS.global_signatures[selectednote.ast.resolvedname] then
     local name = selectednote.ast.resolvedname
@@ -216,6 +216,7 @@ scite_OnUpdateUI(function()
   else
     --editor:CallTipCancel()
   end
+  ]]
 end)
 
 
@@ -281,7 +282,7 @@ local function OnStyle(styler)
           styler:SetState(S_LOCAL)
 	end
       elseif note.type == 'field' then
-        if note.definedglobal then
+        if note.definedglobal or note.ast.seevalue.value ~= nil then
           styler:SetState(S_TABLE_FIELD_RECOGNIZED)
         else
           styler:SetState(S_TABLE_FIELD)
@@ -332,6 +333,16 @@ scite_OnDoubleClick(function()
       info = info .. "? "
     end
 
+    if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
+      local name = note.ast.resolvedname
+      info = LS.global_signatures[name] .. "\n" .. info
+    end
+
+    local vast = note.ast.seevalue or note.ast
+    if vast.valueknown then
+      info = info .. "\nvalue= " .. tostring(vast.value) .. " "
+    end
+    
     editor:CallTipShow(note[1]-1, info)
   end
 end)

@@ -110,17 +110,17 @@ local function traverse(ast, scope, globals, level, functionlevel)
 
   -- operations on walking up the AST
   if ast.tag == "Index" then
-    local parent = ast[1].tag == 'Id' and ast[1] or ast[1].containid
-    if parent and ast[2].tag == "String" then
+    local previous = ast[1].tag == 'Id' and ast[1] or ast[1].containid
+    if previous and ast[2].tag == "String" then
       ast[2].isfield = true
-      ast[2].parent = parent
+      ast[2].previous = previous
       ast.containid = ast[2]
     end
   elseif ast.tag == "Invoke" then
-    local parent = ast[1].tag == 'Id' and ast[1] or ast[1].containid
-    if parent then
+    local previous = ast[1].tag == 'Id' and ast[1] or ast[1].containid
+    if previous then
       ast[2].isfield = true
-      ast[2].parent = parent
+      ast[2].previous = previous
       ast.containid = ast[2]
     end
   end
