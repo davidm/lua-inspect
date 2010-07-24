@@ -212,6 +212,7 @@ function M.goto_definition()
     if selectednote.ast.localdefinition then
       local local_ast = selectednote.ast.localdefinition
       if local_ast.lineinfo then
+        if set_mark then set_mark() end -- if ctagsdx.lua available
         editor:GotoPos(local_ast.lineinfo.first[3] - 1)
       end
     end

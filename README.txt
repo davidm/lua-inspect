@@ -80,7 +80,9 @@ require "luainspect.scite" : install()
 
 Dependencies:
   Tested with SciTE version 2.12 (older versions might not work).  
-  Requires http://lua-users.org/wiki/SciteExtMan
+  Requires http://lua-users.org/wiki/SciteExtMan .
+  ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
+    to return to previous location following a "go to definition").
 
 == Design Notes ==
 
@@ -116,6 +118,8 @@ Fabien Fleutot for Metalua.
   SciTE: display real-time annotations of all local variables, like a Mathcad worksheet
          (experimental feature via ANNOTATE_ALL_LOCALS)
   SciTE: jump (goto) definition of selected variable (currently locals only)
+           ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
+           to return to previous location following a "go to definition").
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720
