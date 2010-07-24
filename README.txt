@@ -110,6 +110,7 @@ Fabien Fleutot for Metalua.
 20100723
   core/SciTE/HTML: Initial support for table fields
   core/SciTE: initial dynamic value determination
+  core: fix recursive local scoping (`Localrec) in globals.lua
   SciTE: Mark all range of selected variable's scope in margin
   SciTE: New command to rename all occurrences of selected variable
   SciTE: Significant performance gain utilizing loadstring in addition

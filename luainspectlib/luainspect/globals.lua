@@ -14,7 +14,10 @@ local function traverse(ast, scope, globals, level, functionlevel)
   local blockrecurse
 
   -- operations on walking down the AST
-  if ast.tag == "Local" or ast.tag == "Localrec" then
+  if ast.tag == "Local" then
+    blockrecurse = 1
+    -- note: apply new scope after processing values
+  elseif ast.tag == "Localrec" then
     local vnames, vvalues = ast[1], ast[2]
     for i,v in ipairs(vnames) do
       assert(v.tag == "Id")
@@ -109,7 +112,20 @@ local function traverse(ast, scope, globals, level, functionlevel)
   end
 
   -- operations on walking up the AST
-  if ast.tag == "Index" then
+  if ast.tag == "Local" then
+    -- Unlike Localrec, variables come into scope after evaluating values.
+    local vnames, vvalues = ast[1], ast[2]
+    for i,v in ipairs(vnames) do
+      assert(v.tag == "Id")
+      local vname = v[1]
+      local parentscope = getmetatable(scope).__index
+      parentscope[vname] = v
+
+      v.localdefinition = v
+      v.isdefinition = true
+      v.functionlevel = functionlevel
+    end  
+  elseif ast.tag == "Index" then
     local previous = ast[1] or ast[1].containid
     if previous and ast[2].tag == "String" then
       ast[2].isfield = true

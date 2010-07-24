@@ -36,3 +36,10 @@ local zz = "Z" .. "Z"
 local str1 = ("aBc"):upper():gsub("A", zz)
 
 
+--test recursive v.s. non-recursive local scoping
+do
+ local x1 = x1
+ local x1 = x1
+ local function func() local x; func(x) end
+ local func2 = function() local x; func2(x) end
+end
