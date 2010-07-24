@@ -193,7 +193,7 @@ function M.inspect(ast)
     elseif ast.tag == "Op" then
       local opid, aast, bast = ast[1], ast[2], ast[3]
       if aast.valueknown and (not bast or bast.valueknown) then
-        local ok, val = pcall(ops[opid], aast.value, bast.value)
+        local ok, val = pcall(ops[opid], aast.value, bast and bast.value)
         if ok then
           ast.value = val
           ast.valueknown = true
