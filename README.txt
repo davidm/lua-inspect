@@ -27,9 +27,10 @@ For further details, see
     * infers values of variables (e.g. `local sum = math.pi + 2` is 5.14.
        and defined-ness of members of imported modules:
        `local mt = require "math"; math.sqrtt(2) -- undefined`
-    * display real-time annotations of all local variables, like a Mathcad worksheet
-      (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
     * jump (goto) definition of selected variable (currently locals only in SciTE)
+    * command to rename all occurrences of selected variable (SciTE only)
+    * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
+      (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
 
 == Files in this directory ==
 
