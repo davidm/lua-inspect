@@ -13,6 +13,18 @@ Usage: lua luainspect.lua myprogram.lua > myprogram.html
 For further details, see
   http://lua-users.org/wiki/LuaInspect
 
+== Features ==
+
+    * cross-references local variables with their definitions and uses (pink highlight)
+    * identifies global (red) and local variables (blue)
+    * identifies function arguments (dark blue)
+    * identifies global variables that are probably undefined (white-on-red)
+    * identifies local variables that have non-constant binding (local x = 1; x = 2) (rendered in italic)
+    * identify unused variables: e.g. do local x=1 end
+    * displays signatures of known global functions
+    * identifies range of lines/scope where the local is defined (currently SciTE only) 
+    * identifies fields and methods as interrogatable variables (e.g. a.b or a:b)
+
 == Files in this directory ==
 
 metalualib/* - Copy of Metalua libraries under here
