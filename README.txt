@@ -29,6 +29,7 @@ For further details, see
        `local mt = require "math"; math.sqrtt(2) -- undefined`
     * jump (goto) definition of selected variable (currently locals only in SciTE)
     * command to rename all occurrences of selected variable (SciTE only)
+    * inspect members of selected table.
     * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
       (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
 
@@ -121,6 +122,7 @@ Fabien Fleutot for Metalua.
   SciTE: jump (goto) definition of selected variable (currently locals only)
            ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
            to return to previous location following a "go to definition").
+  SciTE: add command to inspect table contents.
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720

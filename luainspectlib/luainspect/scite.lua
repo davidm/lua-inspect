@@ -219,6 +219,31 @@ function M.goto_definition()
   end  
 end
 
+-- Command for inspecting fields of selected table variable.
+function M.inspect_variable_contents()
+  local note = getselectedvariable()
+  if not note then return end
+  local ast = note.ast 
+
+  if type(ast.value) == 'table' then
+    local t = ast.value
+    local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
+    table.sort(keys)
+    local info = ''
+    editor.AutoCSeparator = 1
+    for _,k in ipairs(keys) do
+      local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
+      local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
+      info = info .. ks .. "=" .. vs .. "\1"
+    end
+    editor:AutoCShow(0, info)
+  elseif type(ast.value) == 'userdata' then
+    editor:AutoCShow(0, "userdata not inspectable") -- unfortunately without __pairs.
+  else
+    editor:AutoCShow(0, tostring(ast.value) .. " not inspectable")
+  end
+end
+
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
   -- 2DO:FIX: how to make the occur only in Lua buffers.
@@ -398,10 +423,12 @@ end)
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
+  scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
   _G.luainspect_goto_definition = M.goto_definition
+  _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
 end
 
 return M
