@@ -29,6 +29,7 @@ For further details, see
        `local mt = require "math"; math.sqrtt(2) -- undefined`
     * display real-time annotations of all local variables, like a Mathcad worksheet
       (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
+    * jump (goto) definition of selected variable (currently locals only in SciTE)
 
 == Files in this directory ==
 
@@ -114,6 +115,7 @@ Fabien Fleutot for Metalua.
   SciTE: display variable info on double click
   SciTE: display real-time annotations of all local variables, like a Mathcad worksheet
          (experimental feature via ANNOTATE_ALL_LOCALS)
+  SciTE: jump (goto) definition of selected variable (currently locals only)
   Note: SciTE*.properties and luainspect.css have been updated; please update when upgrading
 
 20100720

@@ -204,6 +204,20 @@ function M.rename_selected_variable(newname)
   end
 end
 
+-- Command for going to definition of selected variable.
+-- TODO: currently only works for locals in the same file.
+function M.goto_definition()
+  local selectednote = getselectedvariable()
+  if selectednote then
+    if selectednote.ast.localdefinition then
+      local local_ast = selectednote.ast.localdefinition
+      if local_ast.lineinfo then
+        editor:GotoPos(local_ast.lineinfo.first[3] - 1)
+      end
+    end
+  end  
+end
+
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
   -- 2DO:FIX: how to make the occur only in Lua buffers.
@@ -381,10 +395,12 @@ scite_OnDoubleClick(function()
 end)
 
 function M.install()
-  scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|CTRL+Alt+R")
+  scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
+  scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
-   _G.OnStyle = OnStyle
+  _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
+  _G.luainspect_goto_definition = M.goto_definition
 end
 
 return M
