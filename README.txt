@@ -85,7 +85,7 @@ Dependencies:
   Tested with SciTE version 2.12 (older versions might not work).  
   Requires http://lua-users.org/wiki/SciteExtMan .
   ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
-    to return to previous location following a "go to definition").
+    to return to previous location following a "go to definition" or "show all variable uses").
 
 == Design Notes ==
 

@@ -248,7 +248,6 @@ end
 function M.show_all_variable_uses()
   local snote = getselectedvariable()
   if not snote then return end
-  local ast = snote.ast
   
   editor.AutoCSeparator = 1
   local infos = {}
@@ -258,7 +257,12 @@ function M.show_all_variable_uses()
       infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
     end
   end
-  editor:AutoCShow(0, table.concat(infos, "\1"))
+  --editor:UserListShow(1, table.concat(infos, "\1"))  
+  scite_UserListShow(infos, 1, function(text)
+    local line1 = tonumber(text:match("^%d+"))
+    if set_mark then set_mark() end -- if ctagsdx.lua available
+    editor:GotoLine(line1-1)
+  end)
 end
 
 -- Respond to UI updates.  This includes moving the cursor.
