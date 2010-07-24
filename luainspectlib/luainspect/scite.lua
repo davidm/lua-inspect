@@ -113,10 +113,10 @@ local function update_ast()
     err = err_
     linenum = assert(err:match(":(%d+)"))
     colnum = 0
-  end
-  if ok then
-    local ok, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua")
+  else
+    local ok_, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua"); ok = ok_
     if not ok then
+      print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
       err = ast_
       err = err:match('[^\n]*')
       err = err:gsub("^.-:%s*line", "line") -- 2DO: improve Metalua libraries to avoid LI.ast_from_string prepending this?
