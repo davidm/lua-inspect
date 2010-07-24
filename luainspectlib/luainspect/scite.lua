@@ -304,45 +304,49 @@ local function OnStyle(styler)
   styler:EndStyling()
 end
 
+local function formatvariabledetails(note)
+  local info = ""
+  if note.type == "global" then
+    info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
+  elseif note.type == "local" then
+    if not note.ast.localdefinition.isused then
+      info = info .. "unused "
+    end
+    if note.ast.localdefinition.isset then
+      info = info .. "mutable "
+    end
+    if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
+      info = info .. "upvalue "
+    elseif note.ast.localdefinition.isparam then
+      info = info .. "param "
+    end
+    info = info .. "local "
+  elseif note.type == "field" then
+    info = info .. "field "
+    if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
+  else
+    info = info .. "? "
+  end
+
+  if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
+    local name = note.ast.resolvedname
+    info = LS.global_signatures[name] .. "\n" .. info
+  end
+ 
+  local vast = note.ast.seevalue or note.ast
+  if vast.valueknown then
+    info = info .. "\nvalue= " .. tostring(vast.value) .. " "
+  end
+  return info
+end
+
 scite_OnDoubleClick(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
-  local note, id = getselectedvariable()
+  local note = getselectedvariable()
   if note then
-    local info = ""
-    if note.type == "global" then
-      info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
-    elseif note.type == "local" then
-      if not note.ast.localdefinition.isused then
-        info = info .. "unused "
-      end
-      if note.ast.localdefinition.isset then
-        info = info .. "mutable "
-      end
-      if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
-        info = info .. "upvalue "
-      elseif note.ast.localdefinition.isparam then
-        info = info .. "param "
-      end
-      info = info .. "local "
-    elseif note.type == "field" then
-      info = info .. "field "
-      if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
-    else
-      info = info .. "? "
-    end
-
-    if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
-      local name = note.ast.resolvedname
-      info = LS.global_signatures[name] .. "\n" .. info
-    end
-
-    local vast = note.ast.seevalue or note.ast
-    if vast.valueknown then
-      info = info .. "\nvalue= " .. tostring(vast.value) .. " "
-    end
-    
+    local info  = formatvariabledetails(note)
     editor:CallTipShow(note[1]-1, info)
   end
 end)
