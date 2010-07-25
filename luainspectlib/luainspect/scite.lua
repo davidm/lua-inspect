@@ -105,26 +105,35 @@ local function update_ast()
   if newtext == buffer.lasttext then return false end
   buffer.lasttext = newtext
 
+  -- loadstring and metalua don't parse shebang
+  local shebang = newtext:match("^#![^\r\n]*")
+  local newtextm = shebang and (" "):rep(#shebang) .. newtext:sub(#shebang+1) or newtext
+
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
+  -- Furthermore, Metalua accepts a superset of the Lua grammar.
   local linenum, colnum, err, linenum2
-  local ok, err_ = loadstring(newtext, "fake.lua") --2DO more
+  local ok, err_ = loadstring(newtextm, "fake.lua") --2DO more
   if not ok then
     err = err_
     linenum = assert(err:match(":(%d+)"))
     colnum = 0
     linenum2 = err:match(":%d+: '[^']+' expected %(to close '[^']+' at line (%d+)")
   else
-    local ok_, ast_ = pcall(LI.ast_from_string, newtext, "fake.lua"); ok = ok_
+    local ok_, ast_ = pcall(LI.ast_from_string, newtextm, "fake.lua"); ok = ok_
     if not ok then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
       err = ast_
       err = err:match('[^\n]*')
-      err = err:gsub("^.-:%s*line", "line") -- 2DO: improve Metalua libraries to avoid LI.ast_from_string prepending this?
+      err = err:gsub("^.-:%s*line", "line")
+          -- mlp.chunk prepending this is undesirable.   error(msg,0) would be better in gg.lua.
+	  -- Reported.  TODO: remove when fixed in Metalua.
       linenum, colnum = err:match("line (%d+), char (%d+)")
       if not linenum then
-        --2DO: improve Metalua libraries since it may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
-        --without the normal line/char numbers given things like "if x then end end"
+        -- Metalua libraries may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
+        -- without the normal line/char numbers given things like "if x then end end".  Should be
+	-- fixed probably with gg.parse_error in _chunk in mlp_misc.lua.  TODO: remove when
+	-- fixed in Metalua.
         linenum = editor.LineCount - 1
         colnum = 0
       end

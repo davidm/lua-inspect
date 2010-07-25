@@ -111,6 +111,7 @@ Fabien Fleutot for Metalua.
 20100724
   SciTE: list all uses of selected variable (currently locals only)
   SciTE: display errors about mismatched blocks or parens at both top and bottom of problem
+  SciTE: support shebang line
 
 20100723
   core/SciTE/HTML: Initial support for table fields
