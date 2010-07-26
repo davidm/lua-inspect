@@ -175,7 +175,7 @@ local function update_ast()
   end
 end
 
--- Helper function used by rename_selected_variable
+-- Gets note assocated with currently selected variable (if any).
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectednote
@@ -217,18 +217,23 @@ function M.rename_selected_variable(newname)
   end
 end
 
+
+-- Gets 1-indexed character position of definition associated with AST node (if any).
+local function ast_to_definition_position(ast)
+  local local_ast = ast.localdefinition
+  if local_ast and local_ast.lineinfo then
+    return local_ast.lineinfo.first[3]
+  end
+end
+
 -- Command for going to definition of selected variable.
 -- TODO: currently only works for locals in the same file.
 function M.goto_definition()
   local selectednote = getselectedvariable()
-  if selectednote then
-    if selectednote.ast.localdefinition then
-      local local_ast = selectednote.ast.localdefinition
-      if local_ast.lineinfo then
-        if set_mark then set_mark() end -- if ctagsdx.lua available
-        editor:GotoPos(local_ast.lineinfo.first[3] - 1)
-      end
-    end
+  local pos1 = ast_to_definition_position(selectednote.ast)
+  if pos1 then
+    if set_mark then set_mark() end -- if ctagsdx.lua available
+    editor:GotoPos(pos1 - 1)
   end  
 end
 
