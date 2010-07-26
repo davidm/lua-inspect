@@ -110,38 +110,17 @@ local function update_ast()
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
   -- Furthermore, Metalua accepts a superset of the Lua grammar.
-  local linenum, colnum, err, linenum2
-  local ok, err_ = loadstring(newtextm, "")
-  if not ok then
-    err = err_
-    err = err:gsub('^%[string ""%]:', "")
-    linenum = assert(err:match("(%d+):"))
-    colnum = 0
-    linenum2 = err:match(":%d+: '[^']+' expected %(to close '[^']+' at line (%d+)")
-  else
-    local ok_, ast_ = pcall(LI.ast_from_string, newtextm, "noname.lua"); ok = ok_
-    if not ok then
+  local f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
+  if f then
+    local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(newtextm, "noname.lua")
+    if not ast then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
-      err = ast_
-      err = err:match('[^\n]*')
-      err = err:gsub("^.-:%s*line", "line")
-          -- mlp.chunk prepending this is undesirable.   error(msg,0) would be better in gg.lua. Reported.
-	  -- TODO-Metalua: remove when fixed in Metalua.
-      linenum, colnum = err:match("line (%d+), char (%d+)")
-      if not linenum then
-        -- Metalua libraries may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
-        -- without the normal line/char numbers given things like "if x then end end".  Should be
-	-- fixed probably with gg.parse_error in _chunk in mlp_misc.lua.
-	-- TODO-Metalua: remove when fixed in Metalua.
-        linenum = editor.LineCount - 1
-        colnum = 0
-      end
     else
-      buffer.ast = ast_
+      buffer.ast = ast
     end
   end
   --unused: editor.IndicStyle[0]=
-  if not ok then
+  if err then
      local pos = linenum and editor:PositionFromLine(linenum-1) + colnum - 1
      --old: editor:CallTipShow(pos, err)
      --old: editor:BraceHighlight(pos,pos) -- highlight position of error (hack: using brace highlight)

@@ -22,13 +22,56 @@ local inspect_globals = require "luainspect.globals"
 
 local LS = require "luainspect.signatures"
 
--- Converts Lua source string to Lua AST (via mlp/gg)
-function M.ast_from_string(src, filename)
+
+-- Custom version of loadstring that parses out line number info
+function M.loadstring(src)
+  local f, err = loadstring(src, "")
+  if f then
+    return f
+  else
+    err = err:gsub('^%[string ""%]:', "")
+    local linenum = assert(err:match("(%d+):"))
+    local colnum = 0
+    local linenum2 = err:match("^%d+: '[^']+' expected %(to close '[^']+' at line (%d+)")
+    return nil, err, linenum, colnum, linenum2
+  end
+end
+
+-- helper for ast_from_string.  Raises on error.
+-- FIX? filename currently ignored in Metalua
+local function ast_from_string_helper(src, filename)
   filename = filename or '(string)'
   local  lx  = mlp.lexer:newstream (src, filename)
   local  ast = mlp.chunk(lx)
   return ast
 end
+
+
+-- Converts Lua source string to Lua AST (via mlp/gg).
+function M.ast_from_string(src, filename)
+  local ok, ast = pcall(ast_from_string_helper, src, filename)
+  if not ok then
+    local err = ast
+    err = err:match('[^\n]*')
+    err = err:gsub("^.-:%s*line", "line")
+        -- mlp.chunk prepending this is undesirable.   error(msg,0) would be better in gg.lua. Reported.
+	-- TODO-Metalua: remove when fixed in Metalua.
+    local linenum, colnum = err:match("line (%d+), char (%d+)")
+    if not linenum then
+      -- Metalua libraries may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
+      -- without the normal line/char numbers given things like "if x then end end".  Should be
+      -- fixed probably with gg.parse_error in _chunk in mlp_misc.lua.
+      -- TODO-Metalua: remove when fixed in Metalua.
+      linenum = editor.LineCount - 1
+      colnum = 0
+    end
+    local linenum2 = nil
+    return nil, err, linenum, colnum, linenum2
+  else
+    return ast
+  end
+end
+	
 
 -- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `fdown(n)` (if specified)
 -- when doing down and `fup(n)` (if specified) when going if.
