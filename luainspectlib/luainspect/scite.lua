@@ -467,6 +467,44 @@ function M.install()
   _G.luainspect_goto_definition = M.goto_definition
   _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
   _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
+
+  local styles = [[  
+lexer.*.lua=script_lua
+# default
+style.script_lua.0=fore:#000000
+# local
+style.script_lua.1=fore:#000080
+# recognized global
+style.script_lua.2=fore:#600000
+# unrecognized global
+style.script_lua.3=fore:#ffffff,back:#ff0000,bold
+# comment
+style.script_lua.4=fore:#008000
+# string
+style.script_lua.5=fore:#00c000
+# local mutate
+style.script_lua.6=fore:#000080,italics
+# local unused
+style.script_lua.7=fore:#ffffff,back:#0000ff
+# local param
+style.script_lua.8=fore:#000040
+# compiler error
+style.script_lua.9=fore:#800000,back:#ffffc0
+# local upvalue
+style.script_lua.10=fore:#0000ff
+# table field
+style.script_lua.11=fore:#c00000
+# table field recognized
+style.script_lua.12=fore:#600000
+]]
+  if not props["lexer.*.lua"] then
+    for style in styles:gmatch("[^\n]+") do
+      if not (style:match("^%s*#") or style:match("^%s*$")) then
+        local name, value = style:match("^([^=]+)=(.*)"); assert(name, style)
+        print(props[name])
+      end
+    end
+  end
 end
 
 return M

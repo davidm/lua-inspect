@@ -53,7 +53,23 @@ Install SciTE version.  Version 2.12 works (older versions might not work).
 
 First install http://lua-users.org/wiki/SciteExtMan .
 
-Add this to your SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file:
+Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
+
+=============================
+local LUAINSPECT_PATH = "c:/luainspect"
+package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
+package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
+require "luainspect.scite" : install()
+=============================
+
+Dependencies:
+  Tested with SciTE version 2.12 (older versions might not work).  
+  Requires http://lua-users.org/wiki/SciteExtMan .
+  ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
+    to return to previous location following a "go to definition" or "show all variable uses").
+
+If you want to customize styles, add this to your
+SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file:
 
 =============================
 lexer.*.lua=script_lua
@@ -71,21 +87,6 @@ style.script_lua.10=fore:#0000ff # local upvalue
 style.script_lua.11=fore:#c00000 # table field
 style.script_lua.12=fore:#600000 # table field recognized
 =============================
-
-Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
-
-=============================
-local LUAINSPECT_PATH = "c:/luainspect"
-package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
-package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
-require "luainspect.scite" : install()
-=============================
-
-Dependencies:
-  Tested with SciTE version 2.12 (older versions might not work).  
-  Requires http://lua-users.org/wiki/SciteExtMan .
-  ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
-    to return to previous location following a "go to definition" or "show all variable uses").
 
 == Design Notes ==
 
@@ -107,6 +108,10 @@ Fabien Fleutot for Metalua.
 [1] http://www.scintilla.org/SciTE.html
 
 == Changes ==
+
+20100726
+  SciTE: apply default styles in script if not specified in properties file.
+  Note: you may now remove LuaInspect styles from your properties file.
 
 20100724
   SciTE: list all uses of selected variable (currently locals only)
