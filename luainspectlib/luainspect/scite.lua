@@ -22,9 +22,7 @@ local M = {}
 -- notes  -- notes corresponding to `ast`
 -- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
 
--- Style IDs
--- 2DO:improve: define default styles here in Lua in case these are not defined in the properties file.
---    See "SciTE properties" in http://lua-users.org/wiki/UsingLuaWithScite .
+-- Style IDs - correspond to style properties
 local S_DEFAULT = 0
 local S_LOCAL = 1
 local S_RECOGNIZED_GLOBAL = 2
