@@ -495,11 +495,11 @@ style.script_lua.11=fore:#c00000
 # table field recognized
 style.script_lua.12=fore:#600000
 ]]
-  if not props["lexer.*.lua"] then
+  if props["lexer.*.lua"] == "" then
     for style in styles:gmatch("[^\n]+") do
       if not (style:match("^%s*#") or style:match("^%s*$")) then
         local name, value = style:match("^([^=]+)=(.*)"); assert(name, style)
-        print(props[name])
+        props[name] = value
       end
     end
   end
