@@ -25,15 +25,19 @@ if not path then
 end
 
 local src = loadfile(path)
-local ast = LI.ast_from_string(src, path)
+local ast, err, linenum, colnum, linenum2 = LI.ast_from_string(src, path)
 
 --require "metalua.table2"; table.print(ast, 'hash', 50)
+if ast then
+  local notes = LI.inspect(ast)
 
-local notes = LI.inspect(ast)
+  local ast = LH.ast_to_html(ast, src, notes)
 
-local ast = LH.ast_to_html(ast, src, notes)
-
-io.stdout:write(ast)
+  io.stdout:write(ast)
+else
+  io.stderr:write("syntax error: ", err)
+  os.exit(1)
+end
 
 
 
