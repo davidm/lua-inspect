@@ -104,8 +104,7 @@ local function update_ast()
   buffer.lasttext = newtext
 
   -- loadstring and metalua don't parse shebang
-  local shebang = newtext:match("^#![^\r\n]*")
-  local newtextm = shebang and (" "):rep(#shebang) .. newtext:sub(#shebang+1) or newtext
+  local newtextm = LI.remove_shebang(newtext)
 
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.

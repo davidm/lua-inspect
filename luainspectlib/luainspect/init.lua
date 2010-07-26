@@ -23,6 +23,12 @@ local inspect_globals = require "luainspect.globals"
 local LS = require "luainspect.signatures"
 
 
+-- Remove any sheband ("#!") line from Lua source string.
+function M.remove_shebang(src)
+  local shebang = src:match("^#![^\r\n]*")
+  return shebang and (" "):rep(#shebang) .. src:sub(#shebang+1) or src
+end
+
 -- Custom version of loadstring that parses out line number info
 function M.loadstring(src)
   local f, err = loadstring(src, "")
