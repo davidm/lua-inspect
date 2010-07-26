@@ -466,6 +466,7 @@ function M.install()
   _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
   _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
 
+  -- apply styles if not overridden in properties file.
   local styles = [[  
 lexer.*.lua=script_lua
 # default
