@@ -83,13 +83,13 @@ end
 -- when doing down and `fup(n)` (if specified) when going if.
 function M.walk(ast, fdown, fup)
   assert(type(ast) == 'table')
-  if ast.tag and fdown then fdown(ast) end
+  if fdown then fdown(ast) end
   for _,bast in ipairs(ast) do
     if type(bast) == 'table' then
       M.walk(bast, fdown, fup)
     end
   end
-  if ast.tag and fup then fup(ast) end
+  if fup then fup(ast) end
 end
 
 -- function for t[k]
