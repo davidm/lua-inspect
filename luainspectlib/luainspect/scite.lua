@@ -263,8 +263,8 @@ end
 
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
-  -- 2DO:FIX: how to make the occur only in Lua buffers.
-  if editor.Lexer ~= 0 then return end -- 2DO: hack: probably won't work with multiple Lua-based lexers
+  -- FIX: how to make the occur only in Lua buffers.
+  if editor.Lexer ~= 0 then return end -- FIX: hack: probably won't work with multiple Lua-based lexers
 
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
@@ -307,7 +307,8 @@ scite_OnUpdateUI(function()
     local firstline = editor:LineFromPosition(first[1]-1)
     local lastline = editor:LineFromPosition(last[2]-1)
     if firstline ~= lastline then
-      --2DO: not rendering exactly as desired
+      --TODO: not rendering exactly as desired.  TCORNERCURVE should
+      -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
       editor:MarkerDefine(1, SC_MARK_TCORNERCURVE)
       editor:MarkerDefine(2, SC_MARK_VLINE)
       editor:MarkerDefine(3, SC_MARK_LCORNERCURVE)
@@ -350,7 +351,7 @@ local function OnStyle(styler)
   if styler.language ~= "script_lua" then return end -- avoid conflict with other stylers
 
   --if n == 0 then n = 2 else n = n - 1; return end -- this may improves performance on larger files only marginally
-  --2DO: could metalua libraries parse text across multiple calls to `OnStyle` to reduce long pauses with big files?
+  --IMPROVE: could metalua libraries parse text across multiple calls to `OnStyle` to reduce long pauses with big files?
 
   --print("DEBUG:","style",styler.language, styler.startPos, styler.lengthDoc, styler.initStyle)
 
@@ -375,7 +376,8 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_UNRECOGNIZED_GLOBAL] = true
   editor.StyleHotSpot[S_TABLE_FIELD] = true
   editor.StyleHotSpot[S_TABLE_FIELD_RECOGNIZED] = true
-  --2DO: use SCN_HOTSPOTCLICK somehow?
+  -- note: SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK currently aren't
+  -- implemented by SciTE, although it has been proposed.
   styler:StartStyling(0, editor.Length, 0)
   local i=1
   local inote = 1
@@ -413,7 +415,8 @@ local function OnStyle(styler)
         styler:SetState(S_COMMENT)
       elseif note.type == 'string' then
         styler:SetState(S_STRING)
-      -- 2DO: how to lightlight keywords? how to obtain this from the AST?
+      -- TODO: how to highlight keywords? The Metalua AST currently doesn't make this easy,
+      -- but there are possible plans in Metalua to change that.  Check back with Metalua dev.
       else
         styler:SetState(S_DEFAULT)
       end
