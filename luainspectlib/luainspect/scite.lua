@@ -141,6 +141,11 @@ local function update_ast()
      end
      return
   else
+    -- careful: if `buffer.notes` variable exists in `newtext`, then
+    --   `LI.inspect` may attach its previous value into the newly created
+    --   `buffer.notes`, eventually leading to memory overflow.
+    buffer.notes = nil; collectgarbage()
+    
     buffer.notes = LI.inspect(buffer.ast)
     buffer.text = newtext
     --old: editor:CallTipCancel()

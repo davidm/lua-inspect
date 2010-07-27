@@ -115,6 +115,9 @@ Fabien Fleutot for Metalua.
   SciTE: improve OnStyle only over provided byte range
   Note: you may now remove LuaInspect styles from your properties file.
 
+20100725
+  SciTE: fix memory overflow when code contains buffer.notes.
+
 20100724
   SciTE: list all uses of selected variable (currently locals only)
   SciTE: display errors about mismatched blocks or parens at both top and bottom of problem
