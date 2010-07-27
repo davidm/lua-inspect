@@ -347,6 +347,7 @@ end)
 -- Note: if StartStyling is not applied over the entire requested range, than this function is quickly recalled
 --   (which possibly can be useful for incremental updates)
 local n = 0
+local isblock = {Function=true}
 local function OnStyle(styler)
   if styler.language ~= "script_lua" then return end -- avoid conflict with other stylers
 
@@ -364,8 +365,12 @@ local function OnStyle(styler)
     update_ast()
   end
 
+  --print('DEBUG:OnStyle', editor:LineFromPosition(styler.startPos), editor:LineFromPosition(styler.startPos+styler.lengthDoc), styler.initStyle)
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
-
+    -- note: SciTE will repeatedly call OnStyle until StartStyling is performed.
+    -- However, StartStyling clears styles in the given range, but we prefer to leave
+    -- the styles as is.
+ 
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
@@ -378,8 +383,8 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_TABLE_FIELD_RECOGNIZED] = true
   -- note: SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK currently aren't
   -- implemented by SciTE, although it has been proposed.
-  styler:StartStyling(0, editor.Length, 0)
-  local i=1
+  styler:StartStyling(styler.startPos, styler.lengthDoc, styler.initStyle)
+  local i=styler.startPos+1
   local inote = 1
   local note = buffer.notes[inote]
   local function nextnote() inote = inote+1; note = buffer.notes[inote] end
@@ -426,7 +431,45 @@ local function OnStyle(styler)
     styler:Forward()
     i = i + 1
   end
-  styler:EndStyling()
+  styler:EndStyling()  
+
+  -- Apply folding.
+  --[[FIX:disabled due to odd problems discussed below
+  local linea0 = editor:LineFromPosition(styler.startPos)
+  local lineb0 = editor:LineFromPosition(styler.startPos+styler.lengthDoc)
+  print('DEBUG:+', linea0,lineb0) -- test for recursion
+  -- IMPROVE: This might be done only over styler.startPos, styler.lengthDoc.
+  --   Does that improve performance?
+  local level = 0
+  local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
+  LI.walk(buffer.ast, function(ast)
+    if isblock[ast.tag] then
+      local fline1, lline1 = ast.lineinfo.first[1], ast.lineinfo.last[1]
+      levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
+      level = level + 1      
+      for line1=fline1+1, lline1 do
+        levels[line1] = level
+      end
+    end
+  end, function(ast)
+    if isblock[ast.tag] then level = level - 1 end
+  end)
+  for line1=#levels,1,-1 do -- [*1]
+    --  if line1-1 >= linea0 and line1-1 <= lineb0 then [*2]
+    styler:SetLevelAt(line1-1, levels[line1])
+  end
+  -- caution: If StartStyling is performed over a range larger than suggested by startPos/lengthDoc,
+  --   then we cannot rely on it for folding.
+  -- QUESTION: this function is prone to recursion.  Changing a flag on a line more than once
+  --   like this causes OnStyle sometimes causing stack overflow from recursion:
+  --     styler:SetLevelAt(0,1)
+  --     styler:SetLevelAt(0,1 + SC_FOLDLEVELHEADERFLAG)
+  --   Setting levels only on lines being styled [*2] improves this to little or no recusion but worsens
+  --     styling problems (which exist whenever folding is used here).
+  --   Iterating in reverse [*1] reduces recursion to little or none.
+  --   Disabling folding completely eliminates recursion.
+  print'DEBUG:-'  -- test for recursion
+  ]]
 end
 
 scite_OnDoubleClick(function()

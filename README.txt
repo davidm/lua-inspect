@@ -111,6 +111,8 @@ Fabien Fleutot for Metalua.
 
 20100726
   SciTE: apply default styles in script if not specified in properties file.
+  SciTE: initial implementation of folding (but currently disabled due to SciTE problems)
+  SciTE: improve OnStyle only over provided byte range
   Note: you may now remove LuaInspect styles from your properties file.
 
 20100724
