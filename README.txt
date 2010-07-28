@@ -109,6 +109,9 @@ Fabien Fleutot for Metalua.
 
 == Changes ==
 
+20100727
+  SciTE: Fix limited styling range may skip styling (broke in 20100726)
+
 20100726
   SciTE: apply default styles in script if not specified in properties file.
   SciTE: initial implementation of folding (but currently disabled due to SciTE problems)

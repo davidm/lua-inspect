@@ -388,8 +388,15 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_TABLE_FIELD_RECOGNIZED] = true
   -- note: SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK currently aren't
   -- implemented by SciTE, although it has been proposed.
-  styler:StartStyling(styler.startPos, styler.lengthDoc, styler.initStyle)
-  local i=styler.startPos+1
+
+  local startpos0 = 0
+  styler:StartStyling(startpos0, editor.Length, 0)
+  -- local startpos0 = styler.startPos
+  --styler:StartStyling(styler.startPos, styler.lengthDoc, styler.initStyle)
+  --   a partial range like this doesn't work right since variables outside of edited range
+  --   may need styling adjusted (e.g. a local variable definition that becomes unused)
+
+  local i=startpos0+1
   local inote = 1
   local note = buffer.notes[inote]
   local function nextnote() inote = inote+1; note = buffer.notes[inote] end
