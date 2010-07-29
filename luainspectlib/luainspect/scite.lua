@@ -30,21 +30,6 @@ local M = {}
 -- notes  -- notes corresponding to `ast`
 -- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
 
--- Style IDs - correspond to style properties
-local S_DEFAULT = 0
-local S_LOCAL = 1
-local S_RECOGNIZED_GLOBAL = 2
-local S_UNRECOGNIZED_GLOBAL = 3
-local S_COMMENT = 4
-local S_STRING = 5
-local S_LOCAL_MUTATE = 6
-local S_LOCAL_UNUSED = 7
-local S_LOCAL_PARAM = 8
-local S_COMPILER_ERROR = 9
-local S_LOCAL_UPVALUE = 10
-local S_TABLE_FIELD = 11
-local S_TABLE_FIELD_RECOGNIZED = 12
-
 
 -- Performance test utilities.  Enabled only for PERFORMANCE_TESTS.
 local perf_names = {}
@@ -65,6 +50,22 @@ local clockend = PERFORMANCE_TESTS and function(name)
     print('DEBUG:clock:', perf_names[i], perf_times[i] - perf_times[1])
   end
 end or nilfunc
+
+
+-- Style IDs - correspond to style properties
+local S_DEFAULT = 0
+local S_LOCAL = 1
+local S_RECOGNIZED_GLOBAL = 2
+local S_UNRECOGNIZED_GLOBAL = 3
+local S_COMMENT = 4
+local S_STRING = 5
+local S_LOCAL_MUTATE = 6
+local S_LOCAL_UNUSED = 7
+local S_LOCAL_PARAM = 8
+local S_COMPILER_ERROR = 9
+local S_LOCAL_UPVALUE = 10
+local S_TABLE_FIELD = 11
+local S_TABLE_FIELD_RECOGNIZED = 12
 
 
 local function formatvariabledetails(note)
@@ -221,6 +222,7 @@ local function update_ast()
   end
 end
 
+
 -- Gets note assocated with currently selected variable (if any).
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
@@ -237,117 +239,6 @@ local function getselectedvariable()
     end
   end
   return selectednote, id
-end
-
--- Command for replacing all occurances of selected variable (if any) with given text `newname`
--- Usage in SciTE properties file:
-function M.rename_selected_variable(newname)
-  local selectednote = getselectedvariable()
-  if selectednote then
-    local id = selectednote.ast.id
-    editor:BeginUndoAction()
-    local lastnote
-    for i=#buffer.notes,1,-1 do
-      local note = buffer.notes[i]
-      if note.ast.id == id then
-        editor:SetSel(note[1]-1, note[2])
-	editor:ReplaceSel(newname)
-        lastnote = note
-      end
-    end
-    if lastnote then
-      editor:SetSel(lastnote[1]-1, lastnote[1] + newname:len())
-      editor.Anchor = lastnote[1]-1
-    end
-    editor:EndUndoAction()
-  end
-end
-
-
--- Gets 1-indexed character position of definition associated with AST node (if any).
-local function ast_to_definition_position(ast)
-  local local_ast = ast.localdefinition
-  if local_ast and local_ast.lineinfo then
-    return local_ast.lineinfo.first[3]
-  end
-end
-
--- Command for going to definition of selected variable.
--- TODO: currently only works for locals in the same file.
-function M.goto_definition()
-  local selectednote = getselectedvariable()
-  local pos1 = ast_to_definition_position(selectednote.ast)
-  if pos1 then
-    if set_mark then set_mark() end -- if ctagsdx.lua available
-    editor:GotoPos(pos1 - 1)
-  end  
-end
-
--- Command for inspecting fields of selected table variable.
-function M.inspect_variable_contents()
-  local note = getselectedvariable()
-  if not note then return end
-  local ast = note.ast 
-
-  if type(ast.value) == 'table' then
-    local t = ast.value
-    local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
-    table.sort(keys)
-    local info = ''
-    editor.AutoCSeparator = 1
-    for _,k in ipairs(keys) do
-      local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
-      local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
-      info = info .. ks .. "=" .. vs .. "\1"
-    end
-    editor:AutoCShow(0, info)
-  elseif type(ast.value) == 'userdata' then
-    editor:AutoCShow(0, "userdata not inspectable") -- unfortunately without __pairs.
-  else
-    editor:AutoCShow(0, tostring(ast.value) .. " not inspectable")
-  end
-end
-
--- Command to show all uses of selected variable
-function M.show_all_variable_uses()
-  local snote = getselectedvariable()
-  if not snote then return end
-  
-  editor.AutoCSeparator = 1
-  local infos = {}
-  for _,note in ipairs(buffer.notes) do
-    if note.ast.id == snote.ast.id then
-      local linenum0 = editor:LineFromPosition(note[1]-1)
-      infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
-    end
-  end
-  --editor:UserListShow(1, table.concat(infos, "\1"))  
-  scite_UserListShow(infos, 1, function(text)
-    local line1 = tonumber(text:match("^%d+"))
-    if set_mark then set_mark() end -- if ctagsdx.lua available
-    editor:GotoLine(line1-1)
-  end)
-end
-
-
--- Command to select smallest statement (or comment) containing selection.
--- Executing multiple times selects larger statements containing current statement.
-function M.select_statement()
-  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date  
-
-  -- Get selected position range.
-  -- caution: SciTE appears to have an odd behavior where if SetSel
-  --   is performed with CurrentPos at the start of a new line,
-  --   then Anchor and CurrentPos get reversed.  Similar behavior is observed
-  --   when holding down the shift key and pressing the right arrow key
-  --   until the cursor advances to the next line.
-  --   In any case, we want to handle reversed ranges.
-  local fpos, lpos = editor.Anchor, editor.CurrentPos
-  if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
-  fpos = fpos + 1
-  lpos = lpos + 1 - 1
-  local fpos, lpos = LI.select_statement(buffer.ast, fpos, lpos, true)
-  editor:SetSel(fpos-1, lpos-1 + 1)
 end
 
 
@@ -569,6 +460,7 @@ local function OnStyle(styler)
   ]]
 end
 
+
 scite_OnDoubleClick(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
@@ -579,6 +471,121 @@ scite_OnDoubleClick(function()
     editor:CallTipShow(note[1]-1, info)
   end
 end)
+
+
+-- Command for replacing all occurances of selected variable (if any) with given text `newname`
+-- Usage in SciTE properties file:
+function M.rename_selected_variable(newname)
+  local selectednote = getselectedvariable()
+  if selectednote then
+    local id = selectednote.ast.id
+    editor:BeginUndoAction()
+    local lastnote
+    for i=#buffer.notes,1,-1 do
+      local note = buffer.notes[i]
+      if note.ast.id == id then
+        editor:SetSel(note[1]-1, note[2])
+	editor:ReplaceSel(newname)
+        lastnote = note
+      end
+    end
+    if lastnote then
+      editor:SetSel(lastnote[1]-1, lastnote[1] + newname:len())
+      editor.Anchor = lastnote[1]-1
+    end
+    editor:EndUndoAction()
+  end
+end
+
+
+-- Gets 1-indexed character position of definition associated with AST node (if any).
+local function ast_to_definition_position(ast)
+  local local_ast = ast.localdefinition
+  if local_ast and local_ast.lineinfo then
+    return local_ast.lineinfo.first[3]
+  end
+end
+
+
+-- Command for going to definition of selected variable.
+-- TODO: currently only works for locals in the same file.
+function M.goto_definition()
+  local selectednote = getselectedvariable()
+  local pos1 = ast_to_definition_position(selectednote.ast)
+  if pos1 then
+    if set_mark then set_mark() end -- if ctagsdx.lua available
+    editor:GotoPos(pos1 - 1)
+  end  
+end
+
+
+-- Command for inspecting fields of selected table variable.
+function M.inspect_variable_contents()
+  local note = getselectedvariable()
+  if not note then return end
+  local ast = note.ast 
+
+  if type(ast.value) == 'table' then
+    local t = ast.value
+    local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
+    table.sort(keys)
+    local info = ''
+    editor.AutoCSeparator = 1
+    for _,k in ipairs(keys) do
+      local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
+      local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
+      info = info .. ks .. "=" .. vs .. "\1"
+    end
+    editor:AutoCShow(0, info)
+  elseif type(ast.value) == 'userdata' then
+    editor:AutoCShow(0, "userdata not inspectable") -- unfortunately without __pairs.
+  else
+    editor:AutoCShow(0, tostring(ast.value) .. " not inspectable")
+  end
+end
+
+-- Command to show all uses of selected variable
+function M.show_all_variable_uses()
+  local snote = getselectedvariable()
+  if not snote then return end
+  
+  editor.AutoCSeparator = 1
+  local infos = {}
+  for _,note in ipairs(buffer.notes) do
+    if note.ast.id == snote.ast.id then
+      local linenum0 = editor:LineFromPosition(note[1]-1)
+      infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
+    end
+  end
+  --editor:UserListShow(1, table.concat(infos, "\1"))  
+  scite_UserListShow(infos, 1, function(text)
+    local line1 = tonumber(text:match("^%d+"))
+    if set_mark then set_mark() end -- if ctagsdx.lua available
+    editor:GotoLine(line1-1)
+  end)
+end
+
+
+-- Command to select smallest statement (or comment) containing selection.
+-- Executing multiple times selects larger statements containing current statement.
+function M.select_statement()
+  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date  
+
+  -- Get selected position range.
+  -- caution: SciTE appears to have an odd behavior where if SetSel
+  --   is performed with CurrentPos at the start of a new line,
+  --   then Anchor and CurrentPos get reversed.  Similar behavior is observed
+  --   when holding down the shift key and pressing the right arrow key
+  --   until the cursor advances to the next line.
+  --   In any case, we want to handle reversed ranges.
+  local fpos, lpos = editor.Anchor, editor.CurrentPos
+  if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
+  fpos = fpos + 1
+  lpos = lpos + 1 - 1
+  local fpos, lpos = LI.select_statement(buffer.ast, fpos, lpos, true)
+  editor:SetSel(fpos-1, lpos-1 + 1)
+end
+
 
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
@@ -634,5 +641,5 @@ style.script_lua.12=fore:#600000
   end
 end
 
-return M
 
+return M
