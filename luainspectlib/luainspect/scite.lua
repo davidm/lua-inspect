@@ -66,6 +66,7 @@ local S_COMPILER_ERROR = 9
 local S_LOCAL_UPVALUE = 10
 local S_TABLE_FIELD = 11
 local S_TABLE_FIELD_RECOGNIZED = 12
+local S_TAB = 13
 
 
 local function formatvariabledetails(note)
@@ -167,18 +168,18 @@ local function update_ast()
     else
       if isincremental then
         -- insert new AST into original AST and adjust line numbers
-	local delta = pos2l - pos1l
+        local delta = pos2l - pos1l
         LI.adjust_lineinfo(buffer.ast, pos1l+1, delta)
-	LI.adjust_lineinfo(ast, 1, pos2f-1)	
-	LI.switchtable(old_ast, ast)
+        LI.adjust_lineinfo(ast, 1, pos2f-1)        
+        LI.switchtable(old_ast, ast)
 
-	buffer.notes = nil; collectgarbage()
-	buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
-	--adjust_notes(buffer.notes, pos1l+1, delta)
-	--buffer.notes = LI.create_notes(buffer.ast)
+        buffer.notes = nil; collectgarbage()
+        buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
+        --adjust_notes(buffer.notes, pos1l+1, delta)
+        --buffer.notes = LI.create_notes(buffer.ast)
       else
         buffer.ast = ast
-	
+        
         -- careful: if `buffer.notes` variable exists in `newtext`, then
         --   `LI.inspect` may attach its previous value into the newly created
         --   `buffer.notes`, eventually leading to memory overflow.
@@ -279,7 +280,7 @@ scite_OnUpdateUI(function()
     for _,note in ipairs(buffer.notes) do
       if note.ast.id == id then
         last = note
-	if not first then first = note end
+        if not first then first = note end
         editor:IndicatorFillRange(note[1]-1, note[2]-note[1]+1)
       end
     end
@@ -397,7 +398,7 @@ local function OnStyle(styler)
           styler:SetState(S_LOCAL_PARAM)
         else
           styler:SetState(S_LOCAL)
-	end
+        end
       elseif note.type == 'field' then
         if note.definedglobal or note.ast.seevalue.value ~= nil then
           styler:SetState(S_TABLE_FIELD_RECOGNIZED)
@@ -413,6 +414,8 @@ local function OnStyle(styler)
       else
         styler:SetState(S_DEFAULT)
       end
+    elseif styler:Current() == '\t' then
+      styler:SetState(S_TAB)
     else
       styler:SetState(S_DEFAULT)
     end
@@ -485,7 +488,7 @@ function M.rename_selected_variable(newname)
       local note = buffer.notes[i]
       if note.ast.id == id then
         editor:SetSel(note[1]-1, note[2])
-	editor:ReplaceSel(newname)
+        editor:ReplaceSel(newname)
         lastnote = note
       end
     end
@@ -630,6 +633,8 @@ style.script_lua.10=fore:#0000ff
 style.script_lua.11=fore:#c00000
 # table field recognized
 style.script_lua.12=fore:#600000
+# tab character in whitespace
+style.script_lua.13=back:#f0f0f0
 ]]
   if props["lexer.*.lua"] == "" then
     for style in styles:gmatch("[^\n]+") do

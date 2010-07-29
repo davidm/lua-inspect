@@ -78,12 +78,12 @@ function M.smallest_ast_in_range(ast, pos1, pos2)
         local comments = ast2.lineinfo[locs[j]].comments
         if comments then
           for _,comment in ipairs(comments) do
-	    local apos1, apos2 = comment[2], comment[3]
-	    if pos1 >= apos1 and pos2 <= apos2 then
+            local apos1, apos2 = comment[2], comment[3]
+            if pos1 >= apos1 and pos2 <= apos2 then
               return ast, comment
             end
-	  end
-	end
+          end
+        end
       end
     end
   end
@@ -157,12 +157,12 @@ function M.mark_alllineinfo(ast)
       for i=1,2 do
         local lineinfo = ast.lineinfo[locs[i]]
         alllineinfo[lineinfo] = true
-	if lineinfo.comments then
-	  for _, comment in ipairs(lineinfo.comments) do
-	    alllineinfo[comment] = true
-	    comment.tag = 'Comment' -- HACK:Metalua to handle comment lineinfo inconsistency
-	  end
-	end
+        if lineinfo.comments then
+          for _, comment in ipairs(lineinfo.comments) do
+            alllineinfo[comment] = true
+            comment.tag = 'Comment' -- HACK:Metalua to handle comment lineinfo inconsistency
+          end
+        end
       end      
     end
   end)
@@ -190,8 +190,8 @@ function M.select_statement(ast, fpos, lpos, allowexpand)
       --   the same position range.
       while select_ast ~= ast and fpos == nfpos and lpos == nlpos do
         if not select_ast.parent then M.mark_parents(ast) end -- ensure ast.parent
-	select_ast = M.get_containing_statement(select_ast.parent, ast)
-	nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
+        select_ast = M.get_containing_statement(select_ast.parent, ast)
+        nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
       end
     end
   end
@@ -239,7 +239,7 @@ function M.ast_from_string(src, filename)
     err = err:match('[^\n]*')
     err = err:gsub("^.-:%s*line", "line")
         -- mlp.chunk prepending this is undesirable.   error(msg,0) would be better in gg.lua. Reported.
-	-- TODO-Metalua: remove when fixed in Metalua.
+        -- TODO-Metalua: remove when fixed in Metalua.
     local linenum, colnum = err:match("line (%d+), char (%d+)")
     if not linenum then
       -- Metalua libraries may return "...gg.lua:56: .../mlp_misc.lua:179: End-of-file expected"
@@ -255,7 +255,7 @@ function M.ast_from_string(src, filename)
     return ast
   end
 end
-	
+
 
 -- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `fdown(n)` (if specified)
 -- when doing down and `fup(n)` (if specified) when going if.
@@ -384,29 +384,29 @@ function M.infer_values(ast)
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
         if value_ast and value_ast.valueknown then
-	  var_ast.valueknown = value_ast.valueknown
-	  var_ast.value = value_ast.value
-	end
+          var_ast.valueknown = value_ast.valueknown
+          var_ast.value = value_ast.value
+        end
       end
     elseif ast.tag == "Id" then
       if ast.isglobal then
         local ok, val = pcall(tindex, _G, ast[1])
-	if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
+        if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
       else
         local localdefinition = ast.localdefinition
         if localdefinition.valueknown and not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
-	  ast.value = localdefinition.value
-	  ast.valueknown = localdefinition.valueknown
-	end
+          ast.value = localdefinition.value
+          ast.valueknown = localdefinition.valueknown
+        end
       end
     elseif ast.tag == "Index" then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
         local ok, val = pcall(tindex, t_ast.value, k_ast.value)
-	if ok then
-	  ast.value = val
-	  ast.valueknown = true
-	end
+        if ok then
+          ast.value = val
+          ast.valueknown = true
+        end
       end
     elseif ast.tag == "Call" then
       local args_known = true
@@ -415,19 +415,19 @@ function M.infer_values(ast)
         local func = ast[1].value
         if LS.safe_function[func] then
           local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
-	  local ok, res = pcall(func, unpack(values,1,#ast-1))
-	  if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
-	  --TODO: handle multiple return values
+          local ok, res = pcall(func, unpack(values,1,#ast-1))
+          if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+          --TODO: handle multiple return values
         end
       end
     elseif ast.tag == "Invoke" then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
         local ok, val = pcall(tindex, t_ast.value, k_ast.value)
-	if ok then
-	  ast.idxvalue = val
-	  ast.idxvalueknown = true
-	end
+        if ok then
+          ast.idxvalue = val
+          ast.idxvalueknown = true
+        end
       end
 
       -- note: similar to "Call" code
@@ -437,9 +437,9 @@ function M.infer_values(ast)
         local func = ast.idxvalue
         if LS.safe_function[func] then
           local values = {}; for i=1,#ast-2 do values[i] = ast[i+2].value end
-	  local ok, res = pcall(func, t_ast.value, unpack(values,1,#ast-2))
-	  if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
-	  --TODO: handle multiple return values
+          local ok, res = pcall(func, t_ast.value, unpack(values,1,#ast-2))
+          if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+          --TODO: handle multiple return values
         end
       end
     elseif ast.tag == "String" or ast.tag == "Number" then
@@ -459,7 +459,7 @@ function M.infer_values(ast)
           ast.value = val
           ast.valueknown = true
         else
-	  ast.value = val
+          ast.value = val
           ast.valueknown = "error"
         end
       end
