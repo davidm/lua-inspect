@@ -10,6 +10,14 @@ local UPDATE_ALWAYS = true
 -- Allows Lua to be used like a Mathcad worksheet.
 local ANNOTATE_ALL_LOCALS = false
 
+-- WARNING: Experimental feature--in development.
+-- When user edits code, recompile only the portion of code that is edited.
+-- This should improve performance.
+local ALLOW_INCREMENTAL_COMPILATION = false
+
+-- Whether to run timing tests (for internal development purposes).
+local PERFORMANCE_TESTS = false
+
 local LI = require "luainspect.init"
 local LS = require "luainspect.signatures"
 
@@ -36,6 +44,28 @@ local S_COMPILER_ERROR = 9
 local S_LOCAL_UPVALUE = 10
 local S_TABLE_FIELD = 11
 local S_TABLE_FIELD_RECOGNIZED = 12
+
+
+-- Performance test utilities.  Enabled only for PERFORMANCE_TESTS.
+local perf_names = {}
+local perf_times = {os.clock()}
+local nilfunc = function() end
+local clock = PERFORMANCE_TESTS and function(name)
+  perf_times[#perf_times+1] = os.clock()
+  perf_names[#perf_names+1] = name
+end or nilfunc
+local clockbegin = PERFORMANCE_TESTS and function(name)
+  perf_names = {}
+  perf_times = {}
+  clock(name)
+end or function() end
+local clockend = PERFORMANCE_TESTS and function(name)
+  clock(name)
+  for i=1,#perf_times do
+    print('DEBUG:clock:', perf_names[i], perf_times[i] - perf_times[1])
+  end
+end or nilfunc
+
 
 local function formatvariabledetails(note)
   local info = ""
@@ -96,37 +126,66 @@ local function annotate_all_locals()
   end
 end
 
+
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
   -- skip if text unchanged
   local newtext = editor:GetText()
   if newtext == buffer.lasttext then return false end
   buffer.lasttext = newtext
+  
+  clockbegin 't1'
 
   -- loadstring and metalua don't parse shebang
   local newtextm = LI.remove_shebang(newtext)
 
+  local isincremental = ALLOW_INCREMENTAL_COMPILATION and buffer.ast
+  
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
   -- Furthermore, Metalua accepts a superset of the Lua grammar.
   local f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
   if f then
-    --[[ENHANCEMENT: This is initial work on implementing partial AST evaluation.
-    if buffer.ast then
-      local pos1, pos2, old_ast = LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
-      local subtext = newtextm:sub(pos1,pos2)
-      local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(subtext, "noname.lua")
-      --FIX:linenum
-      print('DEBUG:err:', err, "[" .. subtext .."]")
+    local compiletext
+    local pos1f, pos1l, pos2f, pos2l, old_ast
+    
+    if isincremental then
+      pos1f, pos1l, pos2f, pos2l, old_ast = LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
+      compiletext = newtextm:sub(pos2f,pos2l)
+      --print('DEBUG:incremental:[' .. compiletext .. ']')
+    else
+      compiletext = newtextm
     end
-    --]]
 
-    local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(newtextm, "noname.lua")
+    clock 't2'
+    local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
+    clock 't3'
+
     if not ast then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
     else
-      buffer.ast = ast
+      if isincremental then
+        -- insert new AST into original AST and adjust line numbers
+	local delta = pos2l - pos1l
+        LI.adjust_lineinfo(buffer.ast, pos1l+1, delta)
+	LI.adjust_lineinfo(ast, 1, pos2f-1)	
+	LI.switchtable(old_ast, ast)
+
+	buffer.notes = nil; collectgarbage()
+	buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
+	--adjust_notes(buffer.notes, pos1l+1, delta)
+	--buffer.notes = LI.create_notes(buffer.ast)
+      else
+        buffer.ast = ast
+	
+        -- careful: if `buffer.notes` variable exists in `newtext`, then
+        --   `LI.inspect` may attach its previous value into the newly created
+        --   `buffer.notes`, eventually leading to memory overflow.
+        buffer.notes = nil; collectgarbage()
+        buffer.notes = LI.inspect(buffer.ast)
+      end
     end
+    clockend 't4'
   end
   --unused: editor.IndicStyle[0]=
   if err then
@@ -151,12 +210,6 @@ local function update_ast()
      end
      return
   else
-    -- careful: if `buffer.notes` variable exists in `newtext`, then
-    --   `LI.inspect` may attach its previous value into the newly created
-    --   `buffer.notes`, eventually leading to memory overflow.
-    buffer.notes = nil; collectgarbage()
-    
-    buffer.notes = LI.inspect(buffer.ast)
     buffer.text = newtext
     --old: editor:CallTipCancel()
     editor.IndicatorCurrent = 0

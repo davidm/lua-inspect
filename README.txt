@@ -112,6 +112,7 @@ Fabien Fleutot for Metalua.
 
 20100728
   core/SciTE: add command to select statement or comment containing current cursor selection.
+  core/SciTE: experimental incremental compilation option (ALLOW_INCREMENTAL_COMPILATION)
 
 20100727
   SciTE: Fix limited styling range may skip styling (broke in 20100726)

@@ -118,8 +118,6 @@ end
 
 -- Determines AST node that must be re-evaluated upon changing code string from
 -- `src1` to `src2`, given previous AST `ast1` corresponding to `src1`.
--- Returns both position range [src2_pos1,src2_pos2] in `src2` and matching
--- AST node `match1_ast` in src1.
 -- note: decorates ast1 as side-effect
 function M.invalidated_code(ast1, src1, src2)
   if src1 == src2 then return end
@@ -129,26 +127,47 @@ function M.invalidated_code(ast1, src1, src2)
     
   -- Find range of positions in src1 that differences correspond to.
   -- note: for zero byte range, src1_pos2 = src1_pos1 - 1.
-  local src1_pos1 = 1 + npre
-  local src1_pos2 = #src1 - npost
+  local src1_fpos = 1 + npre
+  local src1_lpos = #src1 - npost
   
   -- Find smallest AST node in ast1 containing src1 range above.
-  local match1_ast, match1_comment = M.smallest_ast_in_range(ast1, src1_pos1, src1_pos2, nil)
+  local match1_ast, match1_comment = M.smallest_ast_in_range(ast1, src1_fpos, src1_lpos, nil)
 
   if not match1_comment then
     match1_ast = M.get_containing_statement(match1_ast, ast1)
   end
-  local src1_pos1m = match1_comment and match1_comment[2] or match1_ast.lineinfo.first[3]
-  local src1_pos2m = match1_comment and match1_comment[3] or match1_ast.lineinfo.last[3]
-  local src1_npost = #src1 - src1_pos2m
+  local src1m_fpos = match1_comment and match1_comment[2] or match1_ast.lineinfo.first[3]
+  local src1m_lpos = match1_comment and match1_comment[3] or match1_ast.lineinfo.last[3]
+  local src1m_npost = #src1 - src1m_lpos
   
   -- Find range of positions in src2 that match_ast corresponds to.
-  local src2_pos1 = src1_pos1m
-  local src2_pos2 = #src2 - src1_npost
-  
-  return src2_pos1, src2_pos2, match1_ast
+  local src2m_fpos = src1m_fpos
+  local src2m_lpos = #src2 - src1m_npost
+  --print(src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast.tag)
+  return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast
 end
 
+
+local locs = {'first', 'last'}
+function M.mark_alllineinfo(ast)
+  if ast.alllineinfo then return end -- already done
+  local alllineinfo = {}
+  M.walk(ast, function(ast)
+    if ast.lineinfo then
+      for i=1,2 do
+        local lineinfo = ast.lineinfo[locs[i]]
+        alllineinfo[lineinfo] = true
+	if lineinfo.comments then
+	  for _, comment in ipairs(lineinfo.comments) do
+	    alllineinfo[comment] = true
+	    comment.tag = 'Comment' -- HACK:Metalua to handle comment lineinfo inconsistency
+	  end
+	end
+      end      
+    end
+  end)
+  ast.alllineinfo = alllineinfo
+end
 
 -- Finds smallest statement or comment AST containing position range
 -- [fpos, lpos].  If allowexpand is true (default nil) and located AST
@@ -310,55 +329,53 @@ function M.mark_parents(ast, parent_ast)
   --  (see get_containing_statement).
 end
 
-function M.inspect(ast)
-  local globals = inspect_globals.globals(ast)
 
+-- Create notes on AST.
+-- Notes are sorted by character position and contain semantic information on tokens.
+function M.create_notes(ast)
   local notes = {}
 
-  -- Label variables with unique identifiers.
-  local id = 0
-  local seen_globals = {}
+  local seen_comment = {}
   M.walk(ast, function(ast)
-    if ast.tag == 'Id' or ast.isfield then
-      if ast.localdefinition then
-        if ast.isdefinition then
-          id = id + 1
-          ast.id = id
-        else
-          ast.id = ast.localdefinition.id
-        end
-      elseif ast.isfield then
-        local previousid = ast.previous.id
-        if not previousid then -- note: ("abc"):upper() has no previous ID
-          id = id + 1
-          previousid = id
-        end
-        local name = previousid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
-        if not seen_globals[name] then
-          id = id + 1
-          seen_globals[name] = id
-        end
-        ast.id = seen_globals[name]
+    if (ast.tag == 'Id' or ast.isfield) and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
+      local vname = ast[1]
+      local fchar = ast.lineinfo.first[3]
+      local lchar = ast.lineinfo.last[3]
+      local atype = ast.localdefinition and 'local' or ast.isfield and 'field' or 'global'
+      
+      local isparam = ast.localdefinition and ast.localdefinition.isparam or nil
+      table.insert(notes, {fchar, lchar, ast=ast, type=atype, definedglobal=ast.definedglobal, isparam=isparam})
+      --IMPROVE: definedglobal and other fields are redundant
+    elseif ast.tag == 'String' then
+      local fchar = ast.lineinfo.first[3]
+      local lchar = ast.lineinfo.last[3]
+      table.insert(notes, {fchar, lchar, ast=ast, type='string'})
+    end
 
-        -- also resolve name
-        local previousresolvedname = ast.previous.resolvedname
-        if previousresolvedname then
-          ast.resolvedname = previousresolvedname .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+    -- comments
+    if ast.lineinfo then
+      local commentss = {}
+      if ast.lineinfo.first.comments then table.insert(commentss, ast.lineinfo.first.comments) end
+      if ast.lineinfo.last.comments  then table.insert(commentss, ast.lineinfo.last.comments) end
+      for _,comments in ipairs(commentss) do
+        for i,comment in ipairs(comments) do
+          local text,fchar,lchar = unpack(comment)
+          if not seen_comment[fchar] then
+            seen_comment[fchar] = true
+            table.insert(notes, {fchar, lchar, ast=comment, type='comment'})
+          end
         end
-      else -- global
-        local name = ast[1]
-        if not seen_globals[name] then
-          id = id + 1
-          seen_globals[name] = id
-        end
-        ast.id = seen_globals[name]
-
-        -- also resolve name
-        ast.resolvedname = ast[1]
       end
     end
   end)
 
+  table.sort(notes, function(a,b) return a[1] < b[1] end)
+  
+  return notes
+end
+
+
+function M.infer_values(ast)
   -- infer values
   M.walk(ast, nil, function(ast)
     -- process `require` statements.
@@ -448,7 +465,77 @@ function M.inspect(ast)
       end
     end
   end)
+end
+
+
+-- Label variables with unique identifiers.
+function M.mark_identifiers(ast)
+  local id = 0
+  local seen_globals = {}
+  M.walk(ast, function(ast)
+    if ast.tag == 'Id' or ast.isfield then
+      if ast.localdefinition then
+        if ast.isdefinition then
+          id = id + 1
+          ast.id = id
+        else
+          ast.id = ast.localdefinition.id
+        end
+      elseif ast.isfield then
+        local previousid = ast.previous.id
+        if not previousid then -- note: ("abc"):upper() has no previous ID
+          id = id + 1
+          previousid = id
+        end
+        local name = previousid .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+        if not seen_globals[name] then
+          id = id + 1
+          seen_globals[name] = id
+        end
+        ast.id = seen_globals[name]
+
+        -- also resolve name
+        local previousresolvedname = ast.previous.resolvedname
+        if previousresolvedname then
+          ast.resolvedname = previousresolvedname .. '.' .. ast[1]:gsub('%%', '%%'):gsub('%.', '%d')
+        end
+      else -- global
+        local name = ast[1]
+        if not seen_globals[name] then
+          id = id + 1
+          seen_globals[name] = id
+        end
+        ast.id = seen_globals[name]
+
+        -- also resolve name
+        ast.resolvedname = ast[1]
+      end
+    end
+  end)
+end
+
+
+-- Main inspection routine.
+function M.inspect(ast)
+  --DEBUG: local t0 = os.clock()
+
+  local globals = inspect_globals.globals(ast)
   
+  M.mark_identifiers(ast)
+
+  M.infer_values(ast)  
+
+  -- Make some nodes as having values related to its parent.
+  -- This allows clicking on `bar` in `foo.bar` to display
+  -- the value of `foo.bar` rather than just "bar".
+  M.walk(ast, function(ast)
+    if ast.tag == "Index" then
+      ast[2].seevalue = ast
+    elseif ast.tag == "Invoke" then
+      ast[2].seevalue = {value=ast.idxvalue, valueknown=ast.idxvalueknown}
+    end
+  end)
+
   local function eval_name_helper(name)
     local var = _G
     for part in (name .. '.'):gmatch("([^.]*)%.") do
@@ -464,58 +551,62 @@ function M.inspect(ast)
     if ok then return o else return nil end
   end
 
-  -- Make some nodes as having values related to its parent.
-  -- This allows clicking on `bar` in `foo.bar` to display
-  -- the value of `foo.bar` rather than just "bar".
   M.walk(ast, function(ast)
-    if ast.tag == "Index" then
-      ast[2].seevalue = ast
-    elseif ast.tag == "Invoke" then
-      ast[2].seevalue = {value=ast.idxvalue, valueknown=ast.idxvalueknown}
-    end
-  end)
-
-  -- Create notes.
-  local seen_comment = {}
-  M.walk(ast, function(ast)
-    if (ast.tag == 'Id' or ast.isfield) and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
+    if ast.tag == 'Id' or ast.isfield then
       local vname = ast[1]
-      local fchar = ast.lineinfo.first[3]
-      local lchar = ast.lineinfo.last[3]
-      local atype = ast.localdefinition and 'local' or ast.isfield and 'field' or 'global'
       --TODO: rename definedglobal to definedfield for clarity
+      local atype = ast.localdefinition and 'local' or ast.isfield and 'field' or 'global'
       local definedglobal = ast.resolvedname and eval_name(ast.resolvedname) ~= nil or
                  atype == 'global' and (globals[vname] and globals[vname].set) or nil
+      ast.definedglobal = definedglobal
       -- FIX: _G includes modules imported by inspect.lua, which is not desired
-      local isparam = ast.localdefinition and ast.localdefinition.isparam or nil
-      table.insert(notes, {fchar, lchar, ast=ast, type=atype, definedglobal=definedglobal, isparam=isparam})
-    elseif ast.tag == 'String' then
-      local fchar = ast.lineinfo.first[3]
-      local lchar = ast.lineinfo.last[3]
-      table.insert(notes, {fchar, lchar, ast=ast, type='string'})
-    end
-
-    -- comments
-    if ast.lineinfo then
-      local commentss = {}
-      if ast.lineinfo.first.comments then table.insert(commentss, ast.lineinfo.first.comments) end
-      if ast.lineinfo.last.comments  then table.insert(commentss, ast.lineinfo.last.comments) end
-      for _,comments in ipairs(commentss) do
-        for i,comment in ipairs(comments) do
-          local text,fchar,lchar = unpack(comment)
-          if not seen_comment[fchar] then
-            seen_comment[fchar] = true
-            table.insert(notes, {fchar, lchar, ast=comment, type='comment'})
-          end
-        end
-      end
     end
   end)
+  
 
+  local notes = M.create_notes(ast)
 
-  table.sort(notes, function(a,b) return a[1] < b[1] end)
+  --print('DEBUG: t+', os.clock() - t0); t0 = os.clock()
 
   return notes
+end
+
+
+-- Replaces contents of table t1 with contents of table t2.
+-- Does not change metatable (if any).
+-- This function is useful for swapping one AST node with another
+-- while preserving any references to the node.
+function M.switchtable(t1, t2)
+  for k in pairs(t1) do t1[k] = nil end
+  for k in pairs(t2) do t1[k] = t2[k] end
+end
+
+
+--FIX: adjust rows/cols too?
+function M.adjust_lineinfo(ast, pos1, delta)
+  M.mark_alllineinfo(ast)
+  for lineinfo in pairs(ast.alllineinfo) do
+    if lineinfo.tag == 'Comment' then
+      if lineinfo[2] >= pos1 then
+         lineinfo[2] = lineinfo[2] + delta
+         lineinfo[3] = lineinfo[3] + delta
+         --NOTE: linenum will also need to be adjusted here if Metalua adds linenum to comment node.
+      end
+    else
+      if lineinfo[3] >= pos1 then
+        lineinfo[3] = lineinfo[3] + delta
+      end
+    end
+  end
+end
+
+function M.adjust_notes(notes, pos1, delta)
+  for i=1,#notes do local note = notes[i]
+    if note[1] >= pos1 then
+      note[1] = note[1] + delta
+      note[2] = note[2] + delta
+    end
+  end
 end
 
 
