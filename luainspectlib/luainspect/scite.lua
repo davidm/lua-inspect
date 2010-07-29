@@ -43,7 +43,7 @@ local clockbegin = PERFORMANCE_TESTS and function(name)
   perf_names = {}
   perf_times = {}
   clock(name)
-end or function() end
+end or nilfunc
 local clockend = PERFORMANCE_TESTS and function(name)
   clock(name)
   for i=1,#perf_times do
@@ -528,12 +528,12 @@ function M.inspect_variable_contents()
   if not note then return end
   local ast = note.ast 
 
+  editor.AutoCSeparator = 1
   if type(ast.value) == 'table' then
     local t = ast.value
     local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
     table.sort(keys)
     local info = ''
-    editor.AutoCSeparator = 1
     for _,k in ipairs(keys) do
       local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
       local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
