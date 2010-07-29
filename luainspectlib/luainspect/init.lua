@@ -91,27 +91,17 @@ function M.smallest_ast_in_range(ast, pos1, pos2)
 end
 
 
--- Gets smallest statement containing or being `ast`.
+-- Gets smallest statement or block containing or being `ast`.
 -- The AST root node `top_ast` must also be provided.
--- Note: may decorate AST as side-effect.
-local isstatement = {Do=true, Set=true, While=true, Repeat=true, If=true,
-  Fornum=true, Forin=true, Local=true, Localrec=true, Return=true, Break=true}
-function M.get_containing_statement(ast, top_ast)
-  if not ast.tag or isstatement[ast.tag]  -- block or stat
-  then
+-- Note: may decorate AST as side-effect (mark_tag2/mark_parents).
+-- top_ast is assumed a block, so this is always successful.
+function M.get_containing_statementblock(ast, top_ast)
+  if not top_ast.tag2 then M.mark_tag2(top_ast) end
+  if ast.tag2 == 'Stat' or ast.tag2 == 'StatBlock' or ast.tag2 == 'Block' then
     return ast
   else
-    if not ast.parent then
-      M.mark_parents(top_ast)
-    end
-    if (ast.tag == 'Call' or ast.tag == 'Invoke') and
-      (not ast.parent.tag or ast.parent.tag == 'Do')
-    then
-      -- is apply statement (i.e. call/invoke inside block or stat)
-      return ast
-    else
-      return M.get_containing_statement(ast.parent)
-    end
+    if not ast.parent then M.mark_parents(top_ast) end
+    return M.get_containing_statementblock(ast.parent, top_ast)
   end
 end
 
@@ -134,7 +124,7 @@ function M.invalidated_code(ast1, src1, src2)
   local match1_ast, match1_comment = M.smallest_ast_in_range(ast1, src1_fpos, src1_lpos, nil)
 
   if not match1_comment then
-    match1_ast = M.get_containing_statement(match1_ast, ast1)
+    match1_ast = M.get_containing_statementblock(match1_ast, ast1)
   end
   local src1m_fpos = match1_comment and match1_comment[2] or match1_ast.lineinfo.first[3]
   local src1m_lpos = match1_comment and match1_comment[3] or match1_ast.lineinfo.last[3]
@@ -169,13 +159,13 @@ function M.mark_alllineinfo(ast)
   ast.alllineinfo = alllineinfo
 end
 
--- Finds smallest statement or comment AST containing position range
+-- Finds smallest statement, block, or comment AST containing position range
 -- [fpos, lpos].  If allowexpand is true (default nil) and located AST
 -- coincides with position range, then next containing statement is used
 -- instead (this allows multiple calls to further expand the statement selection).
-function M.select_statement(ast, fpos, lpos, allowexpand)
+function M.select_statementblockcomment(ast, fpos, lpos, allowexpand)
   local match_ast, comment_ast = M.smallest_ast_in_range(ast, fpos, lpos)
-  local select_ast = comment_ast or M.get_containing_statement(match_ast, ast)
+  local select_ast = comment_ast or M.get_containing_statementblock(match_ast, ast)
   local nfpos = comment_ast and select_ast[2] or select_ast.lineinfo.first[3]
   local nlpos = comment_ast and select_ast[3] or select_ast.lineinfo.last[3]
     --STYLE:Metalua: The lineinfo on Metalua comments is inconsistent with other nodes
@@ -190,7 +180,7 @@ function M.select_statement(ast, fpos, lpos, allowexpand)
       --   the same position range.
       while select_ast ~= ast and fpos == nfpos and lpos == nlpos do
         if not select_ast.parent then M.mark_parents(ast) end -- ensure ast.parent
-        select_ast = M.get_containing_statement(select_ast.parent, ast)
+        select_ast = M.get_containing_statementblock(select_ast.parent, ast)
         nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
       end
     end
@@ -296,37 +286,58 @@ ops["unm"] = function(a) return -a end
 
 -- For each node n in ast, set n.parent to parent node of n.
 -- Assumes ast.parent will be parent_ast (may be nil)
-local special = {Forin=3, Function=2}
 function M.mark_parents(ast, parent_ast)
   ast.parent = parent_ast
-  if special[ast.tag] then
-    local ishallow = special[ast.tag]
-    for i, t in ipairs(ast) do
-      if i == ishallow then
-        local ast2 = ast[i]
-        M.mark_parents(ast2, ast)
-      else
-        for _, ast2 in ipairs(t) do M.mark_parents(ast2, ast) end
-      end
-    end
-  elseif ast.tag == 'Set' or ast.tag == 'Local' or ast.tag == 'Localrec' then
-    for _, t in ipairs(ast) do
-    for _, ast2 in ipairs(t) do
+  for _,ast2 in ipairs(ast) do
+    if type(ast2) == 'table' then
       M.mark_parents(ast2, ast)
-    end end
-  else
-    for _,t_or_ast2 in ipairs(ast) do
-      if type(t_or_ast2) == 'table' then
-        local ast2 = t_or_ast2
-        M.mark_parents(ast2, ast)
-      end
     end
   end
-  --STYLE:Metalua: the above intentionally avoids treating expression lists as
-  --  parent nodes.  QUESTION: on second thought, does this code really want/need this?
-  --  This is currently done to allow easy detection of whether a `Call or `Invoke is
-  --  a statement or expression (if statement then ast.parent.tag is nil or 'Do'
-  --  (see get_containing_statement).
+end
+
+
+-- For each node n in ast, set n.tag2 to context string:
+-- 'Block' - node is block
+-- 'Stat' - node is statement
+-- 'StatBlock' - node is statement and block (i.e. `Do)
+-- 'Exp' - node is expression
+-- 'Explist' - node is expression list (or identifier list)
+-- 'Pair' - node is key-value pair in table constructor
+-- note: ast.tag2 will be set to context.
+local iscertainstat = {Do=true, Set=true, While=true, Repeat=true, If=true,
+  Fornum=true, Forin=true, Local=true, Localrec=true, Return=true, Break=true}
+function M.mark_tag2(ast, context)
+  context = context or 'Block'
+  ast.tag2 = context
+  for i,ast2 in ipairs(ast) do
+    if type(ast2) == 'table' then
+      local nextcontext
+      if ast2.tag == 'Do' then
+        nextcontext = 'StatBlock'
+      elseif iscertainstat[ast2.tag] then
+        nextcontext = 'Stat'
+      elseif ast2.tag == 'Call' or ast2.tag == 'Invoke' then
+        nextcontext = context == 'Block' and 'Stat' or 'Exp'
+        --DESIGN:Metalua: these calls actually contain expression lists,
+        --  but the expression list is not represented as a complete node
+        --  by Metalua (as blocks are in `Do statements)
+      elseif ast2.tag == 'Pair' then
+        nextcontext = 'Pair'
+      elseif not ast2.tag then
+        if ast.tag == 'Set' or ast.tag == 'Local' or ast.tag == 'Localrec'
+          or ast.tag == 'Forin' and i <= 2
+          or ast.tag == 'Function'  and i == 1
+        then
+          nextcontext = 'Explist'
+        else 
+          nextcontext = 'Block'
+        end
+      else
+        nextcontext = 'Exp'
+      end
+      M.mark_tag2(ast2, nextcontext)
+    end
+  end
 end
 
 
