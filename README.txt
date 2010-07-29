@@ -89,6 +89,18 @@ style.script_lua.11=fore:#c00000 # table field
 style.script_lua.12=fore:#600000 # table field recognized
 =============================
 
+== Configuring SciTE options ==
+
+The following LuaInspect options can be configured in one of your
+SciTE property files:
+
+  luainspect.update.always (0 or 1, default 1)
+  luainspect.annotate.all.locals (0 or 1, default 0)
+  luainspect.incremental.compilation (0 or 1, default 0)
+  luainspect.performance.tests (0 or 1, default 0)
+
+For details, see scite.lua.
+
 == Design Notes ==
 
 The font styles are intended to make the more dangerous
@@ -109,6 +121,9 @@ Fabien Fleutot for Metalua.
 [1] http://www.scintilla.org/SciTE.html
 
 == Changes ==
+
+20100729
+  SciTE: options can now be set with SciTE properties.
 
 20100728
   core/SciTE: add command to select statement or comment containing current cursor selection.

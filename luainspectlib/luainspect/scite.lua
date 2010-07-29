@@ -2,21 +2,21 @@
 --
 -- (c) 2010 David Manura, MIT License.
 
--- Whether to update the AST on every edit (true) or online when the selection
+-- Whether to update the AST on every edit (true) or only when the selection
 -- is moved to a different line (false).  false can be more efficient for large files.
-local UPDATE_ALWAYS = true
+local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 
 -- Experimental feature: display types/values of all known locals as annotations.
 -- Allows Lua to be used like a Mathcad worksheet.
-local ANNOTATE_ALL_LOCALS = false
+local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
 
 -- WARNING: Experimental feature--in development.
 -- When user edits code, recompile only the portion of code that is edited.
 -- This should improve performance.
-local ALLOW_INCREMENTAL_COMPILATION = false
+local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilation', '0') == '1'
 
 -- Whether to run timing tests (for internal development purposes).
-local PERFORMANCE_TESTS = false
+local PERFORMANCE_TESTS = scite_GetProp('luainspect.performance.tests', '0') == '1'
 
 local LI = require "luainspect.init"
 local LS = require "luainspect.signatures"
@@ -141,7 +141,7 @@ local function update_ast()
   -- loadstring and metalua don't parse shebang
   local newtextm = LI.remove_shebang(newtext)
 
-  local isincremental = ALLOW_INCREMENTAL_COMPILATION and buffer.ast
+  local isincremental = INCREMENTAL_COMPILATION and buffer.ast
   
   -- Analyze code using LuaInspect, and apply decorations
   -- loadstring is much faster than Metalua, so try that first.
