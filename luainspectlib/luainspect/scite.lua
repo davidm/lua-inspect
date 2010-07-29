@@ -111,6 +111,16 @@ local function update_ast()
   -- Furthermore, Metalua accepts a superset of the Lua grammar.
   local f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
   if f then
+    --[[ENHANCEMENT: This is initial work on implementing partial AST evaluation.
+    if buffer.ast then
+      local pos1, pos2, old_ast = LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
+      local subtext = newtextm:sub(pos1,pos2)
+      local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(subtext, "noname.lua")
+      --FIX:linenum
+      print('DEBUG:err:', err, "[" .. subtext .."]")
+    end
+    --]]
+
     local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(newtextm, "noname.lua")
     if not ast then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
@@ -265,6 +275,28 @@ function M.show_all_variable_uses()
     editor:GotoLine(line1-1)
   end)
 end
+
+
+-- Command to select smallest statement (or comment) containing selection.
+-- Executing multiple times selects larger statements containing current statement.
+function M.select_statement()
+  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date  
+
+  -- Get selected position range.
+  -- caution: SciTE appears to have an odd behavior where if SetSel
+  --   is performed with CurrentPos at the start of a new line,
+  --   then Anchor and CurrentPos get reversed.  Similar behavior is observed
+  --   when holding down the shift key and pressing the right arrow key
+  --   until the cursor advances to the next line.
+  --   In any case, we want to handle reversed ranges.
+  local fpos, lpos = editor.Anchor, editor.CurrentPos
+  if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
+  fpos = fpos + 1
+  lpos = lpos + 1 - 1
+  local fpos, lpos = LI.select_statement(buffer.ast, fpos, lpos, true)
+  editor:SetSel(fpos-1, lpos-1 + 1)
+end
+
 
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
@@ -500,12 +532,14 @@ function M.install()
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
   scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
   scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
+  scite_Command("Select current statement or comment|luainspect_select_statement|*.lua|Ctrl+Alt+S")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
   _G.luainspect_goto_definition = M.goto_definition
   _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
   _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
+  _G.luainspect_select_statement = M.select_statement
 
   -- apply styles if not overridden in properties file.
   local styles = [[  

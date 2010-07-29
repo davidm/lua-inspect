@@ -22,12 +22,170 @@ local inspect_globals = require "luainspect.globals"
 
 local LS = require "luainspect.signatures"
 
+-- Variable naming conventions:
+--  *ast - AST node
+
+-- Gets length of longest prefix string in both provided strings.
+-- Returns max n such that text1:sub(1,n) == text2:sub(1,n) and n <= max(#text1,#text2)
+local function longest_prefix(text1, text2)
+  local nmin = 0
+  local nmax = math.min(#text1, #text2)
+  while nmax > nmin do
+    local nmid = math.ceil((nmin+nmax)/2)
+    if text1:sub(1,nmid) == text2:sub(1,nmid) then
+      nmin = nmid
+    else
+      nmax = nmid-1
+    end
+  end
+  return nmin
+end
+
+
+-- Gets length of longest postfix string in both provided strings.
+-- Returns max n such that text1:sub(-n) == text2:sub(-n) and n <= max(#text1,#text2)
+local function longest_postfix(text1, text2)
+  local nmin = 0
+  local nmax = math.min(#text1, #text2)
+  while nmax > nmin do
+    local nmid = math.ceil((nmin+nmax)/2)
+    if text1:sub(-nmid) == text2:sub(-nmid) then --[*]
+      nmin = nmid
+    else
+      nmax = nmid-1
+    end
+  end
+  return nmin
+end  -- differs from longest_prefix only on line [*]
+
+
+-- Gets smallest AST node inside AST `ast` completely containing position range [pos1, pos2].
+-- careful: "function" is not part of the `Function node.
+local locs = {'first', 'last'}
+function M.smallest_ast_in_range(ast, pos1, pos2)
+  for i,ast2 in ipairs(ast) do
+    if type(ast2) == 'table' then
+      local apos1 = ast2.lineinfo.first[3]
+      local apos2 = ast2.lineinfo.last[3]
+      if pos1 >= apos1 and pos2 <= apos2 then
+        return M.smallest_ast_in_range(ast2, pos1, pos2, ast)
+      end
+      -- CAUTION:Metalua: For a block like `Do, it would be sufficient to examine the first
+      --   comments from each member and the last comments from the last member.
+      --   However, for `If, we need to examine the first and last comments from
+      --   each member.  For simplicity both are always examined.
+      for j=1,2 do
+        local comments = ast2.lineinfo[locs[j]].comments
+        if comments then
+          for _,comment in ipairs(comments) do
+	    local apos1, apos2 = comment[2], comment[3]
+	    if pos1 >= apos1 and pos2 <= apos2 then
+              return ast, comment
+            end
+	  end
+	end
+      end
+    end
+  end
+  return ast, nil
+end
+
+
+-- Gets smallest statement containing or being `ast`.
+-- The AST root node `top_ast` must also be provided.
+-- Note: may decorate AST as side-effect.
+local isstatement = {Do=true, Set=true, While=true, Repeat=true, If=true,
+  Fornum=true, Forin=true, Local=true, Localrec=true, Return=true, Break=true}
+function M.get_containing_statement(ast, top_ast)
+  if not ast.tag or isstatement[ast.tag]  -- block or stat
+  then
+    return ast
+  else
+    if not ast.parent then
+      M.mark_parents(top_ast)
+    end
+    if (ast.tag == 'Call' or ast.tag == 'Invoke') and
+      (not ast.parent.tag or ast.parent.tag == 'Do')
+    then
+      -- is apply statement (i.e. call/invoke inside block or stat)
+      return ast
+    else
+      return M.get_containing_statement(ast.parent)
+    end
+  end
+end
+
+
+-- Determines AST node that must be re-evaluated upon changing code string from
+-- `src1` to `src2`, given previous AST `ast1` corresponding to `src1`.
+-- Returns both position range [src2_pos1,src2_pos2] in `src2` and matching
+-- AST node `match1_ast` in src1.
+-- note: decorates ast1 as side-effect
+function M.invalidated_code(ast1, src1, src2)
+  if src1 == src2 then return end
+  local npre = longest_prefix(src1, src2)
+  local npost = math.min(#src1-npre, longest_postfix(src1, src2))
+    -- note: min to avoid overlap ambiguity
+    
+  -- Find range of positions in src1 that differences correspond to.
+  -- note: for zero byte range, src1_pos2 = src1_pos1 - 1.
+  local src1_pos1 = 1 + npre
+  local src1_pos2 = #src1 - npost
+  
+  -- Find smallest AST node in ast1 containing src1 range above.
+  local match1_ast, match1_comment = M.smallest_ast_in_range(ast1, src1_pos1, src1_pos2, nil)
+
+  if not match1_comment then
+    match1_ast = M.get_containing_statement(match1_ast, ast1)
+  end
+  local src1_pos1m = match1_comment and match1_comment[2] or match1_ast.lineinfo.first[3]
+  local src1_pos2m = match1_comment and match1_comment[3] or match1_ast.lineinfo.last[3]
+  local src1_npost = #src1 - src1_pos2m
+  
+  -- Find range of positions in src2 that match_ast corresponds to.
+  local src2_pos1 = src1_pos1m
+  local src2_pos2 = #src2 - src1_npost
+  
+  return src2_pos1, src2_pos2, match1_ast
+end
+
+
+-- Finds smallest statement or comment AST containing position range
+-- [fpos, lpos].  If allowexpand is true (default nil) and located AST
+-- coincides with position range, then next containing statement is used
+-- instead (this allows multiple calls to further expand the statement selection).
+function M.select_statement(ast, fpos, lpos, allowexpand)
+  local match_ast, comment_ast = M.smallest_ast_in_range(ast, fpos, lpos)
+  local select_ast = comment_ast or M.get_containing_statement(match_ast, ast)
+  local nfpos = comment_ast and select_ast[2] or select_ast.lineinfo.first[3]
+  local nlpos = comment_ast and select_ast[3] or select_ast.lineinfo.last[3]
+    --STYLE:Metalua: The lineinfo on Metalua comments is inconsistent with other nodes
+  if allowexpand and fpos == nfpos and lpos == nlpos then
+    if comment_ast then
+      -- Select enclosing statement.
+      select_ast = match_ast
+      nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
+    else
+      -- note: multiple times may be needed to expand selection.  For example, in
+      --   `for x=1,2 do f() end` both the statement `f()` and block `f()` have
+      --   the same position range.
+      while select_ast ~= ast and fpos == nfpos and lpos == nlpos do
+        if not select_ast.parent then M.mark_parents(ast) end -- ensure ast.parent
+	select_ast = M.get_containing_statement(select_ast.parent, ast)
+	nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
+      end
+    end
+  end
+  return nfpos, nlpos
+end
+
 
 -- Remove any sheband ("#!") line from Lua source string.
 function M.remove_shebang(src)
   local shebang = src:match("^#![^\r\n]*")
   return shebang and (" "):rep(#shebang) .. src:sub(#shebang+1) or src
 end
+
 
 -- Custom version of loadstring that parses out line number info
 function M.loadstring(src)
@@ -42,6 +200,7 @@ function M.loadstring(src)
     return nil, err, linenum, colnum, linenum2
   end
 end
+
 
 -- helper for ast_from_string.  Raises on error.
 -- FIX? filename currently ignored in Metalua
@@ -114,6 +273,42 @@ ops["or"] = function(a,b) return a or b end
 ops["not"] = function(a) return not a end
 ops["len"] = function(a) return #a end
 ops["unm"] = function(a) return -a end
+
+
+-- For each node n in ast, set n.parent to parent node of n.
+-- Assumes ast.parent will be parent_ast (may be nil)
+local special = {Forin=3, Function=2}
+function M.mark_parents(ast, parent_ast)
+  ast.parent = parent_ast
+  if special[ast.tag] then
+    local ishallow = special[ast.tag]
+    for i, t in ipairs(ast) do
+      if i == ishallow then
+        local ast2 = ast[i]
+        M.mark_parents(ast2, ast)
+      else
+        for _, ast2 in ipairs(t) do M.mark_parents(ast2, ast) end
+      end
+    end
+  elseif ast.tag == 'Set' or ast.tag == 'Local' or ast.tag == 'Localrec' then
+    for _, t in ipairs(ast) do
+    for _, ast2 in ipairs(t) do
+      M.mark_parents(ast2, ast)
+    end end
+  else
+    for _,t_or_ast2 in ipairs(ast) do
+      if type(t_or_ast2) == 'table' then
+        local ast2 = t_or_ast2
+        M.mark_parents(ast2, ast)
+      end
+    end
+  end
+  --STYLE:Metalua: the above intentionally avoids treating expression lists as
+  --  parent nodes.  QUESTION: on second thought, does this code really want/need this?
+  --  This is currently done to allow easy detection of whether a `Call or `Invoke is
+  --  a statement or expression (if statement then ast.parent.tag is nil or 'Do'
+  --  (see get_containing_statement).
+end
 
 function M.inspect(ast)
   local globals = inspect_globals.globals(ast)
@@ -322,6 +517,50 @@ function M.inspect(ast)
 
   return notes
 end
+
+
+--[=[TESTSUITE
+-- utilities
+local ops = {}
+ops['=='] = function(a,b) return a == b end
+local function check(opname, a, b)
+  local op = assert(ops[opname])
+  if not op(a,b) then
+    error("fail == " .. tostring(a) .. " " .. tostring(b))
+  end
+end
+
+-- test longtest_prefix/longest_postfix
+local function pr(text1, text2)
+  local lastv
+  local function same(v)
+    assert(not lastv or v == lastv); lastv = v; return v
+  end
+  local function test1(text1, text2) -- test prefix/postfix
+    same(longest_prefix(text1, text2))
+    same(longest_postfix(text1:reverse(), text2:reverse()))
+  end
+  local function test2(text1, text2) -- test swap
+    test1(text1, text2)
+    test1(text2, text1)
+  end
+  for _,extra in ipairs{"", "x", "xy", "xyz"} do -- test extra chars
+    test2(text1, text2..extra)
+    test2(text2, text1..extra)
+  end
+  return lastv
+end
+check('==', pr("",""), 0)
+check('==', pr("a",""), 0)
+check('==', pr("a","a"), 1)
+check('==', pr("ab",""), 0)
+check('==', pr("ab","a"), 1)
+check('==', pr("ab","ab"), 2)
+check('==', pr("abcdefg","abcdefgh"), 7)
+
+print 'DONE'
+--]=]
+
 
 return M
 
