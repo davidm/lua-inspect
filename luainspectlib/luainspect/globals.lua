@@ -9,16 +9,16 @@ local M = {}
 
 -- Helper function: Parse current node in AST recursively.
 -- Data Notes:
---   ast.localdefinition will point to lexically scoped definition of `Id node `ast`.
---     If ast.localdefinition == ast then ast is a lexical definition.
---     If ast.tag == 'Id' and not ast.localdefinition, then variable is global.
+--   ast.localdefinition refers to lexically scoped definition of `Id node `ast`.
+--     If ast.localdefinition == ast then ast is a "lexical definition".
+--     If ast.localdefinition == nil, then variable is global.
 --   ast.functionlevel is the number of functions the AST is contained in.
---     ast.functionlevel is defined iff ast.localdefinition is defined. 
+--     ast.functionlevel is defined iff ast is a lexical definition. 
 --   ast.isparam is true iff ast is a lexical definition and a function parameter.
---   ast.isset is true iff `Id node `ast` is a lexical definition and there
---     exists an assignment on it.
---   ast.isused FIX - e.g. local abc; for abc=abc,abc do end
---   ast.isfield -- true iff `String is used for field access on object, e.g. x.y or x['y'].z
+--   ast.isset is true iff ast is a lexical definition and exists an assignment on it.
+--   ast.isused is true iff ast is a lexical definition and has been referred to.
+--   ast.isfield is true iff `String node ast is used for field access on object,
+--      e.g. x.y or x['y'].z
 --   ast.previous - FIX-doc
 --   ast.containid - FIX-doc
 local function traverse(ast, scope, globals, level, functionlevel)
@@ -86,20 +86,8 @@ local function traverse(ast, scope, globals, level, functionlevel)
     --  x is not a pointer to const) and assignments to any nested member of x
     --  (which indicates that x it not a transitive const).
   elseif ast.tag == "Fornum" then
-    local name_ast = ast[1]
-    local name = name_ast[1]
-    scope[name] = name_ast
-    name_ast.localdefinition = name_ast
-    name_ast.functionlevel = functionlevel
     blockrecurse = 1
   elseif ast.tag == "Forin" then
-    local namelist_ast = ast[1]
-    for _,name_ast in ipairs(namelist_ast) do
-      local name = name_ast[1]
-      scope[name] = name_ast
-      name_ast.localdefinition = name_ast
-      name_ast.functionlevel = functionlevel
-    end
     blockrecurse = 1
   end
 
@@ -113,7 +101,29 @@ local function traverse(ast, scope, globals, level, functionlevel)
     end
     scope = setmetatable({}, {__index = scope})
     traverse(cond_ast, scope, globals, level+1, functionlevel)
-  else
+  elseif ast.tag == "Fornum" then
+    local name_ast, block_ast = ast[1], ast[#ast]
+    -- eval value list in current scope
+    for i=2, #ast-1 do traverse(ast[i], scope, globals, level+1, functionlevel) end
+    -- eval body in next scope
+    local name = name_ast[1]
+    scope[name] = name_ast
+    name_ast.localdefinition = name_ast
+    name_ast.functionlevel = functionlevel
+    traverse(block_ast, scope, globals, level+1, functionlevel)
+  elseif ast.tag == "Forin" then
+    local namelist_ast, vallist_ast, block_ast = ast[1], ast[2], ast[3]
+    -- eval value list in current scope
+    traverse(vallist_ast, scope, globals, level+1, functionlevel)
+    -- eval body in next scope
+    for _,name_ast in ipairs(namelist_ast) do
+      local name = name_ast[1]
+      scope[name] = name_ast
+      name_ast.localdefinition = name_ast
+      name_ast.functionlevel = functionlevel
+    end
+    traverse(block_ast, scope, globals, level+1, functionlevel)
+  else -- normal
     for i,v in ipairs(ast) do
       if i ~= blockrecurse and type(v) == "table" then
         local scope = setmetatable({}, {__index = scope})

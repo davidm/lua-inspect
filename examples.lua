@@ -20,10 +20,13 @@ print(undefined_global)
 print(math) -- predefined global
 print(defined_global); defined_global = 2; print(defined_global)
 
--- Scope tests
-do local local1; for local1=local1,2 do end end  -- used local, unused local, used local FIX
-do local local1; for local1 in local1 do end end  -- used local, unused local, used local FIX
-do local local1; local local1 = local1 end -- used local, unused local, used local
+-- Scope tests for specific statements
+do local local1; for local1=local1,2 do end end  -- used, unused, used local
+do local local1; for local1 in local1 do end end  -- used, unused, used local
+do local local1; local local1 = local1 end -- used, unused, used local
+do local function local1() local1() end -- used, used local
+do local local1; local local1 = function() local1() end end -- used, unused, used local
+end
 do
   -- test repeat-until
   local local1  -- unused local
@@ -31,8 +34,10 @@ do
     local local1 -- unused local
     local local1 -- used local
   until local1 -- used local
-  
-  -- test local var scope stays inside block
+end
+
+-- test local var scope stays inside block
+do
   repeat local v2 until false;
   while false do local v3 end
   for v4=1,1 do local v5 end

@@ -122,6 +122,9 @@ Fabien Fleutot for Metalua.
 
 == Changes ==
 
+20100730
+  core: fix scoping of `for` statements (in globals.lua)
+
 20100729
   SciTE: options can now be set with SciTE properties.
   SciTE: refactor: select statement
