@@ -549,7 +549,7 @@ function M.mark_identifiers(ast)
   M.walk(ast, function(ast)
     if ast.tag == 'Id' or ast.isfield then
       if ast.localdefinition then
-        if ast.isdefinition then
+        if ast.localdefinition == ast then -- lexical definition
           id = id + 1
           ast.id = id
         else

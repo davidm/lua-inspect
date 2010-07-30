@@ -8,6 +8,9 @@
 local M = {}
 
 -- Helper function: Parse current node in AST recursively.
+-- Note:
+--   ast.localdefinition will point to lexically scoped definition of `Id node `ast`.
+--   If ast.localdefinition == ast then ast is a lexical definition.
 local function traverse(ast, scope, globals, level, functionlevel)
   scope = scope or {}
 
@@ -18,16 +21,15 @@ local function traverse(ast, scope, globals, level, functionlevel)
     blockrecurse = 1
     -- note: apply new scope after processing values
   elseif ast.tag == "Localrec" then
-    local vnames, vvalues = ast[1], ast[2]
-    for i,v in ipairs(vnames) do
-      assert(v.tag == "Id")
-      local vname = v[1]
+    local vnames_ast, vvalues_ast = ast[1], ast[2]
+    for _,v_ast in ipairs(vnames_ast) do
+      assert(v_ast.tag == "Id")
+      local vname = v_ast[1]
       local parentscope = getmetatable(scope).__index
-      parentscope[vname] = v
+      parentscope[vname] = v_ast
 
-      v.localdefinition = v
-      v.isdefinition = true
-      v.functionlevel = functionlevel
+      v_ast.localdefinition = v_ast
+      v_ast.functionlevel = functionlevel
     end
     blockrecurse = 1
   elseif ast.tag == "Id" then
@@ -52,7 +54,6 @@ local function traverse(ast, scope, globals, level, functionlevel)
       if v.tag == "Id" then
         scope[vname] = v
         v.localdefinition = v
-        v.isdefinition = true
         v.isparam = true
         v.functionlevel = functionlevel
       end
@@ -78,7 +79,6 @@ local function traverse(ast, scope, globals, level, functionlevel)
     local vname = v[1]
     scope[vname] = v
     v.localdefinition = v
-    v.isdefinition = true
     v.functionlevel = functionlevel
     blockrecurse = 1
   elseif ast.tag == "Forin" then
@@ -87,7 +87,6 @@ local function traverse(ast, scope, globals, level, functionlevel)
       local vname = v[1]
       scope[vname] = v
       v.localdefinition = v
-      v.isdefinition = true
       v.functionlevel = functionlevel
     end
     blockrecurse = 1
@@ -122,7 +121,6 @@ local function traverse(ast, scope, globals, level, functionlevel)
       parentscope[vname] = v
 
       v.localdefinition = v
-      v.isdefinition = true
       v.functionlevel = functionlevel
     end  
   elseif ast.tag == "Index" then
