@@ -7,7 +7,7 @@
 
 local M = {}
 
--- Helper function: Parse current node in AST recursively.
+-- Resolve scoping and usages of variable in AST.
 -- Data Notes:
 --   ast.localdefinition refers to lexically scoped definition of `Id node `ast`.
 --     If ast.localdefinition == ast then ast is a "lexical definition".
@@ -19,8 +19,7 @@ local M = {}
 --   ast.isused is true iff ast is a lexical definition and has been referred to.
 --   ast.isfield is true iff `String node ast is used for field access on object,
 --      e.g. x.y or x['y'].z
---   ast.previous - FIX-doc
---   ast.containid - FIX-doc
+--   ast.previous - For `Index{o,s} or `Invoke{o,s,...}, s.previous == o
 local function traverse(ast, scope, globals, level, functionlevel)
   scope = scope or {}
 
@@ -145,19 +144,14 @@ local function traverse(ast, scope, globals, level, functionlevel)
       name_ast.functionlevel = functionlevel
     end  
   elseif ast.tag == "Index" then
-    local previous_ast = ast[1] or ast[1].containid --FIX: looks suspicious
-    if previous_ast and ast[2].tag == "String" then
+    if ast[2].tag == "String" then
       ast[2].isfield = true
-      ast[2].previous = previous_ast
-      ast.containid = ast[2]
+      ast[2].previous = ast[1]
     end
   elseif ast.tag == "Invoke" then
-    local previous_ast = ast[1] or ast[1].containid -- FIX: looks suspicious
-    if previous_ast then
-      ast[2].isfield = true
-      ast[2].previous = previous_ast
-      ast.containid = ast[2]
-    end
+    assert(ast[2].tag == "String")
+    ast[2].isfield = true
+    ast[2].previous = ast[1]
   end
 end
 
