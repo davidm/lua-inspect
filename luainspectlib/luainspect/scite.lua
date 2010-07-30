@@ -184,39 +184,39 @@ local function update_ast()
         local delta = pos2l - pos1l
         LI.adjust_lineinfo(buffer.ast, pos1l, delta)
         if ast then  -- note: nil if whitespace
-	  LI.adjust_lineinfo(ast, 1, pos2f-1)
-	end
+          LI.adjust_lineinfo(ast, 1, pos2f-1)
+        end
  
         -- Inject AST
-	if old_type == 'whitespace' then
-	  -- nothing
+        if old_type == 'whitespace' then
+          -- nothing
         elseif old_type == 'comment' then
-	--table.print(ast)
+        --table.print(ast)
           local new_comment = ast.lineinfo.first.comments[1]
-	  --table.print(old_ast)
+          --table.print(old_ast)
           LI.switchtable(old_ast, new_comment)
         else assert(old_type == 'statblock')
           -- Merge alllineinfo.
-	  --[[
+          --[[
           assert(ast.alllineinfo)  -- from adjust_lineinfo
           if old_ast ~= buffer.ast then -- not replacing full AST
             for k in pairs(ast.alllineinfo) do buffer.ast.alllineinfo[k] = true end
             ast.alllineinfo = nil
           end
-	  .....
-	  old_ast = nil -- remove reference for gc
-	  
-	  collectgarbage() -- remove weak refs in alllineinfo
-	  ]]
-	  buffer.ast.alllineinfo = nil --IMPROVE
+          .....
+          old_ast = nil -- remove reference for gc
+          
+          collectgarbage() -- remove weak refs in alllineinfo
+          ]]
+          buffer.ast.alllineinfo = nil --IMPROVE
 
           LI.replace_ast(buffer.ast, old_ast, ast)
-	  
-	  --LI.walk(buffer.ast, function(ast) ast.parent = nil end)--FIX:DEBUG!!!!
-	  --table.print(buffer.ast, 20, 'nohash')
+          
+          --LI.walk(buffer.ast, function(ast) ast.parent = nil end)--FIX:DEBUG!!!!
+          --table.print(buffer.ast, 20, 'nohash')
         end
 
-	-- update notes
+        -- update notes
         if old_type == 'comment' or old_type == 'whitespace' then
           for i,note in ipairs(buffer.notes) do
             if note[1] >= pos1l then note[1] = note[1] + delta end
