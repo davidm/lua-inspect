@@ -80,7 +80,7 @@ local function formatvariabledetails(note)
     if note.ast.localdefinition.isset then
       info = info .. "mutable "
     end
-    if note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
+    if note.ast.localdefinition.functionlevel < note.ast.functionlevel then
       info = info .. "upvalue "
     elseif note.ast.localdefinition.isparam then
       info = info .. "param "

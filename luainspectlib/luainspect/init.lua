@@ -463,15 +463,15 @@ function M.infer_values(ast)
         end
       end
     elseif ast.tag == "Id" then
-      if ast.isglobal then
-        local ok, val = pcall(tindex, _G, ast[1])
-        if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
-      else
+      if ast.localdefinition then
         local localdefinition = ast.localdefinition
         if localdefinition.valueknown and not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
           ast.value = localdefinition.value
           ast.valueknown = localdefinition.valueknown
         end
+      else -- global
+        local ok, val = pcall(tindex, _G, ast[1])
+        if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
       end
     elseif ast.tag == "Index" then
       local t_ast, k_ast = ast[1], ast[2]

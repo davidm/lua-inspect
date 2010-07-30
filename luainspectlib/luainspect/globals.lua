@@ -8,9 +8,19 @@
 local M = {}
 
 -- Helper function: Parse current node in AST recursively.
--- Note:
+-- Data Notes:
 --   ast.localdefinition will point to lexically scoped definition of `Id node `ast`.
---   If ast.localdefinition == ast then ast is a lexical definition.
+--     If ast.localdefinition == ast then ast is a lexical definition.
+--     If ast.tag == 'Id' and not ast.localdefinition, then variable is global.
+--   ast.functionlevel is the number of functions the AST is contained in.
+--     ast.functionlevel is defined iff ast.localdefinition is defined. 
+--   ast.isparam is true iff ast is a lexical definition and a function parameter.
+--   ast.isset is true iff `Id node `ast` is a lexical definition and there
+--     exists an assignment on it.
+--   ast.isused FIX - e.g. local abc; for abc=abc,abc do end
+--   ast.isfield -- true iff `String is used for field access on object, e.g. x.y or x['y'].z
+--   ast.previous - FIX-doc
+--   ast.containid - FIX-doc
 local function traverse(ast, scope, globals, level, functionlevel)
   scope = scope or {}
 
@@ -21,86 +31,88 @@ local function traverse(ast, scope, globals, level, functionlevel)
     blockrecurse = 1
     -- note: apply new scope after processing values
   elseif ast.tag == "Localrec" then
-    local vnames_ast, vvalues_ast = ast[1], ast[2]
-    for _,v_ast in ipairs(vnames_ast) do
-      assert(v_ast.tag == "Id")
-      local vname = v_ast[1]
+    local namelist_ast, valuelist_ast = ast[1], ast[2]
+    for _,value_ast in ipairs(namelist_ast) do
+      assert(value_ast.tag == "Id")
+      local name = value_ast[1]
       local parentscope = getmetatable(scope).__index
-      parentscope[vname] = v_ast
+      parentscope[name] = value_ast
 
-      v_ast.localdefinition = v_ast
-      v_ast.functionlevel = functionlevel
+      value_ast.localdefinition = value_ast
+      value_ast.functionlevel = functionlevel
     end
     blockrecurse = 1
   elseif ast.tag == "Id" then
-    local vname = ast[1]
-    if scope[vname] then
-      ast.localdefinition = scope[vname]
-      scope[vname].isused = true
+    local name = ast[1]
+    if scope[name] then
+      ast.localdefinition = scope[name]
       ast.functionlevel = functionlevel
-    else
-      ast.isglobal = true
+      scope[name].isused = true
+    else -- global, do nothing
     end
     --if not scope[vname] then
     --  print(string.format("undefined %s at line %d", vname, ast.lineinfo.first[1]))
     --end
   elseif ast.tag == "Function" then
-    local params = ast[1]
-    local body = ast[2]
+    local paramlist_ast, body_ast = ast[1], ast[2]
     functionlevel = functionlevel + 1
-    for i,v in ipairs(params) do
-      local vname = v[1]
-      assert(v.tag == "Id" or v.tag == "Dots")
-      if v.tag == "Id" then
-        scope[vname] = v
-        v.localdefinition = v
-        v.isparam = true
-        v.functionlevel = functionlevel
+    for _,param_ast in ipairs(paramlist_ast) do
+      local name = param_ast[1]
+      assert(param_ast.tag == "Id" or param_ast.tag == "Dots")
+      if param_ast.tag == "Id" then
+        scope[name] = param_ast
+        param_ast.localdefinition = param_ast
+        param_ast.functionlevel = functionlevel
+        param_ast.isparam = true
       end
     end
     blockrecurse = 1
   elseif ast.tag == "Set" then
-    local vrefs, vvalues = ast[1], ast[2]
-    for i,v in ipairs(vrefs) do
-      if v.tag == 'Id' then
-        local vname = v[1]
-        if scope[vname] then
-          scope[vname].isset = true
+    local reflist_ast, valuelist_ast = ast[1], ast[2]
+    for _,ref_ast in ipairs(reflist_ast) do
+      if ref_ast.tag == 'Id' then
+        local name = ref_ast[1]
+        if scope[name] then
+          scope[name].isset = true
         else
-          if not globals[vname] then
-            globals[vname] = {set=v}
+          if not globals[name] then
+            globals[name] = {set=ref_ast}
           end
-          ast.isglobal = true
         end
       end
     end
+    --ENHANCE? We could differentiate assignments to x (which indicates that
+    --  x is not const) and assignments to a member of x (which indicates that
+    --  x is not a pointer to const) and assignments to any nested member of x
+    --  (which indicates that x it not a transitive const).
   elseif ast.tag == "Fornum" then
-    local v = ast[1]
-    local vname = v[1]
-    scope[vname] = v
-    v.localdefinition = v
-    v.functionlevel = functionlevel
+    local name_ast = ast[1]
+    local name = name_ast[1]
+    scope[name] = name_ast
+    name_ast.localdefinition = name_ast
+    name_ast.functionlevel = functionlevel
     blockrecurse = 1
   elseif ast.tag == "Forin" then
-    local vnames = ast[1]
-    for i,v in ipairs(vnames) do
-      local vname = v[1]
-      scope[vname] = v
-      v.localdefinition = v
-      v.functionlevel = functionlevel
+    local namelist_ast = ast[1]
+    for _,name_ast in ipairs(namelist_ast) do
+      local name = name_ast[1]
+      scope[name] = name_ast
+      name_ast.localdefinition = name_ast
+      name_ast.functionlevel = functionlevel
     end
     blockrecurse = 1
   end
 
   -- recurse (depth-first search down the AST)
   if ast.tag == "Repeat" then
+    local block_ast, cond_ast = ast[1], ast[2]
     local scope = scope
-    for i,v in ipairs(ast[1]) do
+    for _,stat_ast in ipairs(block_ast) do
       scope = setmetatable({}, {__index = scope})
-      traverse(v, scope, globals, level+1, functionlevel)
+      traverse(stat_ast, scope, globals, level+1, functionlevel)
     end
     scope = setmetatable({}, {__index = scope})
-    traverse(ast[2], scope, globals, level+1, functionlevel)
+    traverse(cond_ast, scope, globals, level+1, functionlevel)
   else
     for i,v in ipairs(ast) do
       if i ~= blockrecurse and type(v) == "table" then
@@ -113,28 +125,27 @@ local function traverse(ast, scope, globals, level, functionlevel)
   -- operations on walking up the AST
   if ast.tag == "Local" then
     -- Unlike Localrec, variables come into scope after evaluating values.
-    local vnames, vvalues = ast[1], ast[2]
-    for i,v in ipairs(vnames) do
-      assert(v.tag == "Id")
-      local vname = v[1]
+    local namelist_ast, valuelist_ast = ast[1], ast[2]
+    for _,name_ast in ipairs(namelist_ast) do
+      assert(name_ast.tag == "Id")
+      local name = name_ast[1]
       local parentscope = getmetatable(scope).__index
-      parentscope[vname] = v
-
-      v.localdefinition = v
-      v.functionlevel = functionlevel
+      parentscope[name] = name_ast
+      name_ast.localdefinition = name_ast
+      name_ast.functionlevel = functionlevel
     end  
   elseif ast.tag == "Index" then
-    local previous = ast[1] or ast[1].containid
-    if previous and ast[2].tag == "String" then
+    local previous_ast = ast[1] or ast[1].containid --FIX: looks suspicious
+    if previous_ast and ast[2].tag == "String" then
       ast[2].isfield = true
-      ast[2].previous = previous
+      ast[2].previous = previous_ast
       ast.containid = ast[2]
     end
   elseif ast.tag == "Invoke" then
-    local previous = ast[1] or ast[1].containid
-    if previous then
+    local previous_ast = ast[1] or ast[1].containid -- FIX: looks suspicious
+    if previous_ast then
       ast[2].isfield = true
-      ast[2].previous = previous
+      ast[2].previous = previous_ast
       ast.containid = ast[2]
     end
   end
