@@ -59,16 +59,24 @@ local function longest_postfix(text1, text2)
 end  -- differs from longest_prefix only on line [*]
 
 
--- Gets smallest AST node inside AST `ast` completely containing position range [pos1, pos2].
+-- Gets smallest AST node inside AST `ast`
+-- completely containing position range [pos1, pos2].
 -- careful: "function" is not part of the `Function node.
+-- If range is inside comment, returns comment also.
+-- If corresponding source `src` is specified and range is inside whitespace, then
+--    returns true in third return value.
 local locs = {'first', 'last'}
-function M.smallest_ast_in_range(ast, pos1, pos2)
+function M.smallest_ast_in_range(ast, src, pos1, pos2)
+  local partial
   for i,ast2 in ipairs(ast) do
     if type(ast2) == 'table' then
       local apos1 = ast2.lineinfo.first[3]
       local apos2 = ast2.lineinfo.last[3]
       if pos1 >= apos1 and pos2 <= apos2 then
-        return M.smallest_ast_in_range(ast2, pos1, pos2, ast)
+        return M.smallest_ast_in_range(ast2, src, pos1, pos2)
+      end
+      if pos1 >= apos1 and pos1 <= apos2 or pos2 >= apos1 and pos2 <= apos2 then -- partial overlap
+        partial = true
       end
       -- CAUTION:Metalua: For a block like `Do, it would be sufficient to examine the first
       --   comments from each member and the last comments from the last member.
@@ -80,15 +88,32 @@ function M.smallest_ast_in_range(ast, pos1, pos2)
           for _,comment in ipairs(comments) do
             local apos1, apos2 = comment[2], comment[3]
             if pos1 >= apos1 and pos2 <= apos2 then
-              return ast, comment
+              return ast, comment, nil
+            end
+            if pos1 >= apos1 and pos1 <= apos2 or pos2 >= apos1 and pos2 <= apos2 then -- partial overlap
+              partial = true
             end
           end
         end
       end
     end
   end
-  return ast, nil
+
+  local iswhitespace
+  if src and not partial and ast.tag ~= 'String' then
+    if pos1 > pos2 then
+      if src:sub(pos2, pos1):match'%s' then iswhitespace = true end
+    elseif src:sub(pos1,pos2):match'^%s+$' then
+      iswhitespace = true
+    end
+    --FIX:QUESTION: relies on undefined string.sub behavior?
+  end
+  if iswhitespace then
+    return ast, nil, true
+  end
+  return ast, nil, nil
 end
+--IMPROVE: handle string edits and maybe others
 
 
 -- Gets smallest statement or block containing or being `ast`.
@@ -106,35 +131,73 @@ function M.get_containing_statementblock(ast, top_ast)
 end
 
 
+-- Simple comment parser.  Returns Metalua-style comment.
+local function quick_parse_comment(src)
+  local s = src:match"^%-%-([^\n]*)()\n?$"
+  if s then return {s, 1, #src, 'short'} end
+  local _, s = src:match(lexer.lexer.patterns.long_comment .. '$')
+  if s then return {s, 1, #src, 'long'} end
+  return nil
+end --FIX:check new-line correctness
+
+
 -- Determines AST node that must be re-evaluated upon changing code string from
 -- `src1` to `src2`, given previous AST `ast1` corresponding to `src1`.
 -- note: decorates ast1 as side-effect
 function M.invalidated_code(ast1, src1, src2)
-  if src1 == src2 then return end
+  -- Converts posiiton range in src1 to position range in src2.
+  local function range_transform(src1_fpos, src1_lpos)
+    local src1_nlpos = #src1 - src1_lpos
+    local src2_fpos = src1_fpos
+    local src2_lpos = #src2 - src1_nlpos
+    return src2_fpos, src2_lpos
+  end
+
+  if src1 == src2 then return end -- up-to-date
+  
   local npre = longest_prefix(src1, src2)
   local npost = math.min(#src1-npre, longest_postfix(src1, src2))
     -- note: min to avoid overlap ambiguity
     
   -- Find range of positions in src1 that differences correspond to.
   -- note: for zero byte range, src1_pos2 = src1_pos1 - 1.
-  local src1_fpos = 1 + npre
-  local src1_lpos = #src1 - npost
+  local src1_fpos, src1_lpos = 1 + npre, #src1 - npost
   
-  -- Find smallest AST node in ast1 containing src1 range above.
-  local match1_ast, match1_comment = M.smallest_ast_in_range(ast1, src1_fpos, src1_lpos, nil)
+  -- Find smallest AST node in ast1 containing src1 range above,
+  -- optionally contained comment or whitespace
+  local match1_ast, match1_comment, iswhitespace =
+      M.smallest_ast_in_range(ast1, src1, src1_fpos, src1_lpos)
+      
+  print('DEBUG:invalidate-smallest:', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
-  if not match1_comment then
+  if iswhitespace then
+    local src2_fpos, src2_lpos = range_transform(src1_fpos, src1_lpos)
+    if src2:sub(src2_fpos, src2_lpos):match'^%s*$' then -- whitespace replaced with whitespace
+      return src1_fpos, src1_lpos, src2_fpos, src2_lpos, nil, 'whitespace'
+    end -- else continue
+  elseif match1_comment then
+    local src1m_fpos, src1m_lpos = match1_comment[2], match1_comment[3]
+    local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
+    
+    -- If new text is not a single comment, then invalidate containing statementblock instead.
+    local m2text = src2:sub(src2m_fpos, src2m_lpos)
+    print('DEBUG:inc-compile[' .. m2text .. ']')
+    if quick_parse_comment(m2text) then  -- comment replaced with comment
+      return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_comment, 'comment'
+    end -- else continue
+  else -- statementblock modified
     match1_ast = M.get_containing_statementblock(match1_ast, ast1)
+    local src1m_fpos, src1m_lpos = match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3]  
+    local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
+    local m2text = src2:sub(src2m_fpos, src2m_lpos)
+    if loadstring(m2text) then -- statementblock replaced with statementblock 
+      return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast, 'statblock'
+    end -- else continue
   end
-  local src1m_fpos = match1_comment and match1_comment[2] or match1_ast.lineinfo.first[3]
-  local src1m_lpos = match1_comment and match1_comment[3] or match1_ast.lineinfo.last[3]
-  local src1m_npost = #src1 - src1m_lpos
-  
-  -- Find range of positions in src2 that match_ast corresponds to.
-  local src2m_fpos = src1m_fpos
-  local src2m_lpos = #src2 - src1m_npost
-  --print(src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast.tag)
-  return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast
+
+  -- otherwise invalidate entire AST.
+  -- IMPROVE:performance: we don't always need to invalidate the entire AST here.
+  return nil, nil, nil, nil, ast1, 'full'
 end
 
 
@@ -146,7 +209,7 @@ function M.mark_alllineinfo(ast)
     if ast.lineinfo then
       for i=1,2 do
         local lineinfo = ast.lineinfo[locs[i]]
-        alllineinfo[lineinfo] = true
+        alllineinfo[lineinfo] = true -- DEBUG:locs[i]..tostring(ast.tag)
         if lineinfo.comments then
           for _, comment in ipairs(lineinfo.comments) do
             alllineinfo[comment] = true
@@ -164,7 +227,7 @@ end
 -- coincides with position range, then next containing statement is used
 -- instead (this allows multiple calls to further expand the statement selection).
 function M.select_statementblockcomment(ast, fpos, lpos, allowexpand)
-  local match_ast, comment_ast = M.smallest_ast_in_range(ast, fpos, lpos)
+  local match_ast, comment_ast = M.smallest_ast_in_range(ast, nil, fpos, lpos)
   local select_ast = comment_ast or M.get_containing_statementblock(match_ast, ast)
   local nfpos = comment_ast and select_ast[2] or select_ast.lineinfo.first[3]
   local nlpos = comment_ast and select_ast[3] or select_ast.lineinfo.last[3]
@@ -593,6 +656,46 @@ function M.switchtable(t1, t2)
 end
 
 
+-- Replaces old_ast with new_ast in top_ast.
+-- Note: assumes new_ast is a block.  assumes old_ast is a statement or block.
+function M.replace_ast(top_ast, old_ast, new_ast)
+  if old_ast == top_ast then  -- complete replacement (simple)
+    M.switchtable(top_ast, new_ast)
+    return
+  end
+  if not top_ast.tag2 then M.mark_tag2(top_ast) end; assert(old_ast.tag2)
+  if old_ast.tag2 == 'Block' then
+    local old_parent = old_ast.parent
+    M.switchtable(old_ast, new_ast)
+
+    -- fixup annotations
+    M.mark_tag2(old_ast, 'Block')
+    if old_ast.parent then M.mark_parents(old_ast, old_parent) end
+  elseif old_ast.tag2 == 'Stat' or old_ast.tag2 == 'StatBlock' then
+    if not old_ast.parent then M.mark_parents(top_ast) end; assert(old_ast.parent)    
+    assert(old_ast.parent.tag2 == 'Block' or old_ast.parent.tag2 == 'StatBlock')
+    -- find index in parent
+    local ii
+    for i=1, #old_ast.parent do
+      if old_ast.parent[i] == old_ast then ii = i; break end
+    end
+    assert(ii)
+    -- merge statements into parent
+    local parent_ast = old_ast.parent
+    table.remove(parent_ast, ii)
+    for i=1,#new_ast do
+      table.insert(parent_ast, ii+i-1, new_ast[i])
+      
+      -- fixup annotations
+      M.mark_tag2(new_ast[i], new_ast[i].tag == 'Do' and 'StatBlock' or 'Stat')
+      M.mark_parents(new_ast[i], parent_ast)
+    end
+  else
+    error 'not implemented'
+  end
+end
+
+
 --FIX: adjust rows/cols too?
 function M.adjust_lineinfo(ast, pos1, delta)
   M.mark_alllineinfo(ast)
@@ -603,7 +706,7 @@ function M.adjust_lineinfo(ast, pos1, delta)
          lineinfo[3] = lineinfo[3] + delta
          --NOTE: linenum will also need to be adjusted here if Metalua adds linenum to comment node.
       end
-    else
+    else  -- first or last of normal tag
       if lineinfo[3] >= pos1 then
         lineinfo[3] = lineinfo[3] + delta
       end

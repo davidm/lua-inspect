@@ -10,7 +10,7 @@ local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 -- Allows Lua to be used like a Mathcad worksheet.
 local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
 
--- WARNING: Experimental feature--in development.
+-- WARNING: Experimental feature--Probably still has bugs.
 -- When user edits code, recompile only the portion of code that is edited.
 -- This should improve performance.
 local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilation', '0') == '1'
@@ -131,53 +131,104 @@ end
 
 -- Attempt to update AST from editor text and apply decorations.
 local function update_ast()
-  -- skip if text unchanged
+  -- Skip update if text unchanged.
   local newtext = editor:GetText()
-  if newtext == buffer.lasttext then return false end
+  if newtext == buffer.lasttext then
+    return false
+  end
   buffer.lasttext = newtext
-  
   clockbegin 't1'
 
-  -- loadstring and metalua don't parse shebang
-  local newtextm = LI.remove_shebang(newtext)
-
-  local isincremental = INCREMENTAL_COMPILATION and buffer.ast
+  local err, linenum, colnum, linenum2
   
-  -- Analyze code using LuaInspect, and apply decorations
-  -- loadstring is much faster than Metalua, so try that first.
-  -- Furthermore, Metalua accepts a superset of the Lua grammar.
-  local f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
-  if f then
-    local compiletext
-    local pos1f, pos1l, pos2f, pos2l, old_ast
-    
+  -- Update AST.
+  if newtext == buffer.text then -- returned to previous good version
+    -- note: nothing to do besides display
+  else  
+   -- note: loadstring and metalua don't parse shebang
+   local newtextm = LI.remove_shebang(newtext)
+
+   -- Quick syntax check.   
+   -- loadstring is much faster than Metalua, so try that first.
+   -- Furthermore, Metalua accepts a superset of the Lua grammar.
+   local f; f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
+
+   -- Analyze code using LuaInspect, and apply decorations
+   if f then
+    -- Select code to compile.
+    local isincremental = INCREMENTAL_COMPILATION and buffer.ast
+    local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compiletext
     if isincremental then
-      pos1f, pos1l, pos2f, pos2l, old_ast = LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
-      compiletext = newtextm:sub(pos2f,pos2l)
-      --print('DEBUG:incremental:[' .. compiletext .. ']')
+      pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
+          LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
+      compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
+      print('DEBUG:inc-compile:[' .. compiletext .. ']', old_ast and old_ast.tag, old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
       compiletext = newtextm
     end
-
     clock 't2'
-    local ast; ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
+
+    -- Generate AST.
+    local ast
+    if old_type ~= 'whitespace' then
+      ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
+    end
     clock 't3'
 
-    if not ast then
+    if err then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
     else
-      if isincremental then
-        -- insert new AST into original AST and adjust line numbers
+      buffer.text = newtext
+      if isincremental and old_type ~= 'full' then
+        -- Adjust line numbers.
         local delta = pos2l - pos1l
-        LI.adjust_lineinfo(buffer.ast, pos1l+1, delta)
-        LI.adjust_lineinfo(ast, 1, pos2f-1)        
-        LI.switchtable(old_ast, ast)
+        LI.adjust_lineinfo(buffer.ast, pos1l, delta)
+        if ast then  -- note: nil if whitespace
+	  LI.adjust_lineinfo(ast, 1, pos2f-1)
+	end
+ 
+        -- Inject AST
+	if old_type == 'whitespace' then
+	  -- nothing
+        elseif old_type == 'comment' then
+	--table.print(ast)
+          local new_comment = ast.lineinfo.first.comments[1]
+	  --table.print(old_ast)
+          LI.switchtable(old_ast, new_comment)
+        else assert(old_type == 'statblock')
+          -- Merge alllineinfo.
+	  --[[
+          assert(ast.alllineinfo)  -- from adjust_lineinfo
+          if old_ast ~= buffer.ast then -- not replacing full AST
+            for k in pairs(ast.alllineinfo) do buffer.ast.alllineinfo[k] = true end
+            ast.alllineinfo = nil
+          end
+	  .....
+	  old_ast = nil -- remove reference for gc
+	  
+	  collectgarbage() -- remove weak refs in alllineinfo
+	  ]]
+	  buffer.ast.alllineinfo = nil --IMPROVE
 
-        buffer.notes = nil; collectgarbage()
-        buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
+          LI.replace_ast(buffer.ast, old_ast, ast)
+	  
+	  --LI.walk(buffer.ast, function(ast) ast.parent = nil end)--FIX:DEBUG!!!!
+	  --table.print(buffer.ast, 20, 'nohash')
+        end
+
+	-- update notes
+        if old_type == 'comment' or old_type == 'whitespace' then
+          for i,note in ipairs(buffer.notes) do
+            if note[1] >= pos1l then note[1] = note[1] + delta end
+            if note[2] >= pos1l then note[2] = note[2] + delta end
+          end
+        else
+          buffer.notes = nil; collectgarbage()
+          buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
         --adjust_notes(buffer.notes, pos1l+1, delta)
         --buffer.notes = LI.create_notes(buffer.ast)
-      else
+        end
+      else --full
         buffer.ast = ast
         
         -- careful: if `buffer.notes` variable exists in `newtext`, then
@@ -187,9 +238,11 @@ local function update_ast()
         buffer.notes = LI.inspect(buffer.ast)
       end
     end
-    clockend 't4'
+   end
   end
-  --unused: editor.IndicStyle[0]=
+  clockend 't4'
+  
+  -- Apply styling
   if err then
      local pos = linenum and editor:PositionFromLine(linenum-1) + colnum - 1
      --old: editor:CallTipShow(pos, err)
@@ -212,7 +265,7 @@ local function update_ast()
      end
      return
   else
-    buffer.text = newtext
+    
     --old: editor:CallTipCancel()
     editor.IndicatorCurrent = 0
     editor:IndicatorClearRange(0, editor.Length)
@@ -221,6 +274,7 @@ local function update_ast()
 
     if ANNOTATE_ALL_LOCALS then annotate_all_locals() end
   end
+  --unused: editor.IndicStyle[0]=
 end
 
 

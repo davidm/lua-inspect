@@ -125,6 +125,7 @@ Fabien Fleutot for Metalua.
 20100729
   SciTE: options can now be set with SciTE properties.
   SciTE: refactor: select statement
+  core/SciTE: more work on incremental compilation (luainspect.incremental.compilation)
 
 20100728
   core/SciTE: add command to select statement or comment containing current cursor selection.
