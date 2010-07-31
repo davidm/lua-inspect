@@ -748,6 +748,30 @@ style.script_lua.keyword=fore:#505050,bold
 #style.script_lua.36=
 #style.script_lua.37=
 ]]
+
+  -- or dark background style
+  --[=[
+  local styles = [[
+lexer.*.lua=script_lua
+style.script_lua.32=back:#000000
+style.script_lua.default=fore:#ffffff
+style.script_lua.local=fore:#8080ff
+style.script_lua.recognized_global=fore:#600000
+style.script_lua.unrecognized_global=fore:#ffffff,back:#ff0000,bold
+style.script_lua.comment=fore:#008000
+style.script_lua.string=fore:#00c000
+style.script_lua.local_mutate=fore:#8080ff,italics
+style.script_lua.local_unused=fore:#ffffff,back:#0000ff
+style.script_lua.local_param=fore:#4040ff
+style.script_lua.compiler_error=fore:#800000,back:#ffffc0
+style.script_lua.local_upvalue=fore:#c0c0ff
+style.script_lua.table_field=fore:#c00000
+style.script_lua.table_field_recognized=fore:#600000
+style.script_lua.tab=back:#f0f0f0
+style.script_lua.keyword=fore:#505050,bold
+]]
+--]=]
+
   for style in styles:gmatch("[^\n]+") do
     if not (style:match("^%s*#") or style:match("^%s*$")) then
         local name, value = style:match("^([^=]+)=(.*)"); assert(name, style)

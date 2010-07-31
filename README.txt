@@ -110,6 +110,7 @@ Suggestions also by Tymur Gubayev.
 
 20100731
   SciTE: allow styles in properties to be specified by name and more flexibly overridden.
+  SciTE: add optional dark style
 
 20100730
   core: fix scoping of `for` statements (in globals.lua)
