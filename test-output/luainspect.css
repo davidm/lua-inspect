@@ -1,20 +1,21 @@
 // LuaInspect CSS styles
 
 .id { cursor: pointer }
-.id.local { color: #0000a0; }
-.id.global { color: #800000 }
-.id.global.possiblyundefined { color: white; background-color: red }
-.id.field { color: #600000 }
-.id.field.possiblyundefined { color: #c00000 }
-.id.local.param { color: #000080 }
+.id.local { color: #000080; }
+.id.local.param { color: #000040 }
 .id.local.upvalue { color: #0000ff }
+.id.local.unused { color: #ffffff; background-color: #000080 }
+.id.global.recognized { color: #800000 }
+.id.global.unrecognized { color: white; background-color: red }
+.id.field.recognized { color: #600000 }
+.id.field.unrecognized { color: #c00000 }
 .id.mutatebind { font-style: italic }
-.id.unused { color: #ffffff; background-color: #000080 }
+.comment { color: #008000 }
+.string { color: #00c000 }
 
 .id.highlight {background-color: #ffe0e0}
 
 
 .info { position: absolute; display: none; padding: 0.5em; background-color: #f0f0f0; border: 1px solid #808080; margin: 1.5em 0.5em }
 
-.comment { color: #008000 }
-.string { color: #00c000 }
+
