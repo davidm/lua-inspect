@@ -99,7 +99,8 @@ See LICENSE file.
 
 David Manura, original author.
 Steve Donovan for discussions on design and SciTE.
-Fabien Fleutot for Metalua.  
+Fabien Fleutot for Metalua and discussions.
+Suggestions also by Tymur Gubayev.
 
 == References ==
 
