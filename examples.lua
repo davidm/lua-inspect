@@ -7,7 +7,7 @@ local unused_local = 1
 local used_local = 2; print(used_local)
 local reassigned_local = 1; reassigned_local = 2
 local upval_local; function f() return upval_local end
-local reassigned_upval_local; function f() reassigned_upval_local = 2 end --Q:OK?
+local reassigned_upval_local; function f() reassigned_upval_local = 2 end
 function f(param_unused_local, param_used_local, param_reassigned_local, param_upval_local, param_reassigned_upval_local)
   print(param_used_local)
   param_reassigned_local = 2
@@ -15,7 +15,7 @@ function f(param_unused_local, param_used_local, param_reassigned_local, param_u
     print(param_upval_local)
     param_reassigned_upval_local = 2
   end
-end  -- Q:OK?
+end
 print(undefined_global)
 print(math) -- predefined global
 print(defined_global); defined_global = 2; print(defined_global)

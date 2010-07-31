@@ -46,8 +46,7 @@ htmllib/* - HTML resources under here
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua  luainspectlib/luainspect/init.lua
-> test-output/init.html
+  $ lua luainspectlib/luainspect/command.lua  examples.lua > test-output/examples.html
 
 == Installation in SciTE ==
 
@@ -111,6 +110,7 @@ Suggestions also by Tymur Gubayev.
 20100731
   SciTE: allow styles in properties to be specified by name and more flexibly overridden.
   SciTE: add optional dark style
+  SciTE/HTML: support mutate upvalues, cleanup styles
 
 20100730
   core: fix scoping of `for` statements (in globals.lua)

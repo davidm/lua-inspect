@@ -36,45 +36,50 @@ function M.ast_to_html(ast, src, notes)
       return "<span class='comment'>" .. snip_html .. "</span>"
     elseif note.type == 'string' then
       return "<span class='string'>" .. snip_html .. "</span>"
-    else -- Id
+    elseif note.type == 'global' or note.type == 'local' or note.type == 'field' then -- Id
       local class = note.type
       local desc_html = escape_html(class)
-      if note.isparam then
-        class = class .. ' param'
-        desc_html = desc_html .. ' param'
-      end
-      if note.ast.localdefinition then
+
+      if note.type == 'global'  then
+        if note.definedglobal then
+          class = class .. ' recognized'
+          desc_html = desc_html .. ' recognized'
+        else
+          class = class .. ' unrecognized'
+          desc_html = desc_html .. ' unrecognized'
+        end
+      elseif note.type == 'local' then
         if note.ast.functionlevel > note.ast.localdefinition.functionlevel then
           class = class .. ' upvalue'
           desc_html = desc_html .. ' upvalue'
         end
-      else
-        if note.definedglobal then
-          class = class .. ' probablydefined'
-          desc_html = desc_html .. ' probably-defined'
-        else
-          class = class .. ' possiblyundefined'
-          desc_html = desc_html .. ' undefined?'
+        if not note.ast.localdefinition.isused then
+          class = class .. ' unused'
         end
-      end
-
-      if note.type == 'local' and not note.ast.localdefinition.isused then
-        class = class .. ' unused'
-      end
-      if note.type == 'local' and not note.ast.localdefinition.isset then
-        class = class .. ' constbind'
-      elseif note.type == 'local' and note.ast.localdefinition.isset then
-        class = class .. ' mutatebind'
-        desc_html = desc_html .. ' mutate-bind'
-      end
-
-      if note.type == 'local' then
-
+        if note.ast.localdefinition.isset then
+          class = class .. ' mutatebind'
+          desc_html = desc_html .. ' mutate-bind'
+        else
+          class = class .. ' constbind'
+        end
+        if note.isparam then
+          class = class .. ' param'
+          desc_html = desc_html .. ' param'
+        end
         if note.ast.localdefinition.lineinfo then
           local linenum = note.ast.localdefinition.lineinfo.first[1]
           desc_html = desc_html .. ' defined-line:' .. linenum
         end
+      elseif note.type == 'field' then
+        if note.definedglobal or note.ast.seevalue.value ~= nil then
+          class = class .. ' field recognized'
+          desc_html = desc_html .. ' field recognized'
+        else
+          class = class .. ' field unrecognized'
+          desc_html = desc_html .. ' field unrecognized'
+        end
       end
+      
       local id_html = ''
       if note.ast.id then
         id_html = " id='id" .. note.ast.id .. "'"

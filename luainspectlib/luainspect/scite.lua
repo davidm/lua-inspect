@@ -56,34 +56,36 @@ end or nilfunc
 local STYLES = {}
 local S_DEFAULT = 0
 local S_LOCAL = 1
-local S_RECOGNIZED_GLOBAL = 2
-local S_UNRECOGNIZED_GLOBAL = 3
-local S_COMMENT = 4
-local S_STRING = 5
 local S_LOCAL_MUTATE = 6
 local S_LOCAL_UNUSED = 7
 local S_LOCAL_PARAM = 8
-local S_COMPILER_ERROR = 9
-local S_LOCAL_UPVALUE = 10
-local S_TABLE_FIELD = 11
-local S_TABLE_FIELD_RECOGNIZED = 12
+local S_UPVALUE = 10
+local S_UPVALUE_MUTATE = 15
+local S_GLOBAL_RECOGNIZED = 2
+local S_GLOBAL_UNRECOGNIZED = 3
+local S_FIELD = 11
+local S_FIELD_RECOGNIZED = 12
+local S_COMMENT = 4
+local S_STRING = 5
 local S_TAB = 13
 local S_KEYWORD = 14
+local S_COMPILER_ERROR = 9
 STYLES.default = S_DEFAULT
 STYLES['local'] = S_LOCAL
-STYLES.recognized_global = S_RECOGNIZED_GLOBAL
-STYLES.unrecognized_global = S_UNRECOGNIZED_GLOBAL
-STYLES.comment = S_COMMENT
-STYLES.string = S_STRING
 STYLES.local_mutate = S_LOCAL_MUTATE
 STYLES.local_unused = S_LOCAL_UNUSED
 STYLES.local_param = S_LOCAL_PARAM
-STYLES.compiler_error = S_COMPILER_ERROR
-STYLES.local_upvalue = S_LOCAL_UPVALUE
-STYLES.table_field = S_TABLE_FIELD
-STYLES.table_field_recognized = S_TABLE_FIELD_RECOGNIZED
+STYLES.upvalue = S_UPVALUE
+STYLES.upvalue_mutate = S_UPVALUE_MUTATE
+STYLES.global_recognized = S_GLOBAL_RECOGNIZED
+STYLES.global_unrecognized = S_GLOBAL_UNRECOGNIZED
+STYLES.field = S_FIELD
+STYLES.field_recognized = S_FIELD_RECOGNIZED
+STYLES.comment = S_COMMENT
+STYLES.string = S_STRING
 STYLES.tab = S_TAB
 STYLES.keyword = S_KEYWORD
+STYLES.compiler_error = S_COMPILER_ERROR
 
 local function formatvariabledetails(note)
   local info = ""
@@ -466,11 +468,12 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
   editor.StyleHotSpot[S_LOCAL_UNUSED] = true
   editor.StyleHotSpot[S_LOCAL_PARAM] = true
-  editor.StyleHotSpot[S_LOCAL_UPVALUE] = true
-  editor.StyleHotSpot[S_RECOGNIZED_GLOBAL] = true
-  editor.StyleHotSpot[S_UNRECOGNIZED_GLOBAL] = true
-  editor.StyleHotSpot[S_TABLE_FIELD] = true
-  editor.StyleHotSpot[S_TABLE_FIELD_RECOGNIZED] = true
+  editor.StyleHotSpot[S_UPVALUE] = true
+  editor.StyleHotSpot[S_UPVALUE_MUTATE] = true
+  editor.StyleHotSpot[S_GLOBAL_RECOGNIZED] = true
+  editor.StyleHotSpot[S_GLOBAL_UNRECOGNIZED] = true
+  editor.StyleHotSpot[S_FIELD] = true
+  editor.StyleHotSpot[S_FIELD_RECOGNIZED] = true
   -- note: SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK currently aren't
   -- implemented by SciTE, although it has been proposed.
 
@@ -491,17 +494,23 @@ local function OnStyle(styler)
     end
     
     if note and i >= note[1] and i <= note[2] then
-      if note.type == 'global' and note.definedglobal then
-        styler:SetState(S_RECOGNIZED_GLOBAL)
-      elseif note.type == 'global' then
-        styler:SetState(S_UNRECOGNIZED_GLOBAL)
+      if note.type == 'global' then
+        if note.definedglobal then
+          styler:SetState(S_GLOBAL_RECOGNIZED)
+        else
+          styler:SetState(S_GLOBAL_UNRECOGNIZED)
+        end
       elseif note.type == 'local' then
         if not note.ast.localdefinition.isused then
           styler:SetState(S_LOCAL_UNUSED)
+        elseif note.ast.localdefinition.functionlevel  < note.ast.functionlevel then  -- upvalue
+          if note.ast.localdefinition.isset then
+            styler:SetState(S_UPVALUE_MUTATE)
+          else
+            styler:SetState(S_UPVALUE)
+          end
         elseif note.ast.localdefinition.isset then
           styler:SetState(S_LOCAL_MUTATE)
-        elseif note.ast.localdefinition.functionlevel  < note.ast.functionlevel then
-          styler:SetState(S_LOCAL_UPVALUE)
         elseif note.ast.localdefinition.isparam then
           styler:SetState(S_LOCAL_PARAM)
         else
@@ -509,9 +518,9 @@ local function OnStyle(styler)
         end
       elseif note.type == 'field' then
         if note.definedglobal or note.ast.seevalue.value ~= nil then
-          styler:SetState(S_TABLE_FIELD_RECOGNIZED)
+          styler:SetState(S_FIELD_RECOGNIZED)
         else
-          styler:SetState(S_TABLE_FIELD)
+          styler:SetState(S_FIELD)
         end
       elseif note.type == 'comment' then
         styler:SetState(S_COMMENT)
@@ -720,19 +729,20 @@ function M.install()
 lexer.*.lua=script_lua
 style.script_lua.default=fore:#000000
 style.script_lua.local=fore:#000080
-style.script_lua.recognized_global=fore:#600000
-style.script_lua.unrecognized_global=fore:#ffffff,back:#ff0000,bold
+style.script_lua.local_mutate=fore:#000080,italics
+style.script_lua.local_unused=fore:#ffffff,back:#000080
+style.script_lua.local_param=fore:#000040
+style.script_lua.upvalue=fore:#0000ff
+style.script_lua.upvalue_mutate=fore:#0000ff,italics
+style.script_lua.global_recognized=fore:#600000
+style.script_lua.global_unrecognized=fore:#ffffff,back:#ff0000,bold
+style.script_lua.field=fore:#c00000
+style.script_lua.field_recognized=fore:#600000
 style.script_lua.comment=fore:#008000
 style.script_lua.string=fore:#00c000
-style.script_lua.local_mutate=fore:#000080,italics
-style.script_lua.local_unused=fore:#ffffff,back:#0000ff
-style.script_lua.local_param=fore:#000040
-style.script_lua.compiler_error=fore:#800000,back:#ffffc0
-style.script_lua.local_upvalue=fore:#0000ff
-style.script_lua.table_field=fore:#c00000
-style.script_lua.table_field_recognized=fore:#600000
 style.script_lua.tab=back:#f0f0f0
 style.script_lua.keyword=fore:#505050,bold
+style.script_lua.compiler_error=fore:#800000,back:#ffffc0
 # From SciTE docs:
 # As well as the styles generated by the lexer, there are other numbered styles used.
 # Style 32 is the default style and its features will be inherited by all other styles unless overridden.
@@ -756,19 +766,20 @@ lexer.*.lua=script_lua
 style.script_lua.32=back:#000000
 style.script_lua.default=fore:#ffffff
 style.script_lua.local=fore:#8080ff
-style.script_lua.recognized_global=fore:#600000
-style.script_lua.unrecognized_global=fore:#ffffff,back:#ff0000,bold
+style.script_lua.local_mutate=fore:#8080ff,italics
+style.script_lua.local_unused=fore:#ffffff,back:#000080
+style.script_lua.local_param=fore:#4040ff
+style.script_lua.upvalue=fore:#c0c0ff
+style.script_lua.upvalue_mutate=fore:#c0c0ff,italics
+style.script_lua.global_recognized=fore:#600000
+style.script_lua.global_unrecognized=fore:#ffffff,back:#ff0000,bold
+style.script_lua.field=fore:#c00000
+style.script_lua.field_recognized=fore:#600000
 style.script_lua.comment=fore:#008000
 style.script_lua.string=fore:#00c000
-style.script_lua.local_mutate=fore:#8080ff,italics
-style.script_lua.local_unused=fore:#ffffff,back:#0000ff
-style.script_lua.local_param=fore:#4040ff
-style.script_lua.compiler_error=fore:#800000,back:#ffffc0
-style.script_lua.local_upvalue=fore:#c0c0ff
-style.script_lua.table_field=fore:#c00000
-style.script_lua.table_field_recognized=fore:#600000
 style.script_lua.tab=back:#f0f0f0
 style.script_lua.keyword=fore:#505050,bold
+style.script_lua.compiler_error=fore:#800000,back:#ffffc0
 ]]
 --]=]
 
