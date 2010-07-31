@@ -67,7 +67,7 @@ local S_LOCAL_UPVALUE = 10
 local S_TABLE_FIELD = 11
 local S_TABLE_FIELD_RECOGNIZED = 12
 local S_TAB = 13
-
+local S_KEYWORD = 14
 
 local function formatvariabledetails(note)
   local info = ""
@@ -297,7 +297,44 @@ local function getselectedvariable()
 end
 
 
+-- Mark in margin range of 0-indexed lines.
+local function scope_lines(firstline0, lastline0)
+  if firstline0 ~= lastline0 then
+    --TODO: not rendering exactly as desired.  TCORNERCURVE should
+    -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
+    editor:MarkerDefine(1, SC_MARK_TCORNERCURVE)
+    editor:MarkerDefine(2, SC_MARK_VLINE)
+    editor:MarkerDefine(3, SC_MARK_LCORNERCURVE)
+    editor:MarkerSetFore(1, 0x0000ff)
+    editor:MarkerSetFore(2, 0x0000ff)
+    editor:MarkerSetFore(3, 0x0000ff)
+
+    editor:MarkerAdd(firstline0, 1)
+    for n=firstline0+1,lastline0-1 do
+      editor:MarkerAdd(n, 2)
+    end
+    editor:MarkerAdd(lastline0, 3)
+  else
+    editor:MarkerDefine(2, SC_MARK_VLINE)
+    editor:MarkerSetFore(2, 0x0000ff)
+    editor:MarkerAdd(firstline0, 2)
+  end
+end
+
+
+-- Mark in margin range of 0-indexed positions.
+local function scope_positions(fpos0, lpos0)
+  local firstline0 = editor:LineFromPosition(fpos0-1)
+  local lastline0 = editor:LineFromPosition(lpos0-1)
+  scope_lines(firstline0, lastline0)
+end
+
+
 -- Respond to UI updates.  This includes moving the cursor.
+local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true,
+    Local=true, Localrec=true, Return=true, Break=true, Function=true,
+    Set=true -- note: Set for `function name`
+}
 scite_OnUpdateUI(function()
   -- FIX: how to make the occur only in Lua buffers.
   if editor.Lexer ~= 0 then return end -- FIX: hack: probably won't work with multiple Lua-based lexers
@@ -322,7 +359,7 @@ scite_OnUpdateUI(function()
   --  --Q: how to reliably remove this upon a buffer switch?
   --end
 
-  -- hightlight all instances of that identifier
+  -- highlight all instances of that identifier
   editor:MarkerDeleteAll(1)
   editor:MarkerDeleteAll(2)
   editor:MarkerDeleteAll(3)
@@ -339,34 +376,39 @@ scite_OnUpdateUI(function()
       end
     end
 
-    -- mark entire scope
-    local firstline = editor:LineFromPosition(first[1]-1)
-    local lastline = editor:LineFromPosition(last[2]-1)
-    if firstline ~= lastline then
-      --TODO: not rendering exactly as desired.  TCORNERCURVE should
-      -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
-      editor:MarkerDefine(1, SC_MARK_TCORNERCURVE)
-      editor:MarkerDefine(2, SC_MARK_VLINE)
-      editor:MarkerDefine(3, SC_MARK_LCORNERCURVE)
-      editor:MarkerSetFore(1, 0x0000ff)
-      editor:MarkerSetFore(2, 0x0000ff)
-      editor:MarkerSetFore(3, 0x0000ff)
-
-      editor:MarkerAdd(firstline, 1)
-      for n=firstline+1,lastline-1 do
-        editor:MarkerAdd(n, 2)
-      end
-      editor:MarkerAdd(lastline, 3)
-    else
-      editor:MarkerDefine(2, SC_MARK_VLINE)
-      editor:MarkerSetFore(2, 0x0000ff)
-      editor:MarkerAdd(firstline, 2)
-    end
+    scope_positions(first[1]-1, last[2]-1)
 
   else
     editor.IndicatorCurrent = 1
     editor:IndicatorClearRange(0, editor.Length)
   end
+  
+  if not id then
+    -- Check for selection over statement or expression.
+    local fpos, lpos = editor.Anchor, editor.CurrentPos
+    if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
+    fpos, lpos = fpos + 1, lpos + 1 - 1
+    local match1_ast, match1_comment, iswhitespace =
+      LI.smallest_ast_in_range(buffer.ast, buffer.text, fpos, lpos)
+    --print('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
+
+    -- Highlight keywords in statment/block.    
+    editor.IndicStyle[1] = INDIC_ROUNDBOX
+    editor.IndicatorCurrent = 1
+    editor:IndicatorClearRange(0, editor.Length)
+    if iskeystat[match1_ast.tag] then
+      local kposlist = LI.get_keywords(match1_ast, buffer.text)
+      for i=1,#kposlist,2 do
+        local fpos, lpos = kposlist[i], kposlist[i+1]
+        --print(fpos,lpos,'m')
+        editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
+      end
+    end
+    
+    -- Mark range of lines covered by item on selection.
+    scope_positions(match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3])
+  end
+  
 --[[
   -- Display callinfo help on function.
   if selectednote and selectednote.ast.resolvedname and LS.global_signatures[selectednote.ast.resolvedname] then
@@ -470,6 +512,9 @@ local function OnStyle(styler)
       end
     elseif styler:Current() == '\t' then
       styler:SetState(S_TAB)
+    elseif styler:Current():match'%a'
+    then
+      styler:SetState(S_KEYWORD)
     else
       styler:SetState(S_DEFAULT)
     end
@@ -568,7 +613,7 @@ end
 -- TODO: currently only works for locals in the same file.
 function M.goto_definition()
   local selectednote = getselectedvariable()
-  local pos1 = ast_to_definition_position(selectednote.ast)
+  local pos1 = ast_to_definition_position(selectednote.ast) --FIX:may be nil
   if pos1 then
     if set_mark then set_mark() end -- if ctagsdx.lua available
     editor:GotoPos(pos1 - 1)
@@ -637,8 +682,7 @@ function M.select_statementblockcomment()
   --   In any case, we want to handle reversed ranges.
   local fpos, lpos = editor.Anchor, editor.CurrentPos
   if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
-  fpos = fpos + 1
-  lpos = lpos + 1 - 1
+  fpos, lpos = fpos + 1, lpos + 1 - 1
   local fpos, lpos = LI.select_statementblockcomment(buffer.ast, fpos, lpos, true)
   editor:SetSel(fpos-1, lpos-1 + 1)
 end
@@ -689,6 +733,8 @@ style.script_lua.11=fore:#c00000
 style.script_lua.12=fore:#600000
 # tab character in whitespace
 style.script_lua.13=back:#f0f0f0
+# keyword
+style.script_lua.14=fore:#505050,bold
 ]]
   if props["lexer.*.lua"] == "" then
     for style in styles:gmatch("[^\n]+") do

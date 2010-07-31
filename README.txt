@@ -16,6 +16,7 @@ For further details, see
 == Features ==
 
     * cross-references local variables with their definitions and uses (pink highlight)
+    * shows all keywords in a statement (pink highlight - SciTE only)
     * identifies global (red) and local variables (blue)
     * identifies function arguments (dark blue)
     * identifies global variables that are probably undefined (white-on-red)
@@ -69,25 +70,9 @@ Dependencies:
   ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
     to return to previous location following a "go to definition" or "show all variable uses").
 
-If you want to customize styles, add this to your
-SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file:
-
-=============================
-lexer.*.lua=script_lua
-style.script_lua.0=fore:#000000 # default
-style.script_lua.1=fore:#000080 # local
-style.script_lua.2=fore:#600000  # recognized global
-style.script_lua.3=fore:#ffffff,back:#ff0000,bold  # unrecognized global
-style.script_lua.4=fore:#008000  # comment
-style.script_lua.5=fore:#00c000  # string
-style.script_lua.6=fore:#000080,italics,  # local mutate
-style.script_lua.7=fore:#ffffff,back:#0000ff  # local unused
-style.script_lua.8=fore:#000040 # local param
-style.script_lua.9=fore:#800000,back:#ffffc0  # compiler error
-style.script_lua.10=fore:#0000ff # local upvalue
-style.script_lua.11=fore:#c00000 # table field
-style.script_lua.12=fore:#600000 # table field recognized
-=============================
+If you want to customize styles, add the contents of the
+`styles` variable in the scite.lua file to your
+SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file.
 
 == Configuring SciTE options ==
 
@@ -124,6 +109,7 @@ Fabien Fleutot for Metalua.
 
 20100730
   core: fix scoping of `for` statements (in globals.lua)
+  core/SciTE: highlight keywords and show all keywords in selected statement.
 
 20100729
   SciTE: options can now be set with SciTE properties.

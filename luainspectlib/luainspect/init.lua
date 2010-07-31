@@ -69,7 +69,13 @@ local locs = {'first', 'last'}
 function M.smallest_ast_in_range(ast, src, pos1, pos2)
   local partial
   for i,ast2 in ipairs(ast) do
-    if type(ast2) == 'table' then
+    --if not ast2.lineinfo then print(ast and ast.tag, ast and ast.tag2, ast2 and ast2.tag,  ast2 and ast2.tag2) end
+    if type(ast2) == 'table' and ast2.lineinfo then
+        -- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
+        -- has no lineinfo on {}.  This is contrary to the Metalua
+        -- spec: `Local{ {ident+} {expr+}? }.
+        -- Other things like `self` also generate no lineinfo.
+        -- The ast2.lineinfo test above avoids this.
       local apos1 = ast2.lineinfo.first[3]
       local apos2 = ast2.lineinfo.last[3]
       if pos1 >= apos1 and pos2 <= apos2 then
@@ -251,6 +257,52 @@ function M.select_statementblockcomment(ast, fpos, lpos, allowexpand)
   return nfpos, nlpos
 end
 
+
+-- Gets list of keyword positions related to node ast in source src
+-- note: ast must be visible, i.e. have lineinfo.
+-- FIX/IMPROVE: `function` might be treated as a special case.
+function M.get_keywords(ast, src)
+  assert(ast.lineinfo)
+  local list = {}
+  -- examine space between each pair of children i and j.
+  -- special cases: 0 is before first child and #ast+1 is after last child
+  local i = 0
+  while i <= #ast do
+    -- j is node following i that has lineinfo
+    local j = i+1; while j < #ast+1 and not ast[j].lineinfo do j=j+1 end
+
+    -- Get position range [fpos,lpos] between subsequent children.
+    local fpos
+    if i == 0 then  -- before first child
+      fpos = ast.lineinfo.first[3]
+    else
+      local last = ast[i].lineinfo.last; local c = last.comments
+      fpos = (c and #c > 0 and c[#c][3] or last[3]) + 1
+    end
+    local lpos
+    if j == #ast+1 then  -- after last child
+      lpos = ast.lineinfo.last[3]
+    else
+      local first = ast[j].lineinfo.first; local c = first.comments
+      lpos = (c and #c > 0 and c[1][2] or first[3]) - 1
+    end
+    
+    -- Find keyword in range.
+    local mfpos, debug, mlppos = src:match("()(%a+)()", fpos)
+    if mfpos and mlppos-1 <= lpos then
+      list[#list+1] = mfpos
+      list[#list+1] = mlppos-1
+    end
+    -- note: finds single keyword.  in `local function` returns only `local`
+    --print(i,j ,'test[' .. src:sub(fpos, lpos) .. ']')
+    
+    i = j  -- next
+   
+    --DESIGN:Lua: comment: string.match accepts a start position but not a stop position
+  end
+  return list
+end
+-- Q:Metalua: does ast.lineinfo.comments imply #ast.lineinfo.comments > 0 ?
 
 -- Remove any sheband ("#!") line from Lua source string.
 function M.remove_shebang(src)
