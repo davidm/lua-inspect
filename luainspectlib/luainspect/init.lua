@@ -137,6 +137,74 @@ function M.get_containing_statementblock(ast, top_ast)
 end
 
 
+-- Gets all keywords related to AST `ast`, where `top_ast` is the root of `ast`
+-- and `src` is source code of `top_ast`
+-- Related keywords are defined as all keywords directly associated with node
+-- `ast`.  Furthermore, break statements are related to containing loop statements,
+-- and return statements are relted to containing function statement (if any).
+local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true,
+    Local=true, Localrec=true, Return=true, Break=true, Function=true,
+    Set=true -- note: Set for `function name`
+}
+local isloop = {While=true, Repeat=true, Fornum=true, Forin=true}
+function M.related_keywords(ast, top_ast, src)
+  -- Expand AST for certain contained statements.
+  if ast.tag == 'Return' then
+    -- if `return` selected, that consider containing function selected (if any)
+    if not ast.parent then M.mark_parents(top_ast) end
+    local ancestor_ast = ast.parent
+    while ancestor_ast ~= nil and ancestor_ast.tag ~= 'Function' do
+      ancestor_ast = ancestor_ast.parent
+    end
+    if ancestor_ast then ast = ancestor_ast end -- but only change if exists
+  elseif ast.tag == 'Break' then
+    -- if `break` selected, that consider containing loop selected
+    if not ast.parent then M.mark_parents(top_ast) end
+    local ancestor_ast = ast.parent
+    while ancestor_ast ~= nil and not isloop[ancestor_ast.tag] do
+      ancestor_ast = ancestor_ast.parent
+    end
+    ast = ancestor_ast
+  end
+
+  -- Highlight keywords in statment/block.    
+  if iskeystat[ast.tag] then
+    local kposlist = M.get_keywords(ast, src)
+
+    -- Expand keywords for certaining statements.
+    if ast.tag == 'Function' then
+      -- if `Function, also select 'return' keywords
+      local function f(ast)
+        for _,cast in ipairs(ast) do
+          if type(cast) == 'table' then
+            if cast.tag == 'Return' then
+              kposlist[#kposlist+1] = cast.lineinfo.first[3]
+              kposlist[#kposlist+1] = cast.lineinfo.first[3] + #'return' - 1
+            elseif cast.tag ~= 'Function'  then f(cast) end
+          end
+        end
+      end
+      f(ast)
+    elseif isloop[ast.tag] then
+      -- if loop, also select 'break' keywords
+      local function f(ast)
+        for _,cast in ipairs(ast) do
+          if type(cast) == 'table' then
+            if cast.tag == 'Break' then
+              kposlist[#kposlist+1] = cast.lineinfo.first[3]
+              kposlist[#kposlist+1] = cast.lineinfo.first[3] + #'break' - 1
+            elseif not isloop[cast.tag]  then f(cast) end
+          end
+        end
+      end
+      f(ast)        
+    end
+    
+    return kposlist
+  end
+end
+
+
 -- Simple comment parser.  Returns Metalua-style comment.
 local function quick_parse_comment(src)
   local s = src:match"^%-%-([^\n]*)()\n?$"

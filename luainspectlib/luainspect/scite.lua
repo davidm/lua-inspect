@@ -331,10 +331,6 @@ end
 
 
 -- Respond to UI updates.  This includes moving the cursor.
-local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true,
-    Local=true, Localrec=true, Return=true, Break=true, Function=true,
-    Set=true -- note: Set for `function name`
-}
 scite_OnUpdateUI(function()
   -- FIX: how to make the occur only in Lua buffers.
   if editor.Lexer ~= 0 then return end -- FIX: hack: probably won't work with multiple Lua-based lexers
@@ -392,12 +388,12 @@ scite_OnUpdateUI(function()
       LI.smallest_ast_in_range(buffer.ast, buffer.text, fpos, lpos)
     --print('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
-    -- Highlight keywords in statment/block.    
-    editor.IndicStyle[1] = INDIC_ROUNDBOX
-    editor.IndicatorCurrent = 1
-    editor:IndicatorClearRange(0, editor.Length)
-    if iskeystat[match1_ast.tag] then
-      local kposlist = LI.get_keywords(match1_ast, buffer.text)
+    -- Highlight any related keywords  
+    local kposlist = LI.related_keywords(match1_ast, buffer.ast, buffer.text)
+    if kposlist then
+      editor.IndicStyle[1] = INDIC_ROUNDBOX
+      editor.IndicatorCurrent = 1
+      editor:IndicatorClearRange(0, editor.Length)
       for i=1,#kposlist,2 do
         local fpos, lpos = kposlist[i], kposlist[i+1]
         --print(fpos,lpos,'m')
@@ -746,5 +742,7 @@ style.script_lua.14=fore:#505050,bold
   end
 end
 
+--COMMENT:SciTE: when Lua code fails, why doesn't SciTE display a full stack traceback
+-- (debug.traceback) to assist debugging?
 
 return M
