@@ -107,6 +107,9 @@ Fabien Fleutot for Metalua.
 
 == Changes ==
 
+20100731
+  SciTE: allow styles in properties to be specified by name and more flexibly overridden.
+
 20100730
   core: fix scoping of `for` statements (in globals.lua)
   core/SciTE: highlight keywords and show all keywords in selected statement.
