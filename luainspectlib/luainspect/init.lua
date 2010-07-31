@@ -141,14 +141,20 @@ end
 -- and `src` is source code of `top_ast`
 -- Related keywords are defined as all keywords directly associated with node
 -- `ast`.  Furthermore, break statements are related to containing loop statements,
--- and return statements are relted to containing function statement (if any).
+-- and return statements are related to containing function statement (if any).
+-- function declaration syntactic sugar is handled specially too to ensure the 'function' keyword
+-- is highlighted even though it may be outside of the `Function AST.
+--
+-- kposlist is list of begin/end positions of keywords.  Returned `ast` is AST containing related
+-- keywords.
 local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true,
     Local=true, Localrec=true, Return=true, Break=true, Function=true,
     Set=true -- note: Set for `function name`
 }
 local isloop = {While=true, Repeat=true, Fornum=true, Forin=true}
 function M.related_keywords(ast, top_ast, src)
-  -- Expand AST for certain contained statements.
+  -- Expand or contract AST for certain contained statements.
+  local localrec_ast, setfunction_ast
   if ast.tag == 'Return' then
     -- if `return` selected, that consider containing function selected (if any)
     if not ast.parent then M.mark_parents(top_ast) end
@@ -165,6 +171,19 @@ function M.related_keywords(ast, top_ast, src)
       ancestor_ast = ancestor_ast.parent
     end
     ast = ancestor_ast
+  elseif ast.tag == 'Set' then
+    local val1_ast = ast[2][1]
+    if val1_ast.tag == 'Function' and src:sub(val1_ast.lineinfo.first[3], val1_ast.lineinfo.first[3]) ~= 'f' then
+      -- if `function f` selected, which becomes `f = function .....` (i.e. a `Set), consider `Function node.
+      -- NOTE:Metalua: only the `function()` form of `Function includes `function` in lineinfo.
+      setfunction_ast = ast
+      ast = ast[2][1]
+    end
+  elseif ast.tag == 'Localrec' and ast[2][1].tag == 'Function' then
+    -- if `local function f` selected, which becomes a `Localrec, consider `Function node.
+    localrec_ast = ast
+    ast = ast[2][1]
+    --IMPROVE: only contract ast if `function` part of `local function` is selected.
   end
 
   -- Highlight keywords in statment/block.    
@@ -173,7 +192,7 @@ function M.related_keywords(ast, top_ast, src)
 
     -- Expand keywords for certaining statements.
     if ast.tag == 'Function' then
-      -- if `Function, also select 'return' keywords
+      -- if `Function, also select 'function' and 'return' keywords
       local function f(ast)
         for _,cast in ipairs(ast) do
           if type(cast) == 'table' then
@@ -183,6 +202,18 @@ function M.related_keywords(ast, top_ast, src)
             elseif cast.tag ~= 'Function'  then f(cast) end
           end
         end
+      end
+      if not ast.parent then M.mark_parents(top_ast) end
+      local grand_ast = ast.parent.parent
+      if grand_ast.tag == 'Set' and src:sub(ast.lineinfo.first[3], ast.lineinfo.first[3]) ~= 'f' then
+        kposlist[#kposlist+1] = grand_ast.lineinfo.first[3]
+        kposlist[#kposlist+1] = grand_ast.lineinfo.first[3] + #'function' - 1
+      elseif grand_ast.tag == 'Localrec' and src:sub(ast.lineinfo.first[3], ast.lineinfo.first[3]) ~= 'f' then
+        --FIX:Metalua: Metalua bug here: In `local --[[x]] function --[[y]] f() end`, 'x' comment omitted from AST.
+        --FIX:HACK for now.
+        local pos = src:match("()function", grand_ast.lineinfo.first[3]); assert(pos)
+        kposlist[#kposlist+1] = pos
+        kposlist[#kposlist+1] = pos + #'function' - 1
       end
       f(ast)
     elseif isloop[ast.tag] then
@@ -200,8 +231,9 @@ function M.related_keywords(ast, top_ast, src)
       f(ast)        
     end
     
-    return kposlist
+    return kposlist, ast
   end
+  return nil, ast
 end
 
 

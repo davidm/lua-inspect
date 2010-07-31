@@ -389,7 +389,7 @@ scite_OnUpdateUI(function()
     --print('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Highlight any related keywords  
-    local kposlist = LI.related_keywords(match1_ast, buffer.ast, buffer.text)
+    local kposlist; kposlist, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.text)
     if kposlist then
       editor.IndicStyle[1] = INDIC_ROUNDBOX
       editor.IndicatorCurrent = 1
