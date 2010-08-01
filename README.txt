@@ -70,7 +70,7 @@ Dependencies:
     to return to previous location following a "go to definition" or "show all variable uses").
 
 If you want to customize styles, add the contents of the
-`styles` variable in the scite.lua file to your
+`light_styles` or `dark_styles` variable in the scite.lua file to your
 SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file.
 
 == Configuring SciTE options ==
