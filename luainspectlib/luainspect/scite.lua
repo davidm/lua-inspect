@@ -812,7 +812,7 @@ style.script_lua.selection.back=#808080
         local name, value = style:match("^([^=]+)=(.*)"); assert(name, style)
         local realname =string.gsub(name, '^(style%.script_lua%.)(.+)$', function(first, last)
           return STYLES[last] and first .. STYLES[last] or
-	           last:match'^%d+$' and name or last
+                    last:match'^%d+$' and name or last
         end) -- convert to real style name
         if props[name] ~= '' then value = props[name] end -- override by user
         --print('DEBUG:' .. realname .. '=' .. value)
