@@ -349,9 +349,12 @@ end
 
 local function init_indicator_styles()
   editor.IndicStyle[1] = INDIC_ROUNDBOX
+  editor.IndicStyle[2] = INDIC_PLAIN
   local indic_fore = props["style.script_lua.indic_fore"]
   if indic_fore ~= '' then
-    editor.IndicFore[1] = tonumber(indic_fore:sub(2), 16)
+    local color = tonumber(indic_fore:sub(2), 16)
+    editor.IndicFore[1] = color
+    editor.IndicFore[2] = color
   end
 end
 
@@ -381,14 +384,15 @@ scite_OnUpdateUI(function()
   --  --Q: how to reliably remove this upon a buffer switch?
   --end
 
-  -- highlight all instances of that identifier
+  -- Highlight all instances of that identifier.
   editor:MarkerDeleteAll(1)
   editor:MarkerDeleteAll(2)
   editor:MarkerDeleteAll(3)
+  editor.IndicatorCurrent = 1
+  editor:IndicatorClearRange(0, editor.Length)
   if id then
     init_indicator_styles() --Q: how often need this be called?
-    editor.IndicatorCurrent = 1
-    editor:IndicatorClearRange(0, editor.Length)
+
     local first, last -- first and last occurances
     for _,note in ipairs(buffer.notes) do
       if note.ast.id == id then
@@ -399,13 +403,13 @@ scite_OnUpdateUI(function()
     end
 
     scope_positions(first[1]-1, last[2]-1)
-
-  else
-    editor.IndicatorCurrent = 1
-    editor:IndicatorClearRange(0, editor.Length)
   end
   
-  if not id then
+  -- Highlight related keywords.
+  do
+    editor.IndicatorCurrent = 2
+    editor:IndicatorClearRange(0, editor.Length)
+
     -- Check for selection over statement or expression.
     local fpos, lpos = editor.Anchor, editor.CurrentPos
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
@@ -414,12 +418,9 @@ scite_OnUpdateUI(function()
       LI.smallest_ast_in_range(buffer.ast, buffer.text, fpos, lpos)
     --print('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
-    -- Highlight any related keywords  
+    -- Find and highlight.
     local kposlist; kposlist, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.text)
     if kposlist then
-      init_indicator_styles()
-      editor.IndicatorCurrent = 1
-      editor:IndicatorClearRange(0, editor.Length)
       for i=1,#kposlist,2 do
         local fpos, lpos = kposlist[i], kposlist[i+1]
         --print(fpos,lpos,'m')

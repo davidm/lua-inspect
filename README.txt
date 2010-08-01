@@ -99,7 +99,7 @@ See LICENSE file.
 David Manura, original author.
 Steve Donovan for discussions on design and SciTE.
 Fabien Fleutot for Metalua and discussions.
-Suggestions also by Tymur Gubayev.
+SciTE suggestions by Tymur Gubayev.
 
 == References ==
 
@@ -111,6 +111,7 @@ Suggestions also by Tymur Gubayev.
   SciTE: allow styles in properties to be specified by name and more flexibly overridden.
   SciTE: add optional dark style
   SciTE/HTML: support mutate upvalues, cleanup styles
+  SciTE: improve keyword highlighting (always highlight containing block)
 
 20100730
   core: fix scoping of `for` statements (in globals.lua)

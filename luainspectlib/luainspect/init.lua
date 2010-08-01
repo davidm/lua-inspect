@@ -139,7 +139,7 @@ end
 
 -- Gets all keywords related to AST `ast`, where `top_ast` is the root of `ast`
 -- and `src` is source code of `top_ast`
--- Related keywords are defined as all keywords directly associated with node
+-- Related keywords are defined as all keywords directly associated with block containing node
 -- `ast`.  Furthermore, break statements are related to containing loop statements,
 -- and return statements are related to containing function statement (if any).
 -- function declaration syntactic sugar is handled specially too to ensure the 'function' keyword
@@ -152,9 +152,9 @@ local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin
     Set=true -- note: Set for `function name`
 }
 local isloop = {While=true, Repeat=true, Fornum=true, Forin=true}
+local isblock = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true, Function=true}
 function M.related_keywords(ast, top_ast, src)
   -- Expand or contract AST for certain contained statements.
-  local localrec_ast, setfunction_ast
   if ast.tag == 'Return' then
     -- if `return` selected, that consider containing function selected (if any)
     if not ast.parent then M.mark_parents(top_ast) end
@@ -176,17 +176,28 @@ function M.related_keywords(ast, top_ast, src)
     if val1_ast.tag == 'Function' and src:sub(val1_ast.lineinfo.first[3], val1_ast.lineinfo.first[3]) ~= 'f' then
       -- if `function f` selected, which becomes `f = function .....` (i.e. a `Set), consider `Function node.
       -- NOTE:Metalua: only the `function()` form of `Function includes `function` in lineinfo.
-      setfunction_ast = ast
       ast = ast[2][1]
+    else
+      more = true
     end
   elseif ast.tag == 'Localrec' and ast[2][1].tag == 'Function' then
     -- if `local function f` selected, which becomes a `Localrec, consider `Function node.
-    localrec_ast = ast
     ast = ast[2][1]
     --IMPROVE: only contract ast if `function` part of `local function` is selected.
+  else
+    more = true
+  end
+  if more then -- not yet handled
+    -- Consider containing block.
+    if not ast.parent then M.mark_parents(top_ast) end
+    local ancestor_ast = ast
+    while ancestor_ast ~= top_ast and not isblock[ancestor_ast.tag] do
+      ancestor_ast = ancestor_ast.parent
+    end
+    ast = ancestor_ast    
   end
 
-  -- Highlight keywords in statment/block.    
+  --  keywords in statement/block.    
   if iskeystat[ast.tag] then
     local kposlist = M.get_keywords(ast, src)
 
