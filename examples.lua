@@ -51,8 +51,10 @@ _=package.loaded.math  -- dynamically defined field, deeply nested
 _=package.loaded.undefinedfield
 local root = math.sqrt; root(2) -- IMPROVE: statically define
 math:sqrt(2) -- statically+dynamically defined invoke (although non-sensical - IMPROVE?)
-math:undefinedmethod(2)
-local t = {{x=1}, x=1, f = function() end, a = {b=2}}
-t.y = t.x + t.z + t.y + t.a.b + t.a.c, t[1].x   --IMPROVE?
+math:undefmethod(2)
+local t = {x=1, {y={z=2}}, f = function() end}
+print(t.forwarddeclared(), t.undef()) -- recognized (forward declared), unrecognized
+function t.forwarddeclared() end -- define
+t.y = t.x, t[1].y.z, t[1].y.undef + t.undef, t.f().undef   --OK?
 ;("abc"):upper():lower()  -- dynamically defined (IMPROVE? statically defined too)
-
+local m = math; local mm = {sqrt=math.sqrt}; print(m.sqrt, mm.sqrt, math.sqrt) --OK?

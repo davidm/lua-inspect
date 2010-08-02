@@ -119,9 +119,13 @@ local function formatvariabledetails(note)
   end
  
   local vast = note.ast.seevalue or note.ast
-  if vast.valueknown then
+  if vast.valueknown == 'multiple' then
+    info = info .. "\nmultiple values including= " .. tostring(vast.value) .. " "
+  elseif vast.valueknown then
     info = info .. "\nvalue= " .. tostring(vast.value) .. " "
-  end
+  elseif vast.value then
+    info = info .. "\nerror value= " .. tostring(vast.value) .. " "
+  end -- else no info
   return info
 end
 
@@ -530,7 +534,7 @@ local function OnStyle(styler)
           styler:SetState(S_LOCAL)
         end
       elseif note.type == 'field' then
-        if note.definedglobal or note.ast.seevalue.value ~= nil then
+        if note.definedglobal or note.ast.seevalue.valueknown and note.ast.seevalue.value ~= nil then
           styler:SetState(S_FIELD_RECOGNIZED)
         else
           styler:SetState(S_FIELD)
@@ -810,9 +814,6 @@ style.script_lua.selection.back=#808080
 
   local styles = (props['style.script_lua.scheme'] == 'dark') and dark_styles or light_styles
 
-  print(props['caret.fore'])
-  print(props['caret.line.back'])
-  print(props['caret.line.alpha'])
   for style in styles:gmatch("[^\n]+") do
     if not (style:match("^%s*#") or style:match("^%s*$")) then
         local name, value = style:match("^([^=]+)=(.*)"); assert(name, style)

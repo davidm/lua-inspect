@@ -612,6 +612,43 @@ function M.create_notes(ast)
 end
 
 
+local function set_value(ast, src_ast)
+  if not src_ast.valueknown or ast.valueknown and ast.value ~= src_ast.value then -- unknown if multiple values
+    ast.valueknown = 'multiple'
+  else
+    ast.valueknown = src_ast.valueknown
+    ast.value = src_ast.value
+  end
+end
+
+
+local function tastnewindex(t_ast, k_ast, v_ast)
+  if t_ast.valueknown and k_ast.valueknown and v_ast.valueknown then
+    local t, k, v = t_ast.value, k_ast.value, v_ast.value
+    if t[k] ~= nil and v ~= t[k] then -- multiple values
+      return v, 'multiple'
+    else
+      t[k] = v
+      return v, nil
+    end
+  end
+end
+
+
+-- for debugging
+local function debugvalue(ast)
+  local s
+  if ast then
+    s = ast.valueknown and 'known:' .. tostring(ast.value) or 'unknown'
+  else
+    s = '?'
+  end
+  return s
+end
+
+
+--FIX/WARNING - this probably needs more work
+local nil_value_ast = {}
 function M.infer_values(ast)
   -- infer values
   M.walk(ast, nil, function(ast)
@@ -620,30 +657,34 @@ function M.infer_values(ast)
       local vars_ast, values_ast = ast[1], ast[2]
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
-        if value_ast and value_ast.valueknown then
-          var_ast.valueknown = value_ast.valueknown
-          var_ast.value = value_ast.value
-        end
+        value_ast = value_ast or nil_value_ast
+        set_value(var_ast, value_ast)
+        --FIX: handle functions with multiple returns
+      end
+    elseif ast.tag == 'Set' then
+      local vars_ast, values_ast = ast[1], ast[2]
+      for i=1,#vars_ast do
+        local var_ast, value_ast = vars_ast[i], values_ast[i]
+        value_ast = value_ast or nil_value_ast
+        if var_ast.tag == 'Index' and var_ast[1].valueknown and var_ast[2].valueknown and value_ast.valueknown then
+          var_ast.valueknown, var_ast.value, multiple = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
+          if multiple then var_ast.valueknown = 'multiple' end
+          --FIX: propagate to localdefinition?
+        end --FIX: handle functions with multiple returns; FIX: handle other set types
       end
     elseif ast.tag == "Id" then
       if ast.localdefinition then
         local localdefinition = ast.localdefinition
         if localdefinition.valueknown and not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
-          ast.value = localdefinition.value
-          ast.valueknown = localdefinition.valueknown
+          set_value(ast, localdefinition)
         end
       else -- global
-        local ok, val = pcall(tindex, _G, ast[1])
-        if ok then ast.value = val; ast.valueknown = true else ast.value = nil; ast.valueknown = false end
+        ast.valueknown, ast.value = pcall(tindex, _G, ast[1])
       end
     elseif ast.tag == "Index" then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
-        local ok, val = pcall(tindex, t_ast.value, k_ast.value)
-        if ok then
-          ast.value = val
-          ast.valueknown = true
-        end
+        ast.valueknown, ast.value = pcall(tindex, t_ast.value, k_ast.value)
       end
     elseif ast.tag == "Call" then
       local args_known = true
@@ -652,19 +693,14 @@ function M.infer_values(ast)
         local func = ast[1].value
         if LS.safe_function[func] then
           local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
-          local ok, res = pcall(func, unpack(values,1,#ast-1))
-          if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+          ast.valueknown, ast.value = pcall(func, unpack(values,1,#ast-1))
           --TODO: handle multiple return values
         end
       end
     elseif ast.tag == "Invoke" then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
-        local ok, val = pcall(tindex, t_ast.value, k_ast.value)
-        if ok then
-          ast.idxvalue = val
-          ast.idxvalueknown = true
-        end
+        ast.idxvalueknown, ast.idxvalue = pcall(tindex, t_ast.value, k_ast.value)
       end
 
       -- note: similar to "Call" code
@@ -674,30 +710,49 @@ function M.infer_values(ast)
         local func = ast.idxvalue
         if LS.safe_function[func] then
           local values = {}; for i=1,#ast-2 do values[i] = ast[i+2].value end
-          local ok, res = pcall(func, t_ast.value, unpack(values,1,#ast-2))
-          if ok then ast.value = res; ast.valueknown = true else ast.value = res; ast.valueknown = "error" end
+          ast.valueknown, ast.value = pcall(func, t_ast.value, unpack(values,1,#ast-2))
           --TODO: handle multiple return values
         end
       end
     elseif ast.tag == "String" or ast.tag == "Number" then
-      ast.value = ast[1]
-      ast.valueknown = true
+      ast.value = ast[1]; ast.valueknown = true
     elseif ast.tag == "True" or ast.tag == "False" then
-      ast.value = (ast.tag == "True")
+      ast.value = (ast.tag == "True"); ast.valueknown = true
+    elseif ast.tag == 'Function' then
+      if not ast.valueknown then -- avoid redefinition
+        ast.value = function() end -- IMPROVE?
+      end
       ast.valueknown = true
+    elseif ast.tag == 'Table' then
+      if not ast.valueknown then -- avoid redefinition
+        local value = {}
+        local n = 1
+        for _,east in ipairs(ast) do
+          if east.tag == 'Pair' then
+            local kast, vast = east[1], east[2]
+            if kast.valueknown and vast.valueknown then
+              value[kast.value] = vast.value
+            end
+          else
+            if east.valueknown then
+              value[n] = east.value
+            end
+            n = n + 1
+          end
+        end
+        --table.foreach(value, print)
+        ast.value = value; ast.valueknown = true
+      end
     elseif ast.tag == "Paren" then
-      ast.value = ast[1].value
-      ast.valueknown = ast[1].valueknown
+      ast.value = ast[1].value; ast.valueknown = ast[1].valueknown
     elseif ast.tag == "Op" then
       local opid, aast, bast = ast[1], ast[2], ast[3]
       if aast.valueknown and (not bast or bast.valueknown) then
         local ok, val = pcall(ops[opid], aast.value, bast and bast.value)
         if ok then
-          ast.value = val
-          ast.valueknown = true
+          ast.value = val; ast.valueknown = true
         else
-          ast.value = val
-          ast.valueknown = "error"
+          ast.value = val; ast.valueknown = false
         end
       end
     end
@@ -760,7 +815,8 @@ function M.inspect(ast)
   
   M.mark_identifiers(ast)
 
-  M.infer_values(ast)  
+  M.infer_values(ast)
+  M.infer_values(ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
 
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
@@ -898,7 +954,7 @@ local function check(opname, a, b)
   end
 end
 
--- test longtest_prefix/longest_postfix
+-- test longest_prefix/longest_postfix
 local function pr(text1, text2)
   local lastv
   local function same(v)

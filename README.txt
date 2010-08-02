@@ -108,6 +108,7 @@ SciTE suggestions by Tymur Gubayev.
 == Changes ==
 
 20100802
+  core: improve field value inferences
   SciTE: improve dark style clarity
   SciTE: make margin markers for variable scope and block mutually exclusive
 
