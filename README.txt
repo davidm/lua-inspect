@@ -107,6 +107,9 @@ SciTE suggestions by Tymur Gubayev.
 
 == Changes ==
 
+20100802
+  SciTE: improve dark style clarity
+
 20100731
   SciTE: allow styles in properties to be specified by name and more flexibly overridden.
   SciTE: add optional dark style

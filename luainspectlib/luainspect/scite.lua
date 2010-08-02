@@ -53,7 +53,6 @@ end or nilfunc
 
 
 -- Style IDs - correspond to style properties
-local STYLES = {}
 local S_DEFAULT = 0
 local S_LOCAL = 1
 local S_LOCAL_MUTATE = 6
@@ -70,6 +69,7 @@ local S_STRING = 5
 local S_TAB = 13
 local S_KEYWORD = 14
 local S_COMPILER_ERROR = 9
+local STYLES = {}
 STYLES.default = S_DEFAULT
 STYLES['local'] = S_LOCAL
 STYLES.local_mutate = S_LOCAL_MUTATE
@@ -87,6 +87,7 @@ STYLES.tab = S_TAB
 STYLES.keyword = S_KEYWORD
 STYLES.compiler_error = S_COMPILER_ERROR
 STYLES.indic_fore = 'indic_fore'
+STYLES.indic_style = 'indic_style'
 
 local function formatvariabledetails(note)
   local info = ""
@@ -348,7 +349,8 @@ local function scope_positions(fpos0, lpos0)
 end
 
 local function init_indicator_styles()
-  editor.IndicStyle[1] = INDIC_ROUNDBOX
+  local indic_style = props["style.script_lua.indic_style"]
+  editor.IndicStyle[1] = indic_style == '' and INDIC_ROUNDBOX or indic_style
   editor.IndicStyle[2] = INDIC_PLAIN
   local indic_fore = props["style.script_lua.indic_fore"]
   if indic_fore ~= '' then
@@ -745,8 +747,8 @@ style.script_lua.upvalue=fore:#0000ff
 style.script_lua.upvalue_mutate=fore:#0000ff,italics
 style.script_lua.global_recognized=fore:#600000
 style.script_lua.global_unrecognized=fore:#ffffff,back:#ff0000,bold
-style.script_lua.field=fore:#c00000
 style.script_lua.field_recognized=fore:#600000
+style.script_lua.field=fore:#c00000
 style.script_lua.comment=fore:#008000
 style.script_lua.string=fore:#00c000
 style.script_lua.tab=back:#f0f0f0
@@ -778,22 +780,23 @@ caret.line.back.alpha=20
 lexer.*.lua=script_lua
 style.script_lua.32=back:#000000
 style.script_lua.default=fore:#ffffff
-style.script_lua.local=fore:#8080ff
-style.script_lua.local_mutate=fore:#8080ff,italics
+style.script_lua.local=fore:#c0c0ff
+style.script_lua.local_mutate=fore:#c0c0ff,italics
 style.script_lua.local_unused=fore:#ffffff,back:#000080
-style.script_lua.local_param=fore:#4040ff
-style.script_lua.upvalue=fore:#c0c0ff
-style.script_lua.upvalue_mutate=fore:#c0c0ff,italics
-style.script_lua.global_recognized=fore:#600000
+style.script_lua.local_param=fore:#8080ff
+style.script_lua.upvalue=fore:#e8e8ff
+style.script_lua.upvalue_mutate=fore:#e8e8ff,italics
+style.script_lua.global_recognized=fore:#ffc080
 style.script_lua.global_unrecognized=fore:#ffffff,back:#ff0000,bold
-style.script_lua.field=fore:#c00000
-style.script_lua.field_recognized=fore:#600000
-style.script_lua.comment=fore:#008000
+style.script_lua.field_recognized=fore:#ffc080
+style.script_lua.field=fore:#ff0000
+style.script_lua.comment=fore:#00c000
 style.script_lua.string=fore:#00c000
 style.script_lua.tab=back:#101010
-style.script_lua.keyword=fore:#505050,bold
+style.script_lua.keyword=fore:#a0a080,bold
 style.script_lua.compiler_error=fore:#800000,back:#ffffc0
-style.script_lua.indic_fore=#ffffff
+style.script_lua.indic_style=6
+style.script_lua.indic_fore=#808080
 # warning: these changes are global for all file types.  Avoid #ffffff in case those
 # are light styles
 style.script_lua.caret.fore=#c0c0c0
