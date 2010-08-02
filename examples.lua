@@ -58,3 +58,8 @@ function t.forwarddeclared() end -- define
 t.y = t.x, t[1].y.z, t[1].y.undef + t.undef, t.f().undef   --OK?
 ;("abc"):upper():lower()  -- dynamically defined (IMPROVE? statically defined too)
 local m = math; local mm = {sqrt=math.sqrt}; print(m.sqrt, mm.sqrt, math.sqrt) --OK?
+
+-- more value inferences
+local loc1 = 3
+loc1=4
+print(loc1) -- IMPROVE? infer value even though binding mutable?

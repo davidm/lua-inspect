@@ -649,9 +649,11 @@ end
 
 --FIX/WARNING - this probably needs more work
 local nil_value_ast = {}
-function M.infer_values(ast)
+function M.infer_values(top_ast)
+  if not top_ast.valueglobals then top_ast.valueglobals = {} end
+
   -- infer values
-  M.walk(ast, nil, function(ast)
+  M.walk(top_ast, nil, function(ast)
     -- process `require` statements.
     if ast.tag == "Local" then
       local vars_ast, values_ast = ast[1], ast[2]
@@ -666,11 +668,24 @@ function M.infer_values(ast)
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
         value_ast = value_ast or nil_value_ast
-        if var_ast.tag == 'Index' and var_ast[1].valueknown and var_ast[2].valueknown and value_ast.valueknown then
-          var_ast.valueknown, var_ast.value, multiple = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
-          if multiple then var_ast.valueknown = 'multiple' end
-          --FIX: propagate to localdefinition?
-        end --FIX: handle functions with multiple returns; FIX: handle other set types
+        if var_ast.tag == 'Index' then
+          if var_ast[1].valueknown and var_ast[2].valueknown and value_ast.valueknown then
+            var_ast.valueknown, var_ast.value, multiple = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
+            if multiple then var_ast.valueknown = 'multiple' end
+            --FIX: propagate to localdefinition?
+          end
+        else
+          assert(var_ast.tag == 'Id', var_ast.tag)
+          if var_ast.localdefinition then
+            set_value(var_ast, value_ast)
+          else -- global
+            if value_ast.valueknown then
+              local name, val = var_ast[1], value_ast.value
+              top_ast.valueglobals[name] = val
+            end
+          end
+        end --FIX: handle functions with multiple returns
+        --FIX: propagate to definition or localdefinition?
       end
     elseif ast.tag == "Id" then
       if ast.localdefinition then
@@ -679,7 +694,14 @@ function M.infer_values(ast)
           set_value(ast, localdefinition)
         end
       else -- global
-        ast.valueknown, ast.value = pcall(tindex, _G, ast[1])
+        local name = ast[1]
+        local v = top_ast.valueglobals[name]
+        if v ~= nil then
+          ast.value = v
+          ast.valueknown = true
+        else
+          ast.valueknown, ast.value = pcall(tindex, _G, ast[1])
+        end
       end
     elseif ast.tag == "Index" then
       local t_ast, k_ast = ast[1], ast[2]
@@ -808,20 +830,20 @@ end
 
 
 -- Main inspection routine.
-function M.inspect(ast)
+function M.inspect(top_ast)
   --DEBUG: local t0 = os.clock()
 
-  local globals = inspect_globals.globals(ast)
+  local globals = inspect_globals.globals(top_ast)
   
-  M.mark_identifiers(ast)
+  M.mark_identifiers(top_ast)
 
-  M.infer_values(ast)
-  M.infer_values(ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
+  M.infer_values(top_ast)
+  M.infer_values(top_ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
 
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
   -- the value of `foo.bar` rather than just "bar".
-  M.walk(ast, function(ast)
+  M.walk(top_ast, function(ast)
     if ast.tag == "Index" then
       ast[2].seevalue = ast
     elseif ast.tag == "Invoke" then
@@ -843,8 +865,10 @@ function M.inspect(ast)
     local ok, o = pcall(eval_name_helper, name)
     if ok then return o else return nil end
   end
-
-  M.walk(ast, function(ast)
+  
+  local valueglobals = top_ast.valueglobals
+  
+  M.walk(top_ast, function(ast)
     if ast.tag == 'Id' or ast.isfield then
       local vname = ast[1]
       --TODO: rename definedglobal to definedfield for clarity
@@ -857,7 +881,7 @@ function M.inspect(ast)
   end)
   
 
-  local notes = M.create_notes(ast)
+  local notes = M.create_notes(top_ast)
 
   --print('DEBUG: t+', os.clock() - t0); t0 = os.clock()
 
