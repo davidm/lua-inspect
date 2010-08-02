@@ -655,7 +655,7 @@ function M.infer_values(top_ast)
   -- infer values
   M.walk(top_ast, nil, function(ast)
     -- process `require` statements.
-    if ast.tag == "Local" then
+    if ast.tag == 'Local' or ast.tag == 'Localrec' then
       local vars_ast, values_ast = ast[1], ast[2]
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
