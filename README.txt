@@ -1,17 +1,13 @@
-LuaInspect - LuaInspect is a tool that does Lua code analysis.  The
-result of this analysis can also be rendered as HTML.
-This tool can also plug into the SciTE [1] text editor.
+LuaInspect - LuaInspect is a tool that does Lua code analysis.
+It includes an extensive plugin for the SciTE [1] text editor,
+there is also a plugin for the VIM editor [2], and it includes
+an export to DHTML as well.
 
-WARNING: This is a preliminary, and there likely are
-bugs, so it's not yet intended for production.  It is usable though,
-but you may need to fix things yourself.  Many additional features
-could be added too.  No commitment has been made by the author to
-advance this project beyond its prototype stage.
+WARNING: This code is not yet stable.  It is usable though
+you may need to fix things yourself.  Many additional features
+could be added too.
 
-Usage: lua luainspect.lua myprogram.lua > myprogram.html
-
-For further details, see
-  http://lua-users.org/wiki/LuaInspect
+For further details, see http://lua-users.org/wiki/LuaInspect .
 
 == Features ==
 
@@ -85,6 +81,10 @@ SciTE property files:
 
 For details, see scite.lua.
 
+== Installation on VIM ==
+
+See [2] for VIM editor support.
+
 == Design Notes ==
 
 The font styles are intended to make the more dangerous
@@ -100,10 +100,12 @@ David Manura, original author.
 Steve Donovan for discussions on design and SciTE.
 Fabien Fleutot for Metalua and discussions.
 SciTE suggestions by Tymur Gubayev.
+Peter Odding for VIM editor support [2]
 
 == References ==
 
 [1] http://www.scintilla.org/SciTE.html
+[2] http://peterodding.com/code/vim/lua-inspect/ - VIM editor support
 
 == Changes ==
 
