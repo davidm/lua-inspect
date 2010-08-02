@@ -109,6 +109,7 @@ SciTE suggestions by Tymur Gubayev.
 
 20100802
   SciTE: improve dark style clarity
+  SciTE: make margin markers for variable scope and block mutually exclusive
 
 20100731
   SciTE: allow styles in properties to be specified by name and more flexibly overridden.

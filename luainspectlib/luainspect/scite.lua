@@ -431,7 +431,9 @@ scite_OnUpdateUI(function()
     end
     
     -- Mark range of lines covered by item on selection.
-    scope_positions(match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3])
+    if not id then
+      scope_positions(match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3])
+    end
   end
   
 --[[
