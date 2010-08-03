@@ -63,3 +63,9 @@ local m = math; local mm = {sqrt=math.sqrt}; print(m.sqrt, mm.sqrt, math.sqrt) -
 local loc1 = 3
 loc1=4
 print(loc1) -- IMPROVE? infer value even though binding mutable?
+
+-- luaanalyze style comments.
+--! context.apply_value('shape$', {color='?', size={x=1,y=1}, f=function() return "?" end})
+function f(myshape) print(myshape.color, myshape.size.x, myshape.undef, myshape.f():len()) end
+--IMPROVE: `len` above
+
