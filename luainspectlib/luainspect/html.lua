@@ -2,6 +2,8 @@
 --
 -- (c) 2010 David Manura, MIT License.
 
+--! require 'luainspect.typecheck' (context)
+
 local M = {}
 
 local LS = require "luainspect.signatures"

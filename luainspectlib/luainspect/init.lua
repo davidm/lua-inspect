@@ -22,6 +22,8 @@ local inspect_globals = require "luainspect.globals"
 
 local LS = require "luainspect.signatures"
 
+--! require 'luainspect.typecheck' (context)
+
 -- Variable naming conventions:
 --  *ast - AST node
 
@@ -68,18 +70,18 @@ end  -- differs from longest_prefix only on line [*]
 local locs = {'first', 'last'}
 function M.smallest_ast_in_range(ast, src, pos1, pos2)
   local partial
-  for i,ast2 in ipairs(ast) do
+  for i,bast in ipairs(ast) do
     --if not ast2.lineinfo then print(ast and ast.tag, ast and ast.tag2, ast2 and ast2.tag,  ast2 and ast2.tag2) end
-    if type(ast2) == 'table' and ast2.lineinfo then
+    if type(bast) == 'table' and bast.lineinfo then
         -- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
         -- has no lineinfo on {}.  This is contrary to the Metalua
         -- spec: `Local{ {ident+} {expr+}? }.
         -- Other things like `self` also generate no lineinfo.
         -- The ast2.lineinfo test above avoids this.
-      local apos1 = ast2.lineinfo.first[3]
-      local apos2 = ast2.lineinfo.last[3]
+      local apos1 = bast.lineinfo.first[3]
+      local apos2 = bast.lineinfo.last[3]
       if pos1 >= apos1 and pos2 <= apos2 then
-        return M.smallest_ast_in_range(ast2, src, pos1, pos2)
+        return M.smallest_ast_in_range(bast, src, pos1, pos2)
       end
       if pos1 >= apos1 and pos1 <= apos2 or pos2 >= apos1 and pos2 <= apos2 then -- partial overlap
         partial = true
@@ -89,7 +91,7 @@ function M.smallest_ast_in_range(ast, src, pos1, pos2)
       --   However, for `If, we need to examine the first and last comments from
       --   each member.  For simplicity both are always examined.
       for j=1,2 do
-        local comments = ast2.lineinfo[locs[j]].comments
+        local comments = bast.lineinfo[locs[j]].comments
         if comments then
           for _,comment in ipairs(comments) do
             local apos1, apos2 = comment[2], comment[3]
@@ -829,6 +831,58 @@ function M.mark_identifiers(ast)
 end
 
 
+-- Environment in which to execute special comments (see below).
+local env = setmetatable({}, {__index=_G})
+env.context = env
+
+
+-- Apply value to all identifiers with name matching pattern.
+-- This command is callable inside special comments.
+function env.apply_value(pattern, val)
+  local function f(ast)
+    if ast.tag == 'Id' and ast[1]:match(pattern) then
+      ast.valueknown = true
+      ast.value = val
+    end
+    for _,bast in ipairs(ast) do
+      if type(bast) == 'table' then
+        f(bast)
+      end
+    end
+  end
+  for i=env.asti, #env.ast do
+    local bast = env.ast[i]
+    if type(bast) == 'table' then f(bast) end
+  end
+end
+setfenv(env.apply_value, env)
+
+
+-- Evaluate all special comments (i.e. comments prefixed by '!') in code.
+-- This is similar to luaanalyze.
+function M.eval_comments(ast)
+  for i, bast in ipairs(ast) do
+    if bast.lineinfo and bast.lineinfo.first.comments then
+      for i, comment in ipairs(bast.lineinfo.first.comments) do
+        local text = comment[1]
+        local command = text:match'^!(.*)'
+        if command then
+          local f, err = loadstring(command)
+          if f then
+            setfenv(f, env); env.ast = ast; env.asti = i
+            local ok, err = pcall(f, ast)
+            if not ok then io.stderr:write(err, ': ', text) end
+            env.ast = nil; env.asti = nil
+          else
+            io.stderr:write(err, ': ', text)
+          end
+        end
+      end
+    end
+  end
+end
+
+
 -- Main inspection routine.
 function M.inspect(top_ast)
   --DEBUG: local t0 = os.clock()
@@ -837,9 +891,11 @@ function M.inspect(top_ast)
   
   M.mark_identifiers(top_ast)
 
+  M.eval_comments(top_ast)
+  
   M.infer_values(top_ast)
   M.infer_values(top_ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
-
+  
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
   -- the value of `foo.bar` rather than just "bar".

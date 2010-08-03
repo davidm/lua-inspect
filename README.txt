@@ -31,6 +31,8 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
     * inspect members of selected table.
     * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
       (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
+    * Evaluate special comments (prefixed by '!') to inject semantic information into analysis
+       (similar to luaanalyze).
 
 == Files in this directory ==
 
@@ -85,6 +87,17 @@ For details, see scite.lua.
 
 See [2] for VIM editor support.
 
+== Preliminary support for luaanalyze style comments ==
+
+To make all variables in scope match name 'ast$' be recognized by LuaInspect as a
+table with field 'tag' of type string, add this to your code:
+
+  --! context.apply_value('ast$', {tag=''})
+
+The LuaInspect code itself uses this:
+
+  --! require 'luainspect.typecheck' (context)
+
 == Design Notes ==
 
 The font styles are intended to make the more dangerous
@@ -108,6 +121,10 @@ Peter Odding for VIM editor support [2]
 [2] http://peterodding.com/code/vim/lua-inspect/ - VIM editor support
 
 == Changes ==
+
+20100803
+  core:Evaluate special comments (prefixed by '!') to inject semantic information into analysis
+         (similar to luaanalyze).
 
 20100802
   core: improve field value inferences

@@ -7,6 +7,8 @@
 
 local M = {}
 
+--! require 'luainspect.typecheck' (context)
+
 -- Resolve scoping and usages of variable in AST.
 -- Data Notes:
 --   ast.localdefinition refers to lexically scoped definition of `Id node `ast`.

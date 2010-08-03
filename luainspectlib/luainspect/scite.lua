@@ -23,6 +23,8 @@ local LS = require "luainspect.signatures"
 
 local M = {}
 
+--! require 'luainspect.typecheck' (context)
+
 -- variables stored in `buffer`:
 -- ast -- last successfully compiled AST
 -- text  -- text corresponding to `ast`
