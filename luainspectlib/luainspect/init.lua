@@ -27,6 +27,11 @@ local LS = require "luainspect.signatures"
 -- Variable naming conventions:
 --  *ast - AST node
 
+local function debug(...)
+  print('DEBUG:', ...)
+end
+
+
 -- Gets length of longest prefix string in both provided strings.
 -- Returns max n such that text1:sub(1,n) == text2:sub(1,n) and n <= max(#text1,#text2)
 local function longest_prefix(text1, text2)
@@ -71,7 +76,6 @@ local locs = {'first', 'last'}
 function M.smallest_ast_in_range(ast, src, pos1, pos2)
   local partial
   for i,bast in ipairs(ast) do
-    --if not ast2.lineinfo then print(ast and ast.tag, ast and ast.tag2, ast2 and ast2.tag,  ast2 and ast2.tag2) end
     if type(bast) == 'table' and bast.lineinfo then
         -- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
         -- has no lineinfo on {}.  This is contrary to the Metalua
@@ -109,8 +113,8 @@ function M.smallest_ast_in_range(ast, src, pos1, pos2)
 
   local iswhitespace
   if src and not partial and ast.tag ~= 'String' then
-    if pos1 > pos2 then
-      if src:sub(pos2, pos1):match'%s' then iswhitespace = true end
+    if pos2 == pos1 - 1  then -- zero length
+      if src:sub(pos2, pos1):match'%s' then iswhitespace = true end -- either right or left %s
     elseif src:sub(pos1,pos2):match'^%s+$' then
       iswhitespace = true
     end
@@ -252,12 +256,18 @@ end
 
 -- Simple comment parser.  Returns Metalua-style comment.
 local function quick_parse_comment(src)
-  local s = src:match"^%-%-([^\n]*)()\n?$"
+  local s = src:match"^%-%-([^\n]*)()\n$"
   if s then return {s, 1, #src, 'short'} end
-  local _, s = src:match(lexer.lexer.patterns.long_comment .. '$')
+  local _, s = src:match(lexer.lexer.patterns.long_comment .. '\r?\n?$')
   if s then return {s, 1, #src, 'long'} end
   return nil
-end --FIX:check new-line correctness
+end
+--FIX:check new-line correctness
+--note: currently requiring \n at end of single line comment to avoid
+-- incremental compilation with `--x\nf()` and removing \n from still
+-- recognizing as comment `--x`.
+-- currently allowing \r\n at end of long comment since Metalua includes
+-- it in lineinfo of long comment (FIX:Metalua?)
 
 
 -- Determines AST node that must be re-evaluated upon changing code string from
@@ -287,17 +297,21 @@ function M.invalidated_code(ast1, src1, src2)
   local match1_ast, match1_comment, iswhitespace =
       M.smallest_ast_in_range(ast1, src1, src1_fpos, src1_lpos)
       
-  print('DEBUG:invalidate-smallest:', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
+  print('DEBUG:invalidate-smallest:', match1_ast and (match1_ast.tag or 'notag'), match1_comment, iswhitespace)
 
   if iswhitespace then
     local src2_fpos, src2_lpos = range_transform(src1_fpos, src1_lpos)
     if src2:sub(src2_fpos, src2_lpos):match'^%s*$' then -- whitespace replaced with whitespace
-      return src1_fpos, src1_lpos, src2_fpos, src2_lpos, nil, 'whitespace'
+      if not src2:sub(src2_fpos-1, src2_lpos+1):match'%s' then
+        debug('edit:white-space-eliminated')
+        -- whitespace eliminated, continue
+      else
+        return src1_fpos, src1_lpos, src2_fpos, src2_lpos, nil, 'whitespace'
+      end
     end -- else continue
   elseif match1_comment then
     local src1m_fpos, src1m_lpos = match1_comment[2], match1_comment[3]
     local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
-    
     -- If new text is not a single comment, then invalidate containing statementblock instead.
     local m2text = src2:sub(src2m_fpos, src2m_lpos)
     print('DEBUG:inc-compile[' .. m2text .. ']')
@@ -415,7 +429,7 @@ function M.get_keywords(ast, src)
   end
   return list
 end
--- Q:Metalua: does ast.lineinfo.comments imply #ast.lineinfo.comments > 0 ?
+-- Q:Metalua: does ast.lineinfo[loc].comments imply #ast.lineinfo[loc].comments > 0 ?
 
 -- Remove any sheband ("#!") line from Lua source string.
 function M.remove_shebang(src)
@@ -650,6 +664,7 @@ end
 
 
 --FIX/WARNING - this probably needs more work
+-- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 local nil_value_ast = {}
 function M.infer_values(top_ast)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
@@ -785,6 +800,7 @@ end
 
 
 -- Label variables with unique identifiers.
+-- Sets ast.id, ast.resolvedname
 function M.mark_identifiers(ast)
   local id = 0
   local seen_globals = {}
@@ -883,6 +899,41 @@ function M.eval_comments(ast)
 end
 
 
+-- Partially undoes effects of inspect().
+-- Note: does not undo mark_tag2 and mark_parents (see replace_ast).
+function M.uninspect(top_ast)
+  M.walk(top_ast, function(ast)
+    -- undo inspect_globals.globals
+    ast.localdefinition = nil
+    ast.functionlevel = nil
+    ast.isparam = nil
+    ast.isset = nil
+    ast.isused = nil
+    ast.isfield = nil
+    ast.previous = nil
+  
+    -- undo mark_identifiers
+    ast.id = nil
+    ast.resolvedname = nil
+    
+    -- undo infer_values
+    ast.value = nil
+    ast.valueknown = nil
+    ast.idxvalue = nil
+    ast.idxvalueknown = nil
+    
+    -- undo walk setting ast.seevalue
+    ast.seevalue = nil
+    
+    -- undo walk setting ast.definedglobal
+    ast.definedglobal = nil
+  end)
+  
+  -- undo infer_values
+  top_ast.valueglobals = nil
+end
+
+
 -- Main inspection routine.
 function M.inspect(top_ast)
   --DEBUG: local t0 = os.clock()
@@ -954,16 +1005,145 @@ function M.switchtable(t1, t2)
   for k in pairs(t2) do t1[k] = t2[k] end
 end
 
+local ispropagatecommentsfirst = {
+  Set=true, Op=true, Call=true, Invoke=true, Index=true }
+local ispropagatecommentslast = {
+  Set=true, Repeat=true, Local=true, Op=true
+}
+  
+local function make_comments(ast, dir, comments)
+  if not ast.lineinfo then ast.lineinfo = {first={}, last={}} end
+  if not ast.lineinfo[dir].comments then
+    comments = comments or {}
+    ast.lineinfo[dir].comments = comments
+    local ispropagatecomments = dir=='first' and ispropagatecommentsfirst or ispropagatecommentslast
+    if ast.tag == nil or ispropagatecomments[ast.tag] then
+      if type(ast[1]) == 'table' then make_comments(ast[1], dir, comments) end
+    end
+  end
+end
+
+
+-- Set comments to dir ('first' or 'last') side of ast.  Propagates to children as needed as well.
+local function set_comments(ast, dir, comments)
+  if comments then
+    if not ast.lineinfo then ast.lineinfo = {first={}, last={}} end
+  end
+  if ast.lineinfo then
+    ast.lineinfo[dir].comments = comments
+  end
+  local ispropagatecomments = dir=='first' and ispropagatecommentsfirst or ispropagatecommentslast
+  if ast.tag == nil or ispropagatecomments[ast.tag] then
+    if type(ast[1]) == 'table' then set_comments(ast[dir=='first' and 1 or #ast], dir, comments) end
+  end
+end
+
+local function get_comments(ast, dir)
+  return ast.lineinfo and ast.lineinfo[dir].comments
+end
+
+local function link_comments(ast, dir, bast, bdir)
+  local comments = get_comments(bast, bdir)
+  set_comments(ast, dir, comments)
+end
+
+
+local function compare_comments_(a, b) return a[3] < b[3] end
+local function add_comments(ast, dir, bast, bdir, cdir)
+  local bcomments = get_comments(bast, bdir)
+  if bcomments then
+    make_comments(ast, dir)
+    local comments = ast.lineinfo[dir].comments
+    for i,comment in ipairs(bcomments) do
+      if cdir == 'first' then
+        table.insert(comments, i, comment)
+      else -- 'last' or 'sort'
+        table.insert(comments, comment)
+      end
+    end
+    if cdir == 'sort' then table.sort(comments, compare_comments_) end
+  end
+end
+
+
+local function break_comments(ast, dir, bast, bdir, pos)
+  local comments = ast.lineinfo and ast.lineinfo[dir].comments
+  if comments then
+    local lastcomments = {}
+    for i = #comments,1,-1 do
+      if comments[i][3] >= pos then
+        table.insert(lastcomments, table.remove(comments, i))
+      end
+    end
+    set_comments(ast, dir, comments)
+    set_comments(bast, bdir, lastcomments)
+  end
+  
+end
+
+-- Remove statement at position idx in block ast.
+local function remove_statement_in_block(ast, idx)
+  if ast[idx-1] and ast[idx+1] then -- between statements
+    add_comments(ast[idx-1], 'last', ast[idx+1], 'first', 'last')
+    link_comments(ast[idx+1], 'first', ast[idx-1], 'last')
+  elseif ast[idx-1] then -- last statement
+    add_comments(ast, 'last', ast[idx-1], 'last', 'first')
+    link_comments(ast[idx-1], 'last', ast, 'last')
+  elseif ast[idx+1] then -- first statement
+  
+    add_comments(ast, 'first', ast[idx+1], 'first', 'last')
+    link_comments(ast[idx+1], 'first', ast, 'first')
+  else -- only statement
+    add_comments(ast, 'first', ast, 'last', 'last')
+    link_comments(ast, 'last', ast, 'first')
+  end
+  table.remove(ast, idx)
+       
+end
+
+
+-- Add statements in block bast before position idx in block ast.
+local function insert_statements_in_block(ast, bast, idx)
+  -- Get two nodes to insert between
+  local first_ast, first_dir, last_ast, last_dir
+  if #ast == 0 then
+    first_ast, first_dir, last_ast, last_dir = ast, 'first', ast, 'last'
+  elseif idx == 1 then
+    first_ast, first_dir, last_ast, last_dir = ast, 'first', ast[1], 'first'
+  elseif idx == #ast+1 then
+    first_ast, first_dir, last_ast, last_dir = ast[#ast], 'last', ast, 'last'
+  else
+    first_ast, first_dir, last_ast, last_dir = ast[idx-1], 'last', ast[idx], 'first'
+  end
+  assert(first_ast.lineinfo[first_dir].comments == last_ast.lineinfo[last_dir].comments)
+  
+  -- Add comments on ends of bast to comment list between above two nodes.
+  add_comments(first_ast, first_dir, bast, 'first', 'sort')
+  if #bast > 0 then add_comments(first_ast, first_dir, bast, 'last', 'sort') end
+
+  -- Insert bast nodes into ast
+  if #bast > 0 then
+    break_comments(first_ast, first_dir, last_ast, last_dir, bast.lineinfo.first[3])
+    link_comments(bast[1], 'first', first_ast, first_dir)
+    link_comments(bast[#bast], 'last', last_ast, last_dir)
+    for _, bbast in ipairs(bast) do
+      table.insert(ast, idx, bbast)
+    end
+  end
+end
 
 -- Replaces old_ast with new_ast in top_ast.
 -- Note: assumes new_ast is a block.  assumes old_ast is a statement or block.
 function M.replace_ast(top_ast, old_ast, new_ast)
-  if old_ast == top_ast then  -- complete replacement (simple)
-    M.switchtable(top_ast, new_ast)
-    return
-  end
   if not top_ast.tag2 then M.mark_tag2(top_ast) end; assert(old_ast.tag2)
   if old_ast.tag2 == 'Block' then
+    if #old_ast == 0 then
+      --Q:OK?
+    else
+      add_comments(new_ast, 'first', old_ast, 'first', 'first')
+      add_comments(new_ast, 'last', old_ast, 'last', 'last')
+    end
+
     local old_parent = old_ast.parent
     M.switchtable(old_ast, new_ast)
 
@@ -979,16 +1159,19 @@ function M.replace_ast(top_ast, old_ast, new_ast)
       if old_ast.parent[i] == old_ast then ii = i; break end
     end
     assert(ii)
-    -- merge statements into parent
-    local parent_ast = old_ast.parent
-    table.remove(parent_ast, ii)
+    
+    
+    local block_ast = old_ast.parent
+    assert(#block_ast > 0, 'NOT IMPL') -- ever happen?
+    
+    remove_statement_in_block(block_ast, ii)
+    insert_statements_in_block(block_ast, new_ast, ii)
+    -- fixup annotations
     for i=1,#new_ast do
-      table.insert(parent_ast, ii+i-1, new_ast[i])
-      
-      -- fixup annotations
       M.mark_tag2(new_ast[i], new_ast[i].tag == 'Do' and 'StatBlock' or 'Stat')
-      M.mark_parents(new_ast[i], parent_ast)
+      M.mark_parents(new_ast[i], block_ast)
     end
+
   else
     error 'not implemented'
   end
@@ -1022,6 +1205,21 @@ function M.adjust_notes(notes, pos1, delta)
   end
 end
 
+
+--Metalua:FIX: `do --[[x]] end` doesn't generate comments in AST.
+--  `if x then --[[x]] end` and `while 1 do --[[x]] end` generates comments in first/last of block
+
+--Metalua:FIX: `--[[x]] f() --[[y]]` returns lineinfo around `f()`.  `--[[x]] --[[y]]` returns lineinfo around everything.
+
+--Metalua:FIX: `while 1 do --[[x]] --[[y]] end` returns first > last lineinfo for contained block
+
+--Metalua:NOTE: `do  f()   end` returns lineinfo around `do  f()   end`, while
+--  `while 1 do  f()  end` returns lineinfo around `f()` for inner block.
+
+--Metalua:Q: Why does `return --[[y]]  z  --[[x]]` have lineinfo.first.comments, lineinfo.last.comments,
+-- plus lineinfo.comments (which is the same as lineinfo.first.comments) ?
+
+--Metalua:Q: loadstring parses "--x" but metalua omits the comment in the AST
 
 --[=[TESTSUITE
 -- utilities

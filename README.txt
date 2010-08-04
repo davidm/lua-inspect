@@ -125,6 +125,7 @@ Peter Odding for VIM editor support [2]
 20100803
   core:Evaluate special comments (prefixed by '!') to inject semantic information into analysis
          (similar to luaanalyze).
+  core: Further work on incremental compilation feature.
 
 20100802
   core: improve field value inferences

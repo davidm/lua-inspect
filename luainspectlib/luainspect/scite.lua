@@ -53,7 +53,6 @@ local clockend = PERFORMANCE_TESTS and function(name)
   end
 end or nilfunc
 
-
 -- Style IDs - correspond to style properties
 local S_DEFAULT = 0
 local S_LOCAL = 1
@@ -188,7 +187,8 @@ local function update_ast()
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
           LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
       compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
-      print('DEBUG:inc-compile:[' .. compiletext .. ']', old_ast and old_ast.tag, old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
+      print('DEBUG-inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
+      print('DEBUG:inc-compile:[' .. compiletext .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
       compiletext = newtextm
     end
@@ -197,7 +197,9 @@ local function update_ast()
     -- Generate AST.
     local ast
     if old_type ~= 'whitespace' then
+      --currently not needed: compiletext = compiletext .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
       ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
+      --table.print(ast, 20) --DEBUG
     end
     clock 't3'
 
@@ -217,9 +219,7 @@ local function update_ast()
         if old_type == 'whitespace' then
           -- nothing
         elseif old_type == 'comment' then
-        --table.print(ast)
           local new_comment = ast.lineinfo.first.comments[1]
-          --table.print(old_ast)
           LI.switchtable(old_ast, new_comment)
         else assert(old_type == 'statblock')
           -- Merge alllineinfo.
@@ -237,9 +237,6 @@ local function update_ast()
           buffer.ast.alllineinfo = nil --IMPROVE
 
           LI.replace_ast(buffer.ast, old_ast, ast)
-          
-          --LI.walk(buffer.ast, function(ast) ast.parent = nil end)--FIX:DEBUG!!!!
-          --table.print(buffer.ast, 20, 'nohash')
         end
 
         -- update notes
@@ -250,6 +247,7 @@ local function update_ast()
           end
         else
           buffer.notes = nil; collectgarbage()
+          LI.uninspect(buffer.ast)
           buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
         --adjust_notes(buffer.notes, pos1l+1, delta)
         --buffer.notes = LI.create_notes(buffer.ast)
