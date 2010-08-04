@@ -53,6 +53,17 @@ local clockend = PERFORMANCE_TESTS and function(name)
   end
 end or nilfunc
 
+
+-- Debug utility function:
+-- Shorten string by replacing any long middle section with "..."
+local _pat
+local function debug_shorten(s)
+  local keep_pat = ("."):rep(100)
+  _pat = _pat or "^(" .. keep_pat .. ").*(" .. keep_pat .. ")$"
+  return s:gsub(_pat, "%1\n<...>\n%2")
+end
+
+
 -- Style IDs - correspond to style properties
 local S_DEFAULT = 0
 local S_LOCAL = 1
@@ -188,7 +199,7 @@ local function update_ast()
           LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
       compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
       print('DEBUG-inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
-      print('DEBUG:inc-compile:[' .. compiletext .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
+      print('DEBUG:inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
       compiletext = newtextm
     end
