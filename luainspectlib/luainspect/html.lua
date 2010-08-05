@@ -13,15 +13,15 @@ local function escape_html(s)
   return s:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;'):gsub('"', '&quot;')
 end
 
-local function annotate_source(src, ast, notes, emit)
+local function annotate_source(src, ast, tokenlist, emit)
   local start = 1
   local fmt_srcs = {}
-  for _,note in ipairs(notes) do
-    local fchar, lchar = note[1], note[2]
+  for _,token in ipairs(tokenlist) do
+    local fchar, lchar = token[1], token[2]
     if fchar > start then
       table.insert(fmt_srcs, emit(src:sub(start, fchar-1)))
     end
-    table.insert(fmt_srcs, emit(src:sub(fchar, lchar), note))
+    table.insert(fmt_srcs, emit(src:sub(fchar, lchar), token))
     start = lchar + 1
   end
   if start < #src then
@@ -30,50 +30,50 @@ local function annotate_source(src, ast, notes, emit)
   return table.concat(fmt_srcs)
 end
 
-function M.ast_to_html(ast, src, notes)
- local src_html = annotate_source(src, ast, notes, function(snip_src, note)
+function M.ast_to_html(ast, src, tokenlist)
+ local src_html = annotate_source(src, ast, tokenlist, function(snip_src, token)
   local snip_html = escape_html(snip_src)
-  if note then
-    if note.type == 'comment' then
+  if token then
+    if token.type == 'comment' then
       return "<span class='comment'>" .. snip_html .. "</span>"
-    elseif note.type == 'string' then
+    elseif token.type == 'string' then
       return "<span class='string'>" .. snip_html .. "</span>"
-    elseif note.type == 'global' or note.type == 'local' or note.type == 'field' then -- Id
-      local class = note.type
+    elseif token.type == 'global' or token.type == 'local' or token.type == 'field' then -- Id
+      local class = token.type
       local desc_html = escape_html(class)
 
-      if note.type == 'global'  then
-        if note.definedglobal then
+      if token.type == 'global'  then
+        if token.definedglobal then
           class = class .. ' recognized'
           desc_html = desc_html .. ' recognized'
         else
           class = class .. ' unrecognized'
           desc_html = desc_html .. ' unrecognized'
         end
-      elseif note.type == 'local' then
-        if note.ast.functionlevel > note.ast.localdefinition.functionlevel then
+      elseif token.type == 'local' then
+        if token.ast.functionlevel > token.ast.localdefinition.functionlevel then
           class = class .. ' upvalue'
           desc_html = desc_html .. ' upvalue'
         end
-        if not note.ast.localdefinition.isused then
+        if not token.ast.localdefinition.isused then
           class = class .. ' unused'
         end
-        if note.ast.localdefinition.isset then
+        if token.ast.localdefinition.isset then
           class = class .. ' mutatebind'
           desc_html = desc_html .. ' mutate-bind'
         else
           class = class .. ' constbind'
         end
-        if note.isparam then
+        if token.isparam then
           class = class .. ' param'
           desc_html = desc_html .. ' param'
         end
-        if note.ast.localdefinition.lineinfo then
-          local linenum = note.ast.localdefinition.lineinfo.first[1]
+        if token.ast.localdefinition.lineinfo then
+          local linenum = token.ast.localdefinition.lineinfo.first[1]
           desc_html = desc_html .. ' defined-line:' .. linenum
         end
-      elseif note.type == 'field' then
-        if note.definedglobal or note.ast.seevalue.value ~= nil then
+      elseif token.type == 'field' then
+        if token.definedglobal or token.ast.seevalue.value ~= nil then
           class = class .. ' field recognized'
           desc_html = desc_html .. ' field recognized'
         else
@@ -83,15 +83,15 @@ function M.ast_to_html(ast, src, notes)
       end
       
       local id_html = ''
-      if note.ast.id then
-        id_html = " id='id" .. note.ast.id .. "'"
-        class = class .. " id" .. note.ast.id
-      elseif note.ast.id then
-        class = class .. " id" .. note.ast.localdefinition.id
+      if token.ast.id then
+        id_html = " id='id" .. token.ast.id .. "'"
+        class = class .. " id" .. token.ast.id
+      elseif token.ast.id then
+        class = class .. " id" .. token.ast.localdefinition.id
       end
 
-      if note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
-        local name = note.ast.resolvedname
+      if token.ast.resolvedname and LS.global_signatures[token.ast.resolvedname] then
+        local name = token.ast.resolvedname
         desc_html = desc_html .. "<br>" .. escape_html(LS.global_signatures[name])
       end
       return "<span class='id " .. class .. "'" .. id_html .. ">" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
