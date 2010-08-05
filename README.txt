@@ -122,6 +122,10 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100805
+  core: Major internal refactoring to simplify incremental compilation
+          (lineinfo managed in tokenlist).
+
 20100803
   core:Evaluate special comments (prefixed by '!') to inject semantic information into analysis
          (similar to luaanalyze).

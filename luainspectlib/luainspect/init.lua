@@ -24,13 +24,113 @@ local LS = require "luainspect.signatures"
 
 --! require 'luainspect.typecheck' (context)
 
--- Variable naming conventions:
---  *ast - AST node
 
-local function debug(...)
-  print('DEBUG:', ...)
+local function DEBUG(...)
+  if LUAINSPECT_DEBUG then
+    print('DEBUG:', ...)
+  end
 end
 
+
+-- Converts tokenlist to string representation for debugging.
+function M.dump_tokenlist(tokenlist)
+  local ts = {}
+  for i,token in ipairs(tokenlist) do
+    ts[#ts+1] = 'tok.' .. i .. ': [' .. token.fpos .. ',' .. token.lpos .. '] '
+       .. tostring(token[1]) .. tostring(token.ast.tag)
+  end
+  return table.concat(ts, '\n')
+end
+
+
+-- for debugging
+local function debugvalue(ast)
+  local s
+  if ast then
+    s = ast.valueknown and 'known:' .. tostring(ast.value) or 'unknown'
+  else
+    s = '?'
+  end
+  return s
+end
+
+
+-- My own object dumper.
+-- Intended for debugging, not serialization, with compact formatting.
+-- Robust against recursion.
+-- Renders Metalua table tag fields specially {tag=X, ...} --> "`X{...}".
+-- On first call, only pass parameter o.
+local ignore_keys_ = {lineinfo=true, tag=true}
+local norecurse_keys_ = {parent=true, ast=true}
+local function dumpstring_key_(k, isseen, newindent)
+  local ks = type(k) == 'string' and k:match'^[%a_][%w_]*$' and k or
+             '[' .. M.dumpstring(k, isseen, newindent) .. ']'
+  return ks
+end
+local function sort_keys_(a, b)
+  if type(a) == 'number' and type(b) == 'number' then
+    return a < b
+  elseif type(a) == 'number' then
+    return false
+  elseif type(b) == 'number' then
+    return true
+  elseif type(a) == 'string' and type(b) == 'string' then
+    return a < b
+  else
+    return tostring(a) < tostring(b) -- arbitrary
+  end
+end
+function M.dumpstring(o, isseen, indent, key)
+  isseen = isseen or {}
+  indent = indent or ''
+
+  if type(o) == 'table' then
+    if isseen[o] or norecurse_keys_[key] then
+      return (type(o.tag) == 'string' and '`' .. o.tag .. ':' or '') .. tostring(o)
+    else isseen[o] = true end -- avoid recursion
+
+    local tag = o.tag
+    local s = (tag and '`' .. tag or '') .. '{'
+    local newindent = indent .. '  '
+
+    local ks = {}; for k in pairs(o) do ks[#ks+1] = k end
+    table.sort(ks, sort_keys_)
+    --for i,k in ipairs(ks) do print ('keys', k) end
+
+    local forcenummultiline
+    for k in pairs(o) do
+       if type(k) == 'number' and type(o[k]) == 'table' then forcenummultiline = true end
+    end
+
+    -- inline elements
+    local used = {}
+    for _,k in ipairs(ks) do
+      if ignore_keys_[k] then used[k] = true
+      elseif (type(k) ~= 'number' or not forcenummultiline) and
+              type(k) ~= 'table' and (type(o[k]) ~= 'table' or norecurse_keys_[k])
+      then
+        s = s .. dumpstring_key_(k, isseen, newindent) .. '=' .. M.dumpstring(o[k], isseen, newindent, k) .. ', '
+        used[k] = true
+      end
+    end
+
+    -- elements on separate lines
+    local done
+    for _,k in ipairs(ks) do
+      if not used[k] then
+        if not done then s = s .. '\n'; done = true end
+        s = s .. newindent .. dumpstring_key_(k) .. '=' .. M.dumpstring(o[k], isseen, newindent, k) .. ',\n'
+      end
+    end
+    s = s:gsub(',(%s*)$', '%1')
+    s = s .. (done and indent or '') .. '}'
+    return s
+  elseif type(o) == 'string' then
+    return string.format('%q', o)
+  else
+    return tostring(o)
+  end
+end
 
 -- Gets length of longest prefix string in both provided strings.
 -- Returns max n such that text1:sub(1,n) == text2:sub(1,n) and n <= max(#text1,#text2)
@@ -66,66 +166,60 @@ local function longest_postfix(text1, text2)
 end  -- differs from longest_prefix only on line [*]
 
 
--- Gets smallest AST node inside AST `ast`
+-- Gets common parent of aast and bast.  Always returns value.
+-- Must provide root top_ast too.
+function M.common_ast_parent(aast, bast, top_ast)
+  if top_ast[1] and not top_ast[1].parent then M.mark_parents(top_ast) end
+  local isparent = {}
+  local tast = bast; repeat isparent[tast] = true; tast = tast.parent until not tast
+  local uast = aast; repeat if isparent[uast] then return uast end; uast = uast.parent until not uast
+  assert(false)
+end
+
+-- Gets smallest AST node inside top_ast/tokenlist/src
 -- completely containing position range [pos1, pos2].
 -- careful: "function" is not part of the `Function node.
 -- If range is inside comment, returns comment also.
--- If corresponding source `src` is specified and range is inside whitespace, then
---    returns true in third return value.
-local locs = {'first', 'last'}
-function M.smallest_ast_in_range(ast, src, pos1, pos2)
-  local partial
-  for i,bast in ipairs(ast) do
-    if type(bast) == 'table' and bast.lineinfo then
-        -- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
-        -- has no lineinfo on {}.  This is contrary to the Metalua
-        -- spec: `Local{ {ident+} {expr+}? }.
-        -- Other things like `self` also generate no lineinfo.
-        -- The ast2.lineinfo test above avoids this.
-      local apos1 = bast.lineinfo.first[3]
-      local apos2 = bast.lineinfo.last[3]
-      if pos1 >= apos1 and pos2 <= apos2 then
-        return M.smallest_ast_in_range(bast, src, pos1, pos2)
-      end
-      if pos1 >= apos1 and pos1 <= apos2 or pos2 >= apos1 and pos2 <= apos2 then -- partial overlap
-        partial = true
-      end
-      -- CAUTION:Metalua: For a block like `Do, it would be sufficient to examine the first
-      --   comments from each member and the last comments from the last member.
-      --   However, for `If, we need to examine the first and last comments from
-      --   each member.  For simplicity both are always examined.
-      for j=1,2 do
-        local comments = bast.lineinfo[locs[j]].comments
-        if comments then
-          for _,comment in ipairs(comments) do
-            local apos1, apos2 = comment[2], comment[3]
-            if pos1 >= apos1 and pos2 <= apos2 then
-              return ast, comment, nil
-            end
-            if pos1 >= apos1 and pos1 <= apos2 or pos2 >= apos1 and pos2 <= apos2 then -- partial overlap
-              partial = true
-            end
-          end
-        end
-      end
-    end
-  end
-
-  local iswhitespace
-  if src and not partial and ast.tag ~= 'String' then
+-- If corresponding source `src` is specified (may be nil)
+-- and range is inside whitespace, then returns true in third return value.
+--FIX: maybe src no longer needs to be passed
+function M.smallest_ast_in_range(top_ast, tokenlist, src, pos1, pos2)
+  local f0idx, l0idx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos1, pos2)
+  
+  -- Find enclosing AST.
+  if top_ast[1] and not top_ast[1].parent then M.mark_parents(top_ast) end
+  local fidx, lidx = f0idx, l0idx
+  while tokenlist[fidx] and not tokenlist[fidx].ast.parent do fidx = fidx - 1 end
+  while tokenlist[lidx] and not tokenlist[lidx].ast.parent do lidx = lidx + 1 end
+  -- DEBUG(fidx, lidx, f0idx, l0idx, #tokenlist, pos1, pos2, tokenlist[fidx], tokenlist[lidx])
+  local ast = not (tokenlist[fidx] and tokenlist[lidx]) and top_ast or
+      M.common_ast_parent(tokenlist[fidx].ast, tokenlist[lidx].ast, top_ast)
+  -- DEBUG('m2', tokenlist[fidx], tokenlist[lidx], top_ast, ast, ast and ast.tag)
+  if src and l0idx == f0idx - 1 then -- e.g.whitespace (FIX-currently includes non-whitespace too)
+    local iswhitespace
     if pos2 == pos1 - 1  then -- zero length
       if src:sub(pos2, pos1):match'%s' then iswhitespace = true end -- either right or left %s
     elseif src:sub(pos1,pos2):match'^%s+$' then
       iswhitespace = true
     end
-    --FIX:QUESTION: relies on undefined string.sub behavior?
+    if iswhitespace then
+      return ast, nil, true
+    else
+      return ast, nil, nil
+    end
+  elseif l0idx == f0idx and tokenlist[l0idx].tag == 'Comment' then
+    return ast, tokenlist[l0idx], nil
+  else
+    return ast, nil, nil
   end
-  if iswhitespace then
-    return ast, nil, true
-  end
-  return ast, nil, nil
 end
 --IMPROVE: handle string edits and maybe others
+
+
+-- Calls mark_parents(ast) if ast not marked.
+local function ensure_parents_marked(ast)
+  if ast[1] and not ast[1].parent then M.mark_parents(ast) end
+end
 
 
 -- Gets smallest statement or block containing or being `ast`.
@@ -137,7 +231,7 @@ function M.get_containing_statementblock(ast, top_ast)
   if ast.tag2 == 'Stat' or ast.tag2 == 'StatBlock' or ast.tag2 == 'Block' then
     return ast
   else
-    if not ast.parent then M.mark_parents(top_ast) end
+    ensure_parents_marked(top_ast)
     return M.get_containing_statementblock(ast.parent, top_ast)
   end
 end
@@ -159,8 +253,9 @@ local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin
 }
 local isloop = {While=true, Repeat=true, Fornum=true, Forin=true}
 local isblock = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true, Function=true}
-function M.related_keywords(ast, top_ast, src)
+function M.related_keywords(ast, top_ast, tokenlist, src)
   -- Expand or contract AST for certain contained statements.
+  local more
   if ast.tag == 'Return' then
     -- if `return` selected, that consider containing function selected (if any)
     if not ast.parent then M.mark_parents(top_ast) end
@@ -179,10 +274,13 @@ function M.related_keywords(ast, top_ast, src)
     ast = ancestor_ast
   elseif ast.tag == 'Set' then
     local val1_ast = ast[2][1]
-    if val1_ast.tag == 'Function' and src:sub(val1_ast.lineinfo.first[3], val1_ast.lineinfo.first[3]) ~= 'f' then
-      -- if `function f` selected, which becomes `f = function .....` (i.e. a `Set), consider `Function node.
-      -- NOTE:Metalua: only the `function()` form of `Function includes `function` in lineinfo.
-      ast = ast[2][1]
+    if val1_ast.tag == 'Function' then
+      local token = tokenlist[M.ast_idx_range_in_tokenlist(tokenlist, ast)]
+      if token.tag == 'Keyword' and token[1] == 'function' then -- function with syntactic sugar `function f`
+        ast = ast[2][1] -- select `Function node
+      else
+        more = true
+      end
     else
       more = true
     end
@@ -200,12 +298,19 @@ function M.related_keywords(ast, top_ast, src)
     while ancestor_ast ~= top_ast and not isblock[ancestor_ast.tag] do
       ancestor_ast = ancestor_ast.parent
     end
-    ast = ancestor_ast    
+    ast = ancestor_ast
   end
 
   --  keywords in statement/block.    
   if iskeystat[ast.tag] then
-    local kposlist = M.get_keywords(ast, src)
+    local kposlist = {}
+    for i=1,#tokenlist do
+     local token = tokenlist[i]
+     if token.ast == ast and token.tag == 'Keyword' then
+       kposlist[#kposlist+1] = token.fpos
+       kposlist[#kposlist+1] = token.lpos
+     end
+    end
 
     -- Expand keywords for certaining statements.
     if ast.tag == 'Function' then
@@ -214,33 +319,38 @@ function M.related_keywords(ast, top_ast, src)
         for _,cast in ipairs(ast) do
           if type(cast) == 'table' then
             if cast.tag == 'Return' then
-              kposlist[#kposlist+1] = cast.lineinfo.first[3]
-              kposlist[#kposlist+1] = cast.lineinfo.first[3] + #'return' - 1
-            elseif cast.tag ~= 'Function'  then f(cast) end
+              local token = tokenlist[M.ast_idx_range_in_tokenlist(tokenlist, cast)]
+              kposlist[#kposlist+1] = token.fpos
+              kposlist[#kposlist+1] = token.lpos
+            elseif cast.tag ~= 'Function' then f(cast) end
           end
         end
       end
+      f(ast)
       if not ast.parent then M.mark_parents(top_ast) end
       local grand_ast = ast.parent.parent
-      if grand_ast.tag == 'Set' and src:sub(ast.lineinfo.first[3], ast.lineinfo.first[3]) ~= 'f' then
-        kposlist[#kposlist+1] = grand_ast.lineinfo.first[3]
-        kposlist[#kposlist+1] = grand_ast.lineinfo.first[3] + #'function' - 1
-      elseif grand_ast.tag == 'Localrec' and src:sub(ast.lineinfo.first[3], ast.lineinfo.first[3]) ~= 'f' then
-        --FIX:Metalua: Metalua bug here: In `local --[[x]] function --[[y]] f() end`, 'x' comment omitted from AST.
-        --FIX:HACK for now.
-        local pos = src:match("()function", grand_ast.lineinfo.first[3]); assert(pos)
-        kposlist[#kposlist+1] = pos
-        kposlist[#kposlist+1] = pos + #'function' - 1
+      if grand_ast.tag == 'Set' then
+        local token = tokenlist[M.ast_idx_range_in_tokenlist(tokenlist, grand_ast)]
+        if token.tag == 'Keyword' and token[1] == 'function' then
+          kposlist[#kposlist+1] = token.fpos
+          kposlist[#kposlist+1] = token.lpos
+        end
+      elseif grand_ast.tag == 'Localrec' then
+        local tidx = M.ast_idx_range_in_tokenlist(tokenlist, grand_ast)
+        repeat tidx = tidx + 1 until tokenlist[tidx].tag == 'Keyword' and tokenlist[tidx][1] == 'function'
+        local token = tokenlist[tidx]
+        kposlist[#kposlist+1] = token.fpos
+        kposlist[#kposlist+1] = token.lpos
       end
-      f(ast)
     elseif isloop[ast.tag] then
       -- if loop, also select 'break' keywords
       local function f(ast)
         for _,cast in ipairs(ast) do
           if type(cast) == 'table' then
             if cast.tag == 'Break' then
-              kposlist[#kposlist+1] = cast.lineinfo.first[3]
-              kposlist[#kposlist+1] = cast.lineinfo.first[3] + #'break' - 1
+              local kfpos, klpos = M.ast_pos_range(cast, tokenlist)
+              kposlist[#kposlist+1] = kfpos
+              kposlist[#kposlist+1] = klpos
             elseif not isloop[cast.tag]  then f(cast) end
           end
         end
@@ -271,58 +381,60 @@ end
 
 
 -- Determines AST node that must be re-evaluated upon changing code string from
--- `src1` to `src2`, given previous AST `ast1` corresponding to `src1`.
+-- `src` to `bsrc`, given previous AST `top_ast` and tokenlist `tokenlist` corresponding to `src`.
 -- note: decorates ast1 as side-effect
-function M.invalidated_code(ast1, src1, src2)
+function M.invalidated_code(top_ast, tokenlist, src, bsrc)
   -- Converts posiiton range in src1 to position range in src2.
   local function range_transform(src1_fpos, src1_lpos)
-    local src1_nlpos = #src1 - src1_lpos
+    local src1_nlpos = #src - src1_lpos
     local src2_fpos = src1_fpos
-    local src2_lpos = #src2 - src1_nlpos
+    local src2_lpos = #bsrc - src1_nlpos
     return src2_fpos, src2_lpos
+    --IMPROVE: rename variables
   end
 
-  if src1 == src2 then return end -- up-to-date
+  if src == bsrc then return end -- up-to-date
   
-  local npre = longest_prefix(src1, src2)
-  local npost = math.min(#src1-npre, longest_postfix(src1, src2))
+  local npre = longest_prefix(src, bsrc)
+  local npost = math.min(#src-npre, longest_postfix(src, bsrc))
     -- note: min to avoid overlap ambiguity
     
   -- Find range of positions in src1 that differences correspond to.
   -- note: for zero byte range, src1_pos2 = src1_pos1 - 1.
-  local src1_fpos, src1_lpos = 1 + npre, #src1 - npost
+  local src1_fpos, src1_lpos = 1 + npre, #src - npost
   
   -- Find smallest AST node in ast1 containing src1 range above,
   -- optionally contained comment or whitespace
   local match1_ast, match1_comment, iswhitespace =
-      M.smallest_ast_in_range(ast1, src1, src1_fpos, src1_lpos)
-      
-  print('DEBUG:invalidate-smallest:', match1_ast and (match1_ast.tag or 'notag'), match1_comment, iswhitespace)
+      M.smallest_ast_in_range(top_ast, tokenlist, src, src1_fpos, src1_lpos)
+
+  DEBUG('invalidate-smallest:', match1_ast and (match1_ast.tag or 'notag'), match1_comment, iswhitespace)
 
   if iswhitespace then
     local src2_fpos, src2_lpos = range_transform(src1_fpos, src1_lpos)
-    if src2:sub(src2_fpos, src2_lpos):match'^%s*$' then -- whitespace replaced with whitespace
-      if not src2:sub(src2_fpos-1, src2_lpos+1):match'%s' then
-        debug('edit:white-space-eliminated')
+    if bsrc:sub(src2_fpos, src2_lpos):match'^%s*$' then -- whitespace replaced with whitespace
+      if not bsrc:sub(src2_fpos-1, src2_lpos+1):match'%s' then
+        DEBUG('edit:white-space-eliminated')
         -- whitespace eliminated, continue
       else
         return src1_fpos, src1_lpos, src2_fpos, src2_lpos, nil, 'whitespace'
       end
     end -- else continue
   elseif match1_comment then
-    local src1m_fpos, src1m_lpos = match1_comment[2], match1_comment[3]
+    local src1m_fpos, src1m_lpos = match1_comment.fpos, match1_comment.lpos
     local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
     -- If new text is not a single comment, then invalidate containing statementblock instead.
-    local m2text = src2:sub(src2m_fpos, src2m_lpos)
-    print('DEBUG:inc-compile[' .. m2text .. ']')
+    local m2text = bsrc:sub(src2m_fpos, src2m_lpos)
+    DEBUG('inc-compile-comment[' .. m2text .. ']')
     if quick_parse_comment(m2text) then  -- comment replaced with comment
       return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_comment, 'comment'
     end -- else continue
   else -- statementblock modified
-    match1_ast = M.get_containing_statementblock(match1_ast, ast1)
-    local src1m_fpos, src1m_lpos = match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3]  
+    match1_ast = M.get_containing_statementblock(match1_ast, top_ast)
+    local src1m_fpos, src1m_lpos = M.ast_pos_range(match1_ast, tokenlist)
     local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
-    local m2text = src2:sub(src2m_fpos, src2m_lpos)
+    local m2text = bsrc:sub(src2m_fpos, src2m_lpos)
+    DEBUG('inc-compile-statblock:', match1_ast and match1_ast.tag, '[' .. m2text .. ']')
     if loadstring(m2text) then -- statementblock replaced with statementblock 
       return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast, 'statblock'
     end -- else continue
@@ -330,54 +442,33 @@ function M.invalidated_code(ast1, src1, src2)
 
   -- otherwise invalidate entire AST.
   -- IMPROVE:performance: we don't always need to invalidate the entire AST here.
-  return nil, nil, nil, nil, ast1, 'full'
+  return nil, nil, nil, nil, top_ast, 'full'
 end
 
 
-local locs = {'first', 'last'}
-function M.mark_alllineinfo(ast)
-  if ast.alllineinfo then return end -- already done
-  local alllineinfo = {}
-  M.walk(ast, function(ast)
-    if ast.lineinfo then
-      for i=1,2 do
-        local lineinfo = ast.lineinfo[locs[i]]
-        alllineinfo[lineinfo] = true -- DEBUG:locs[i]..tostring(ast.tag)
-        if lineinfo.comments then
-          for _, comment in ipairs(lineinfo.comments) do
-            alllineinfo[comment] = true
-            comment.tag = 'Comment' -- HACK:Metalua to handle comment lineinfo inconsistency
-          end
-        end
-      end      
-    end
-  end)
-  ast.alllineinfo = alllineinfo
-end
-
--- Finds smallest statement, block, or comment AST containing position range
--- [fpos, lpos].  If allowexpand is true (default nil) and located AST
+-- Finds smallest statement, block, or comment AST  in ast/tokenlist containing position
+-- range [fpos, lpos].  If allowexpand is true (default nil) and located AST
 -- coincides with position range, then next containing statement is used
 -- instead (this allows multiple calls to further expand the statement selection).
-function M.select_statementblockcomment(ast, fpos, lpos, allowexpand)
-  local match_ast, comment_ast = M.smallest_ast_in_range(ast, nil, fpos, lpos)
+function M.select_statementblockcomment(ast, tokenlist, fpos, lpos, allowexpand)
+--IMPROVE: rename ast to top_ast
+  local match_ast, comment_ast = M.smallest_ast_in_range(ast, tokenlist, nil, fpos, lpos)
   local select_ast = comment_ast or M.get_containing_statementblock(match_ast, ast)
-  local nfpos = comment_ast and select_ast[2] or select_ast.lineinfo.first[3]
-  local nlpos = comment_ast and select_ast[3] or select_ast.lineinfo.last[3]
-    --STYLE:Metalua: The lineinfo on Metalua comments is inconsistent with other nodes
+  local nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
+  --DEBUG('s', nfpos, nlpos, fpos, lpos, match_ast.tag, select_ast.tag)
   if allowexpand and fpos == nfpos and lpos == nlpos then
     if comment_ast then
       -- Select enclosing statement.
       select_ast = match_ast
-      nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
+      nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
     else
       -- note: multiple times may be needed to expand selection.  For example, in
       --   `for x=1,2 do f() end` both the statement `f()` and block `f()` have
       --   the same position range.
-      while select_ast ~= ast and fpos == nfpos and lpos == nlpos do
-        if not select_ast.parent then M.mark_parents(ast) end -- ensure ast.parent
+      ensure_parents_marked(ast)
+      while select_ast.parent and fpos == nfpos and lpos == nlpos do
         select_ast = M.get_containing_statementblock(select_ast.parent, ast)
-        nfpos, nlpos = select_ast.lineinfo.first[3], select_ast.lineinfo.last[3]
+        nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
       end
     end
   end
@@ -386,11 +477,12 @@ end
 
 
 -- Gets list of keyword positions related to node ast in source src
--- note: ast must be visible, i.e. have lineinfo.
--- FIX/IMPROVE: `function` might be treated as a special case.
+-- note: ast must be visible, i.e. have lineinfo (e.g. unlike `Id "self" definition).
+-- Note: includes operators.
+-- Note: Assumes ast Metalua-style lineinfo is valid.
 function M.get_keywords(ast, src)
-  assert(ast.lineinfo)
   local list = {}
+  if not ast.lineinfo then return list end
   -- examine space between each pair of children i and j.
   -- special cases: 0 is before first child and #ast+1 is after last child
   local i = 0
@@ -411,17 +503,26 @@ function M.get_keywords(ast, src)
       lpos = ast.lineinfo.last[3]
     else
       local first = ast[j].lineinfo.first; local c = first.comments
+      --DEBUG('first', ast.tag, first[3], src:sub(first[3], first[3]+3))
       lpos = (c and #c > 0 and c[1][2] or first[3]) - 1
     end
     
     -- Find keyword in range.
-    local mfpos, debug, mlppos = src:match("()(%a+)()", fpos)
-    if mfpos and mlppos-1 <= lpos then
-      list[#list+1] = mfpos
-      list[#list+1] = mlppos-1
-    end
+    local spos = fpos
+    repeat
+      local mfpos, tok, mlppos = src:match("^%s*()(%a+)()", spos)
+      if not mfpos then
+        mfpos, tok, mlppos = src:match("^%s*()(%p+)()", spos)
+      end
+      --DEBUG('look', ast.tag, #ast,i,j,'*', mfpos, tok, mlppos, fpos, lpos, src:sub(fpos, fpos+5))
+      if mfpos and mlppos-1 <= lpos then
+        list[#list+1] = mfpos
+        list[#list+1] = mlppos-1
+      end
+      spos = mlppos
+    until not spos or spos > lpos
     -- note: finds single keyword.  in `local function` returns only `local`
-    --print(i,j ,'test[' .. src:sub(fpos, lpos) .. ']')
+    --DEBUG(i,j ,'test[' .. src:sub(fpos, lpos) .. ']')
     
     i = j  -- next
    
@@ -430,6 +531,7 @@ function M.get_keywords(ast, src)
   return list
 end
 -- Q:Metalua: does ast.lineinfo[loc].comments imply #ast.lineinfo[loc].comments > 0 ?
+
 
 -- Remove any sheband ("#!") line from Lua source string.
 function M.remove_shebang(src)
@@ -501,6 +603,7 @@ function M.walk(ast, fdown, fup)
   end
   if fup then fup(ast) end
 end
+
 
 -- function for t[k]
 local function tindex(t, k) return t[k] end
@@ -583,51 +686,8 @@ function M.mark_tag2(ast, context)
 end
 
 
--- Create notes on AST.
--- Notes are sorted by character position and contain semantic information on tokens.
-function M.create_notes(ast)
-  local notes = {}
-
-  local seen_comment = {}
-  M.walk(ast, function(ast)
-    if (ast.tag == 'Id' or ast.isfield) and ast.lineinfo then -- note: e.g. `Id "self" may have no lineinfo
-      local vname = ast[1]
-      local fchar = ast.lineinfo.first[3]
-      local lchar = ast.lineinfo.last[3]
-      local atype = ast.localdefinition and 'local' or ast.isfield and 'field' or 'global'
-      
-      local isparam = ast.localdefinition and ast.localdefinition.isparam or nil
-      table.insert(notes, {fchar, lchar, ast=ast, type=atype, definedglobal=ast.definedglobal, isparam=isparam})
-      --IMPROVE: definedglobal and other fields are redundant
-    elseif ast.tag == 'String' then
-      local fchar = ast.lineinfo.first[3]
-      local lchar = ast.lineinfo.last[3]
-      table.insert(notes, {fchar, lchar, ast=ast, type='string'})
-    end
-
-    -- comments
-    if ast.lineinfo then
-      local commentss = {}
-      if ast.lineinfo.first.comments then table.insert(commentss, ast.lineinfo.first.comments) end
-      if ast.lineinfo.last.comments  then table.insert(commentss, ast.lineinfo.last.comments) end
-      for _,comments in ipairs(commentss) do
-        for i,comment in ipairs(comments) do
-          local text,fchar,lchar = unpack(comment)
-          if not seen_comment[fchar] then
-            seen_comment[fchar] = true
-            table.insert(notes, {fchar, lchar, ast=comment, type='comment'})
-          end
-        end
-      end
-    end
-  end)
-
-  table.sort(notes, function(a,b) return a[1] < b[1] end)
-  
-  return notes
-end
-
-
+-- Set known value on ast to that on src_ast.
+-- Utility function used by infer_values.
 local function set_value(ast, src_ast)
   if not src_ast.valueknown or ast.valueknown and ast.value ~= src_ast.value then -- unknown if multiple values
     ast.valueknown = 'multiple'
@@ -638,6 +698,7 @@ local function set_value(ast, src_ast)
 end
 
 
+-- Utility function used by infer_values.
 local function tastnewindex(t_ast, k_ast, v_ast)
   if t_ast.valueknown and k_ast.valueknown and v_ast.valueknown then
     local t, k, v = t_ast.value, k_ast.value, v_ast.value
@@ -651,18 +712,7 @@ local function tastnewindex(t_ast, k_ast, v_ast)
 end
 
 
--- for debugging
-local function debugvalue(ast)
-  local s
-  if ast then
-    s = ast.valueknown and 'known:' .. tostring(ast.value) or 'unknown'
-  else
-    s = '?'
-  end
-  return s
-end
-
-
+-- Infer values of variables.
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 local nil_value_ast = {}
@@ -866,41 +916,53 @@ function env.apply_value(pattern, val)
       end
     end
   end
-  for i=env.asti, #env.ast do
-    local bast = env.ast[i]
-    if type(bast) == 'table' then f(bast) end
-  end
+  f(ast) -- ast from environment
+  --UNUSED:
+  -- for i=env.asti, #env.ast do
+  --  local bast = env.ast[i]
+  --  if type(bast) == 'table' then f(bast) end
+  --end
 end
 setfenv(env.apply_value, env)
 
 
 -- Evaluate all special comments (i.e. comments prefixed by '!') in code.
 -- This is similar to luaanalyze.
-function M.eval_comments(ast)
-  for i, bast in ipairs(ast) do
-    if bast.lineinfo and bast.lineinfo.first.comments then
-      for i, comment in ipairs(bast.lineinfo.first.comments) do
-        local text = comment[1]
-        local command = text:match'^!(.*)'
-        if command then
-          local f, err = loadstring(command)
-          if f then
-            setfenv(f, env); env.ast = ast; env.asti = i
-            local ok, err = pcall(f, ast)
-            if not ok then io.stderr:write(err, ': ', text) end
-            env.ast = nil; env.asti = nil
-          else
-            io.stderr:write(err, ': ', text)
-          end
-        end
+function M.eval_comments(ast, tokenlist)
+  local function eval(command, ast)
+    --DEBUG('!', command:gsub('%s+$', ''), ast.tag)
+    local f, err = loadstring(command)
+    if f then
+      setfenv(f, env); env.ast = ast
+      local ok, err = pcall(f, ast)
+      if not ok then io.stderr:write(err, ': ', command) end
+      env.ast = nil
+   else
+     local message = err, ': ', command
+     if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
+       print(message) -- IMPROVE? eliminate editor-specific code
+     else
+       io.stderr:write(message, "\n")
+     end
+    end
+  end
+
+  for idx=1,#tokenlist do
+    local token = tokenlist[idx]
+    if token.tag == 'Comment' then
+      local command = token[1]:match'^!(.*)'
+      if command then
+        local mast = M.smallest_ast_in_range(ast, tokenlist, nil, token.fpos, token.lpos)
+        eval(command, mast)
       end
     end
   end
 end
+--IMPROVE: in `do f() --[[!g()]] h()` only apply g to h.
 
 
 -- Partially undoes effects of inspect().
--- Note: does not undo mark_tag2 and mark_parents (see replace_ast).
+-- Note: does not undo mark_tag2 and mark_parents (see replace_statements).
 function M.uninspect(top_ast)
   M.walk(top_ast, function(ast)
     -- undo inspect_globals.globals
@@ -935,14 +997,14 @@ end
 
 
 -- Main inspection routine.
-function M.inspect(top_ast)
+function M.inspect(top_ast, tokenlist)
   --DEBUG: local t0 = os.clock()
 
   local globals = inspect_globals.globals(top_ast)
   
   M.mark_identifiers(top_ast)
 
-  M.eval_comments(top_ast)
+  M.eval_comments(top_ast, tokenlist)
   
   M.infer_values(top_ast)
   M.infer_values(top_ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
@@ -973,8 +1035,6 @@ function M.inspect(top_ast)
     if ok then return o else return nil end
   end
   
-  local valueglobals = top_ast.valueglobals
-  
   M.walk(top_ast, function(ast)
     if ast.tag == 'Id' or ast.isfield then
       local vname = ast[1]
@@ -986,13 +1046,6 @@ function M.inspect(top_ast)
       -- FIX: _G includes modules imported by inspect.lua, which is not desired
     end
   end)
-  
-
-  local notes = M.create_notes(top_ast)
-
-  --print('DEBUG: t+', os.clock() - t0); t0 = os.clock()
-
-  return notes
 end
 
 
@@ -1005,206 +1058,198 @@ function M.switchtable(t1, t2)
   for k in pairs(t2) do t1[k] = t2[k] end
 end
 
-local ispropagatecommentsfirst = {
-  Set=true, Op=true, Call=true, Invoke=true, Index=true }
-local ispropagatecommentslast = {
-  Set=true, Repeat=true, Local=true, Op=true
-}
-  
-local function make_comments(ast, dir, comments)
-  if not ast.lineinfo then ast.lineinfo = {first={}, last={}} end
-  if not ast.lineinfo[dir].comments then
-    comments = comments or {}
-    ast.lineinfo[dir].comments = comments
-    local ispropagatecomments = dir=='first' and ispropagatecommentsfirst or ispropagatecommentslast
-    if ast.tag == nil or ispropagatecomments[ast.tag] then
-      if type(ast[1]) == 'table' then make_comments(ast[1], dir, comments) end
-    end
-  end
-end
 
-
--- Set comments to dir ('first' or 'last') side of ast.  Propagates to children as needed as well.
-local function set_comments(ast, dir, comments)
-  if comments then
-    if not ast.lineinfo then ast.lineinfo = {first={}, last={}} end
-  end
-  if ast.lineinfo then
-    ast.lineinfo[dir].comments = comments
-  end
-  local ispropagatecomments = dir=='first' and ispropagatecommentsfirst or ispropagatecommentslast
-  if ast.tag == nil or ispropagatecomments[ast.tag] then
-    if type(ast[1]) == 'table' then set_comments(ast[dir=='first' and 1 or #ast], dir, comments) end
-  end
-end
-
-local function get_comments(ast, dir)
-  return ast.lineinfo and ast.lineinfo[dir].comments
-end
-
-local function link_comments(ast, dir, bast, bdir)
-  local comments = get_comments(bast, bdir)
-  set_comments(ast, dir, comments)
-end
-
-
-local function compare_comments_(a, b) return a[3] < b[3] end
-local function add_comments(ast, dir, bast, bdir, cdir)
-  local bcomments = get_comments(bast, bdir)
-  if bcomments then
-    make_comments(ast, dir)
-    local comments = ast.lineinfo[dir].comments
-    for i,comment in ipairs(bcomments) do
-      if cdir == 'first' then
-        table.insert(comments, i, comment)
-      else -- 'last' or 'sort'
-        table.insert(comments, comment)
+-- Generates ordered list of tokens in top_ast/src.
+-- Note: currently ignores operators and parens.
+-- Note: Modifies ast.
+-- Note: Assumes ast Metalua-style lineinfo is valid.
+local isterminal = {Nil=true, Dots=true, True=true, False=true, Number=true, String=true,
+  Dots=true, Id=true}
+local function compare_tokens_(atoken, btoken) return atoken.fpos < btoken.fpos end
+function M.ast_to_tokenlist(top_ast, src)
+  local tokens = {}
+  local isseen = {}
+  M.walk(top_ast, function(ast)
+    if isterminal[ast.tag] then -- Extract terminal
+      local token = ast
+      token.fpos, token.lpos, token.ast = ast.lineinfo.first[3], ast.lineinfo.last[3], ast
+      table.insert(tokens, token)
+    else -- Extract non-terminal
+      local keywordposlist = M.get_keywords(ast, src)
+      for i=1,#keywordposlist,2 do
+        local fpos, lpos = keywordposlist[i], keywordposlist[i+1]
+        local toktext = src:sub(fpos, lpos)
+        local token = {tag='Keyword', fpos=fpos, lpos=lpos, ast=ast, toktext}
+        table.insert(tokens, token)
       end
     end
-    if cdir == 'sort' then table.sort(comments, compare_comments_) end
-  end
+    -- Extract comments
+    for i=1,2 do
+      local comments = ast.lineinfo and ast.lineinfo[i==1 and 'first' or 'last'].comments
+      if comments then for _, comment in ipairs(comments) do
+        if not isseen[comment] then
+          comment.tag = 'Comment'
+          local token = comment
+          token.fpos, token.lpos, token.ast = comment[2], comment[3], comment
+          table.insert(tokens, token)
+          isseen[comment] = true
+        end
+      end end
+    end
+    
+  end)
+  table.sort(tokens, compare_tokens_)
+  return tokens
 end
 
 
-local function break_comments(ast, dir, bast, bdir, pos)
-  local comments = ast.lineinfo and ast.lineinfo[dir].comments
-  if comments then
-    local lastcomments = {}
-    for i = #comments,1,-1 do
-      if comments[i][3] >= pos then
-        table.insert(lastcomments, table.remove(comments, i))
+-- Gets tokenlist range [fidx,lidx] covered by ast/tokenlist.  Returns nil,nil if not found.
+function M.ast_idx_range_in_tokenlist(tokenlist, ast)
+  -- Get list of primary nodes under ast.
+  local isold = {}; M.walk(ast, function(ast) isold[ast] = true end)
+  -- Get range.
+  local fidx, lidx
+  for idx=1,#tokenlist do
+    local token = tokenlist[idx]
+    if isold[token.ast] then
+      lidx = idx
+      if not fidx then fidx = idx end
+    end
+  end
+  return fidx, lidx
+end
+
+
+-- Get index range in tokenlist overlapped by character position range [fpos, lpos].
+-- Partially overlapped tokens are included.  If position range between tokens, then fidx is last token and lidx is first token
+-- (which implies lidx = fidx - 1)
+function M.tokenlist_idx_range_over_pos_range(tokenlist, fpos, lpos)
+  -- note: careful with zero-width range (lpos == fpos - 1)
+  local fidx, lidx
+  for idx=1,#tokenlist do
+    local token = tokenlist[idx]
+    --if (token.fpos >= fpos and token.fpos <= lpos) or (token.lpos >= fpos and token.lpos <= lpos) then -- token overlaps range
+    if fpos <= token.lpos and lpos >= token.fpos then -- range overlaps token
+      if not fidx then fidx = idx end
+      lidx = idx
+    end
+  end
+  if not fidx then -- on fail, check between tokens
+    for idx=1,#tokenlist+1 do
+      local tokfpos, toklpos = tokenlist[idx-1] and tokenlist[idx-1].lpos, tokenlist[idx] and tokenlist[idx].fpos
+      if (not tokfpos or fpos > tokfpos) and (not toklpos or lpos < toklpos) then -- range between tokens
+        return idx, idx-1
       end
     end
-    set_comments(ast, dir, comments)
-    set_comments(bast, bdir, lastcomments)
   end
-  
+  assert(fidx and lidx)
+  return fidx, lidx
 end
 
--- Remove statement at position idx in block ast.
-local function remove_statement_in_block(ast, idx)
-  if ast[idx-1] and ast[idx+1] then -- between statements
-    add_comments(ast[idx-1], 'last', ast[idx+1], 'first', 'last')
-    link_comments(ast[idx+1], 'first', ast[idx-1], 'last')
-  elseif ast[idx-1] then -- last statement
-    add_comments(ast, 'last', ast[idx-1], 'last', 'first')
-    link_comments(ast[idx-1], 'last', ast, 'last')
-  elseif ast[idx+1] then -- first statement
-  
-    add_comments(ast, 'first', ast[idx+1], 'first', 'last')
-    link_comments(ast[idx+1], 'first', ast, 'first')
-  else -- only statement
-    add_comments(ast, 'first', ast, 'last', 'last')
-    link_comments(ast, 'last', ast, 'first')
+-- Remove tokens in tokenlist covered by ast. 
+local function remove_ast_in_tokenlist(tokenlist, ast)
+  local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
+  if fidx then  -- note: fidx implies lidx
+    for idx=lidx,fidx,-1 do table.remove(tokenlist, idx) end
   end
-  table.remove(ast, idx)
-       
 end
 
 
--- Add statements in block bast before position idx in block ast.
-local function insert_statements_in_block(ast, bast, idx)
-  -- Get two nodes to insert between
-  local first_ast, first_dir, last_ast, last_dir
-  if #ast == 0 then
-    first_ast, first_dir, last_ast, last_dir = ast, 'first', ast, 'last'
-  elseif idx == 1 then
-    first_ast, first_dir, last_ast, last_dir = ast, 'first', ast[1], 'first'
-  elseif idx == #ast+1 then
-    first_ast, first_dir, last_ast, last_dir = ast[#ast], 'last', ast, 'last'
-  else
-    first_ast, first_dir, last_ast, last_dir = ast[idx-1], 'last', ast[idx], 'first'
+-- Inserts all elements in list bt at index i in list t.
+-- Utility function.
+local function tinsertlist(t, i, bt)
+  for bi=#bt,1,-1 do
+    table.insert(t, i, bt[bi])
   end
-  assert(first_ast.lineinfo[first_dir].comments == last_ast.lineinfo[last_dir].comments)
-  
-  -- Add comments on ends of bast to comment list between above two nodes.
-  add_comments(first_ast, first_dir, bast, 'first', 'sort')
-  if #bast > 0 then add_comments(first_ast, first_dir, bast, 'last', 'sort') end
+end
 
-  -- Insert bast nodes into ast
-  if #bast > 0 then
-    break_comments(first_ast, first_dir, last_ast, last_dir, bast.lineinfo.first[3])
-    link_comments(bast[1], 'first', first_ast, first_dir)
-    link_comments(bast[#bast], 'last', last_ast, last_dir)
-    for _, bbast in ipairs(bast) do
-      table.insert(ast, idx, bbast)
+
+-- Insert tokens from btokenlist into tokenlist.  Preserves sort.
+local function insert_tokenlist(tokenlist, btokenlist)
+  local ftoken = btokenlist[1]
+  if ftoken then
+    -- Get index in tokenlist in which to insert tokens in btokenlist.
+    local fidx
+    for idx=1,#tokenlist do
+      if tokenlist[idx].fpos > ftoken.fpos then fidx = idx; break end
     end
+    fidx = fidx or #tokenlist + 1  -- else append
+
+    -- Insert tokens.
+    tinsertlist(tokenlist, fidx, btokenlist)
   end
 end
 
--- Replaces old_ast with new_ast in top_ast.
--- Note: assumes new_ast is a block.  assumes old_ast is a statement or block.
-function M.replace_ast(top_ast, old_ast, new_ast)
-  if not top_ast.tag2 then M.mark_tag2(top_ast) end; assert(old_ast.tag2)
-  if old_ast.tag2 == 'Block' then
-    if #old_ast == 0 then
-      --Q:OK?
+
+-- Get character position range covered by ast in tokenlist.  Returns nil,nil if not found
+function M.ast_pos_range(ast, tokenlist)
+  local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
+  if fidx then
+    return tokenlist[fidx].fpos, tokenlist[lidx].lpos
     else
-      add_comments(new_ast, 'first', old_ast, 'first', 'first')
-      add_comments(new_ast, 'last', old_ast, 'last', 'last')
-    end
+    return nil, nil
+  end
+end
 
-    local old_parent = old_ast.parent
-    M.switchtable(old_ast, new_ast)
 
-    -- fixup annotations
-    M.mark_tag2(old_ast, 'Block')
-    if old_ast.parent then M.mark_parents(old_ast, old_parent) end
-  elseif old_ast.tag2 == 'Stat' or old_ast.tag2 == 'StatBlock' then
-    if not old_ast.parent then M.mark_parents(top_ast) end; assert(old_ast.parent)    
-    assert(old_ast.parent.tag2 == 'Block' or old_ast.parent.tag2 == 'StatBlock')
-    -- find index in parent
-    local ii
-    for i=1, #old_ast.parent do
-      if old_ast.parent[i] == old_ast then ii = i; break end
-    end
-    assert(ii)
-    
-    
-    local block_ast = old_ast.parent
-    assert(#block_ast > 0, 'NOT IMPL') -- ever happen?
-    
-    remove_statement_in_block(block_ast, ii)
-    insert_statements_in_block(block_ast, new_ast, ii)
-    -- fixup annotations
-    for i=1,#new_ast do
-      M.mark_tag2(new_ast[i], new_ast[i].tag == 'Do' and 'StatBlock' or 'Stat')
-      M.mark_parents(new_ast[i], block_ast)
-    end
+-- Gets index of bast in ast (nil if not found).
+function M.ast_idx(ast, bast)
+  for idx=1,#ast do
+    if ast[idx] == bast then return idx end
+  end
+  return nil
+end
 
+
+-- Gets parent of ast and index of ast in parent.
+-- Root node top_ast must also be provided.  Returns nil, nil if ast is root.
+-- Note: may call mark_parents.
+function M.ast_parent_idx(top_ast, ast)
+  if ast == top_ast then return nil, nil end
+  if not ast.parent then M.mark_parents(top_ast) end; assert(ast.parent)
+  local idx = M.ast_idx(ast.parent, ast)
+  return ast.parent, idx
+end
+
+
+-- Replaces old_ast with new_ast/new_tokenlist in top_ast/tokenlist.
+-- Note: assumes new_ast is a block.  assumes old_ast is a statement or block.
+function M.replace_statements(top_ast, tokenlist, old_ast, new_ast, new_tokenlist)
+  remove_ast_in_tokenlist(tokenlist, old_ast)
+  insert_tokenlist(tokenlist, new_tokenlist)
+  if old_ast == top_ast then -- special case: no parent
+    M.switchtable(old_ast, new_ast) -- note: safe since block is not in tokenlist.
   else
-    error 'not implemented'
+    local parent_ast, idx = M.ast_parent_idx(top_ast, old_ast)
+    table.remove(parent_ast, idx)
+    tinsertlist(parent_ast, idx, new_ast)
+  end
+
+  -- fixup annotations
+  for _,bast in ipairs(new_ast) do
+    if top_ast.tag2 then M.mark_tag2(bast, bast.tag == 'Do' and 'StatBlock' or 'Block') end
+    if old_ast.parent then M.mark_parents(bast, old_ast.parent) end
   end
 end
 
 
---FIX: adjust rows/cols too?
-function M.adjust_lineinfo(ast, pos1, delta)
-  M.mark_alllineinfo(ast)
-  for lineinfo in pairs(ast.alllineinfo) do
-    if lineinfo.tag == 'Comment' then
-      if lineinfo[2] >= pos1 then
-         lineinfo[2] = lineinfo[2] + delta
-         lineinfo[3] = lineinfo[3] + delta
-         --NOTE: linenum will also need to be adjusted here if Metalua adds linenum to comment node.
-      end
-    else  -- first or last of normal tag
-      if lineinfo[3] >= pos1 then
-        lineinfo[3] = lineinfo[3] + delta
-      end
+-- Adjust lineinfo in tokenlist.
+-- All char positions starting at pos1 are shifted by delta number of chars.
+function M.adjust_lineinfo(tokenlist, pos1, delta)
+  for _,token in ipairs(tokenlist) do
+    if token.fpos >= pos1 then
+       token.fpos = token.fpos + delta
+    end
+    if token.lpos >= pos1 then
+      token.lpos = token.lpos + delta
     end
   end
 end
 
-function M.adjust_notes(notes, pos1, delta)
-  for i=1,#notes do local note = notes[i]
-    if note[1] >= pos1 then
-      note[1] = note[1] + delta
-      note[2] = note[2] + delta
-    end
-  end
-end
 
+--FIX:Q: does this handle Unicode ok?
+
+--FIX:Metalua: Metalua bug here: In `local --[[x]] function --[[y]] f() end`, 'x' comment omitted from AST.
 
 --Metalua:FIX: `do --[[x]] end` doesn't generate comments in AST.
 --  `if x then --[[x]] end` and `while 1 do --[[x]] end` generates comments in first/last of block
@@ -1220,6 +1265,23 @@ end
 -- plus lineinfo.comments (which is the same as lineinfo.first.comments) ?
 
 --Metalua:Q: loadstring parses "--x" but metalua omits the comment in the AST
+
+-- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
+-- has no lineinfo on {}.  This is contrary to the Metalua
+-- spec: `Local{ {ident+} {expr+}? }.
+-- Other things like `self` also generate no lineinfo.
+-- The ast2.lineinfo test above avoids this.
+
+--STYLE:Metalua: The lineinfo on Metalua comments is inconsistent with other nodes
+        
+--Metalua:FIX: Metalua shouldn't overwrite ipairs/pairs.  Note: Metalua version doesn't set
+-- errorlevel correctly.
+
+--Metalua:Q: lineinfo of table in `f{}` is [3,2], of `f{ x,y }` it's [4,6].
+-- This is inconsistent with `x={}` which is [3,4] and `f""` which is [1,2] for the string.
+
+-- NOTE:Metalua: only the `function()` form of `Function includes `function` in lineinfo.
+-- 'function' is part of `Localrec and `Set in syntactic sugar form.
 
 --[=[TESTSUITE
 -- utilities

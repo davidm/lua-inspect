@@ -51,9 +51,6 @@ local function traverse(ast, scope, globals, level, functionlevel)
       scope[name].isused = true
     else -- global, do nothing
     end
-    --if not scope[vname] then
-    --  print(string.format("undefined %s at line %d", vname, ast.lineinfo.first[1]))
-    --end
   elseif ast.tag == "Function" then
     local paramlist_ast, body_ast = ast[1], ast[2]
     functionlevel = functionlevel + 1

@@ -29,7 +29,7 @@ local M = {}
 -- ast -- last successfully compiled AST
 -- text  -- text corresponding to `ast`
 -- lasttext  -- last attempted `text` (might not be successfully compiled)
--- notes  -- notes corresponding to `ast`
+-- tokenlist  -- tokenlist corresponding to `ast`
 -- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
 
 
@@ -61,6 +61,12 @@ local function debug_shorten(s)
   local keep_pat = ("."):rep(100)
   _pat = _pat or "^(" .. keep_pat .. ").*(" .. keep_pat .. ")$"
   return s:gsub(_pat, "%1\n<...>\n%2")
+end
+
+local function DEBUG(...)
+  if LUAINSPECT_DEBUG then
+    print('DEBUG:', ...)
+  end
 end
 
 
@@ -101,36 +107,40 @@ STYLES.compiler_error = S_COMPILER_ERROR
 STYLES.indic_fore = 'indic_fore'
 STYLES.indic_style = 'indic_style'
 
-local function formatvariabledetails(note)
+local function formatvariabledetails(token)
   local info = ""
-  if note.type == "global" then
-    info = info .. (note.definedglobal and "recognized" or "unrecognized") .. " global "
-  elseif note.type == "local" then
-    if not note.ast.localdefinition.isused then
+  local ast = token.ast
+
+  if not ast then return '?' end
+  
+  if ast.tag == 'Id' and not ast.localdefinition then -- global
+    info = info .. (token.definedglobal and "recognized" or "unrecognized") .. " global "
+  elseif ast.localdefinition then
+    if not ast.localdefinition.isused then
       info = info .. "unused "
     end
-    if note.ast.localdefinition.isset then
+    if ast.localdefinition.isset then
       info = info .. "mutable "
     end
-    if note.ast.localdefinition.functionlevel < note.ast.functionlevel then
+    if ast.localdefinition.functionlevel < ast.functionlevel then
       info = info .. "upvalue "
-    elseif note.ast.localdefinition.isparam then
+    elseif ast.localdefinition.isparam then
       info = info .. "param "
     end
     info = info .. "local "
-  elseif note.type == "field" then
+  elseif ast.isfield then
     info = info .. "field "
-    if note.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
+    if ast.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
   else
     info = info .. "? "
   end
 
-  if note and note.ast.resolvedname and LS.global_signatures[note.ast.resolvedname] then
-    local name = note.ast.resolvedname
+  if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
+    local name = ast.resolvedname
     info = LS.global_signatures[name] .. "\n" .. info
   end
  
-  local vast = note.ast.seevalue or note.ast
+  local vast = ast.seevalue or ast
   if vast.valueknown == 'multiple' then
     info = info .. "\nmultiple values including= " .. tostring(vast.value) .. " "
   elseif vast.valueknown then
@@ -146,11 +156,11 @@ end
 local function annotate_all_locals()
   -- Build list of annotations.
   local annotations = {}
-  for i=1,#buffer.notes do
-    local note = buffer.notes[i]
-    if note.ast.localdefinition == note.ast then
-      local info = formatvariabledetails(note)
-      local linenum = editor:LineFromPosition(note[2]-1)
+  for i=1,#buffer.tokenlist do
+    local token = buffer.tokenlist[i]
+    if token.ast.localdefinition == token.ast then
+      local info = formatvariabledetails(token)
+      local linenum = editor:LineFromPosition(token.lpos-1)
       annotations[linenum] = (annotations[linenum] or "") .. "detail: " .. info
     end
   end
@@ -196,10 +206,10 @@ local function update_ast()
     local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compiletext
     if isincremental then
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LI.invalidated_code(buffer.ast, LI.remove_shebang(buffer.text), newtextm)
+          LI.invalidated_code(buffer.ast, buffer.tokenlist, LI.remove_shebang(buffer.text), newtextm)
       compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
-      print('DEBUG-inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
-      print('DEBUG:inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
+      DEBUG('inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
+      DEBUG('inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
       compiletext = newtextm
     end
@@ -210,67 +220,57 @@ local function update_ast()
     if old_type ~= 'whitespace' then
       --currently not needed: compiletext = compiletext .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
       ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
-      --table.print(ast, 20) --DEBUG
+      --DEBUG(table.tostring(ast, 20))
     end
     clock 't3'
 
     if err then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
     else
+      local tokenlist = ast and LI.ast_to_tokenlist(ast, compiletext)
+        -- note: ast nil if whitespace
+      --LI.dump_tokenlist(tokenlist)
+      
+   
       buffer.text = newtext
       if isincremental and old_type ~= 'full' then
         -- Adjust line numbers.
         local delta = pos2l - pos1l
-        LI.adjust_lineinfo(buffer.ast, pos1l, delta)
-        if ast then  -- note: nil if whitespace
-          LI.adjust_lineinfo(ast, 1, pos2f-1)
+        LI.adjust_lineinfo(buffer.tokenlist, pos1l, delta)
+        if ast then
+          LI.adjust_lineinfo(tokenlist, 1, pos2f-1)
         end
  
         -- Inject AST
         if old_type == 'whitespace' then
           -- nothing
         elseif old_type == 'comment' then
-          local new_comment = ast.lineinfo.first.comments[1]
-          LI.switchtable(old_ast, new_comment)
+          assert(#tokenlist == 1 and tokenlist[1].tag == 'Comment') -- replacing with comment
+          local new_comment = tokenlist[1]
+          local token = old_ast
+          token.fpos, token.lpos, token[1], token[4] =
+              new_comment.fpos, new_comment.lpos, new_comment[1], new_comment[4]
         else assert(old_type == 'statblock')
-          -- Merge alllineinfo.
-          --[[
-          assert(ast.alllineinfo)  -- from adjust_lineinfo
-          if old_ast ~= buffer.ast then -- not replacing full AST
-            for k in pairs(ast.alllineinfo) do buffer.ast.alllineinfo[k] = true end
-            ast.alllineinfo = nil
-          end
-          .....
-          old_ast = nil -- remove reference for gc
-          
-          collectgarbage() -- remove weak refs in alllineinfo
-          ]]
-          buffer.ast.alllineinfo = nil --IMPROVE
-
-          LI.replace_ast(buffer.ast, old_ast, ast)
+          LI.replace_statements(buffer.ast, buffer.tokenlist, old_ast, ast, tokenlist)
         end
 
-        -- update notes
-        if old_type == 'comment' or old_type == 'whitespace' then
-          for i,note in ipairs(buffer.notes) do
-            if note[1] >= pos1l then note[1] = note[1] + delta end
-            if note[2] >= pos1l then note[2] = note[2] + delta end
-          end
-        else
-          buffer.notes = nil; collectgarbage()
+        if not(old_type == 'comment' or old_type == 'whitespace') then
           LI.uninspect(buffer.ast)
-          buffer.notes = LI.inspect(buffer.ast) --IMPROVE: don't do full inspection
-        --adjust_notes(buffer.notes, pos1l+1, delta)
-        --buffer.notes = LI.create_notes(buffer.ast)
+          LI.inspect(buffer.ast, buffer.tokenlist) --IMPROVE: don't do full inspection
         end
       else --full
+            -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newtext`, then
+      --   `LI.inspect` may attach its previous value into the newly created
+      --   `buffer.tokenlist`, eventually leading to memory overflow.
+      
+        buffer.tokenlist = tokenlist
         buffer.ast = ast
-        
-        -- careful: if `buffer.notes` variable exists in `newtext`, then
-        --   `LI.inspect` may attach its previous value into the newly created
-        --   `buffer.notes`, eventually leading to memory overflow.
-        buffer.notes = nil; collectgarbage()
-        buffer.notes = LI.inspect(buffer.ast)
+        LI.inspect(buffer.ast, buffer.tokenlist)
+      end
+      if LUAINSPECT_DEBUG then
+        DEBUG(LI.dump_tokenlist(buffer.tokenlist))
+        DEBUG(LI.dumpstring(buffer.ast))
+        --DEBUG(table.tostring(buffer.ast, 20))
       end
     end
    end
@@ -315,19 +315,19 @@ end
 -- Gets note assocated with currently selected variable (if any).
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
-  local selectednote
+  local selectedtoken
   local id
   local pos = editor.Anchor+1
-  for i,note in ipairs(buffer.notes) do
-    if pos >= note[1] and pos <= note[2] then
-      if note.ast.id then
-        selectednote = note
-        id = note.ast.id
+  for i,token in ipairs(buffer.tokenlist) do
+    if pos >= token.fpos and pos <= token.lpos then
+      if token.ast.id then
+        selectedtoken = token
+        id = token.ast.id
       end
       break
     end
   end
-  return selectednote, id
+  return selectedtoken, id
 end
 
 
@@ -410,16 +410,16 @@ scite_OnUpdateUI(function()
   if id then
     init_indicator_styles() --Q: how often need this be called?
 
-    local first, last -- first and last occurances
-    for _,note in ipairs(buffer.notes) do
-      if note.ast.id == id then
-        last = note
-        if not first then first = note end
-        editor:IndicatorFillRange(note[1]-1, note[2]-note[1]+1)
+    local ftoken, ltoken -- first and last occurances
+    for _,token in ipairs(buffer.tokenlist) do
+      if token.ast.id == id then
+        ltoken = token
+        if not ftoken then ftoken = token end
+        editor:IndicatorFillRange(token.fpos-1, token.lpos-token.fpos+1)
       end
     end
 
-    scope_positions(first[1]-1, last[2]-1)
+    scope_positions(ftoken.fpos-1, ltoken.lpos-1)
   end
   
   -- Highlight related keywords.
@@ -432,22 +432,23 @@ scite_OnUpdateUI(function()
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
     fpos, lpos = fpos + 1, lpos + 1 - 1
     local match1_ast, match1_comment, iswhitespace =
-      LI.smallest_ast_in_range(buffer.ast, buffer.text, fpos, lpos)
-    --print('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
+      LI.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.text, fpos, lpos)
+    -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.
-    local kposlist; kposlist, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.text)
+    local kposlist; kposlist, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.tokenlist, buffer.text)
     if kposlist then
       for i=1,#kposlist,2 do
         local fpos, lpos = kposlist[i], kposlist[i+1]
-        --print(fpos,lpos,'m')
+        --DEBUG(fpos,lpos,'m')
         editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
       end
     end
     
     -- Mark range of lines covered by item on selection.
     if not id then
-      scope_positions(match1_ast.lineinfo.first[3], match1_ast.lineinfo.last[3])
+      local fpos, lpos = LI.ast_pos_range(match1_ast, buffer.tokenlist)
+      if fpos then scope_positions(fpos, lpos) end
     end
   end
   
@@ -474,7 +475,7 @@ local function OnStyle(styler)
   --if n == 0 then n = 2 else n = n - 1; return end -- this may improves performance on larger files only marginally
   --IMPROVE: could metalua libraries parse text across multiple calls to `OnStyle` to reduce long pauses with big files?
 
-  --print("DEBUG:","style",styler.language, styler.startPos, styler.lengthDoc, styler.initStyle)
+  --DEBUG("style",styler.language, styler.startPos, styler.lengthDoc, styler.initStyle)
 
   -- update AST if needed
   if UPDATE_ALWAYS then
@@ -485,7 +486,7 @@ local function OnStyle(styler)
     update_ast()
   end
 
-  --print('DEBUG:OnStyle', editor:LineFromPosition(styler.startPos), editor:LineFromPosition(styler.startPos+styler.lengthDoc), styler.initStyle)
+  --DEBUG('OnStyle', editor:LineFromPosition(styler.startPos), editor:LineFromPosition(styler.startPos+styler.lengthDoc), styler.initStyle)
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
     -- note: SciTE will repeatedly call OnStyle until StartStyling is performed.
     -- However, StartStyling clears styles in the given range, but we prefer to leave
@@ -513,57 +514,55 @@ local function OnStyle(styler)
   --   may need styling adjusted (e.g. a local variable definition that becomes unused)
 
   local i=startpos0+1
-  local inote = 1
-  local note = buffer.notes[inote]
-  local function nextnote() inote = inote+1; note = buffer.notes[inote] end
+  local tokenidx = 1
+  local token = buffer.tokenlist[tokenidx]
+  local function nexttoken() tokenidx = tokenidx+1; token = buffer.tokenlist[tokenidx] end
   while styler:More() do
-    while note and i > note[2] do
-      nextnote()
+    while token and i > token.lpos do
+      nexttoken()
     end
     
-    if note and i >= note[1] and i <= note[2] then
-      if note.type == 'global' then
-        if note.definedglobal then
+    if token and i >= token.fpos and i <= token.lpos then
+      local ast = token.ast
+      if ast.tag == 'Id' and not ast.localdefinition then -- global
+        if ast.definedglobal then
           styler:SetState(S_GLOBAL_RECOGNIZED)
         else
           styler:SetState(S_GLOBAL_UNRECOGNIZED)
         end
-      elseif note.type == 'local' then
-        if not note.ast.localdefinition.isused then
+      elseif ast.tag == 'Id' and ast.localdefinition then -- local
+        if not ast.localdefinition.isused then
           styler:SetState(S_LOCAL_UNUSED)
-        elseif note.ast.localdefinition.functionlevel  < note.ast.functionlevel then  -- upvalue
-          if note.ast.localdefinition.isset then
+        elseif ast.localdefinition.functionlevel  < ast.functionlevel then  -- upvalue
+          if ast.localdefinition.isset then
             styler:SetState(S_UPVALUE_MUTATE)
           else
             styler:SetState(S_UPVALUE)
           end
-        elseif note.ast.localdefinition.isset then
+        elseif ast.localdefinition.isset then
           styler:SetState(S_LOCAL_MUTATE)
-        elseif note.ast.localdefinition.isparam then
+        elseif ast.localdefinition.isparam then
           styler:SetState(S_LOCAL_PARAM)
         else
           styler:SetState(S_LOCAL)
         end
-      elseif note.type == 'field' then
-        if note.definedglobal or note.ast.seevalue.valueknown and note.ast.seevalue.value ~= nil then
+      elseif ast.isfield then
+        if ast.definedglobal or ast.seevalue.valueknown and ast.seevalue.value ~= nil then
           styler:SetState(S_FIELD_RECOGNIZED)
         else
           styler:SetState(S_FIELD)
         end
-      elseif note.type == 'comment' then
+      elseif ast.tag == 'Comment' then
         styler:SetState(S_COMMENT)
-      elseif note.type == 'string' then
+      elseif ast.tag == 'String' then
         styler:SetState(S_STRING)
-      -- TODO: how to highlight keywords? The Metalua AST currently doesn't make this easy,
-      -- but there are possible plans in Metalua to change that.  Check back with Metalua dev.
+      elseif token.tag == 'Keyword' then
+        styler:SetState(S_KEYWORD)
       else
         styler:SetState(S_DEFAULT)
       end
     elseif styler:Current() == '\t' then
       styler:SetState(S_TAB)
-    elseif styler:Current():match'%a'
-    then
-      styler:SetState(S_KEYWORD)
     else
       styler:SetState(S_DEFAULT)
     end
@@ -576,14 +575,14 @@ local function OnStyle(styler)
   --[[FIX:disabled due to odd problems discussed below
   local linea0 = editor:LineFromPosition(styler.startPos)
   local lineb0 = editor:LineFromPosition(styler.startPos+styler.lengthDoc)
-  print('DEBUG:+', linea0,lineb0) -- test for recursion
+  DEBUG('+', linea0,lineb0) -- test for recursion
   -- IMPROVE: This might be done only over styler.startPos, styler.lengthDoc.
   --   Does that improve performance?
   local level = 0
   local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
   LI.walk(buffer.ast, function(ast)
     if isblock[ast.tag] then
-      local fline1, lline1 = ast.lineinfo.first[1], ast.lineinfo.last[1]
+      local fline1, lline1 =  LI.ast_pos_range(ast, buffer.tokenlist)
       levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
       level = level + 1      
       for line1=fline1+1, lline1 do
@@ -616,10 +615,10 @@ scite_OnDoubleClick(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
-  local note = getselectedvariable()
-  if note then
-    local info  = formatvariabledetails(note)
-    editor:CallTipShow(note[1]-1, info)
+  local token = getselectedvariable()
+  if token then
+    local info  = formatvariabledetails(token)
+    editor:CallTipShow(token.fpos-1, info)
   end
 end)
 
@@ -627,22 +626,24 @@ end)
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
 function M.rename_selected_variable(newname)
-  local selectednote = getselectedvariable()
-  if selectednote then
-    local id = selectednote.ast.id
+  local selectedtoken = getselectedvariable()
+  
+  if selectedtoken and selectedtoken.ast then
+    local id = selectedtoken.ast.id
     editor:BeginUndoAction()
-    local lastnote
-    for i=#buffer.notes,1,-1 do
-      local note = buffer.notes[i]
-      if note.ast.id == id then
-        editor:SetSel(note[1]-1, note[2])
+    local lasttoken
+    for i=#buffer.tokenlist,1,-1 do
+      local token = buffer.tokenlist[i]
+      local ast = token.ast
+      if ast and ast.id == id then
+        editor:SetSel(token.fpos-1, token.lpos)
         editor:ReplaceSel(newname)
-        lastnote = note
+        lasttoken = token
       end
     end
-    if lastnote then
-      editor:SetSel(lastnote[1]-1, lastnote[1] + newname:len())
-      editor.Anchor = lastnote[1]-1
+    if lasttoken then
+      editor:SetSel(lasttoken.fpos-1, lasttoken.fpos + newname:len())
+      editor.Anchor = lasttoken.fpos-1
     end
     editor:EndUndoAction()
   end
@@ -650,10 +651,11 @@ end
 
 
 -- Gets 1-indexed character position of definition associated with AST node (if any).
-local function ast_to_definition_position(ast)
+local function ast_to_definition_position(ast, tokenlist)
   local local_ast = ast.localdefinition
-  if local_ast and local_ast.lineinfo then
-    return local_ast.lineinfo.first[3]
+  if local_ast then
+    local tidx = LI.ast_idx_range_in_tokenlist(tokenlist, local_ast)
+    if tidx then return tokenlist[tidx].fpos end
   end
 end
 
@@ -661,8 +663,8 @@ end
 -- Command for going to definition of selected variable.
 -- TODO: currently only works for locals in the same file.
 function M.goto_definition()
-  local selectednote = getselectedvariable()
-  local pos1 = ast_to_definition_position(selectednote.ast) --FIX:may be nil
+  local selectedtoken = getselectedvariable()
+  local pos1 = selectedtoken.ast and ast_to_definition_position(selectedtoken.ast, buffer.tokenlist) --FIX:may be nil
   if pos1 then
     if set_mark then set_mark() end -- if ctagsdx.lua available
     editor:GotoPos(pos1 - 1)
@@ -672,9 +674,9 @@ end
 
 -- Command for inspecting fields of selected table variable.
 function M.inspect_variable_contents()
-  local note = getselectedvariable()
-  if not note then return end
-  local ast = note.ast 
+  local token = getselectedvariable()
+  if not token or not token.ast then return end
+  local ast = token.ast 
 
   editor.AutoCSeparator = 1
   if type(ast.value) == 'table' then
@@ -697,14 +699,14 @@ end
 
 -- Command to show all uses of selected variable
 function M.show_all_variable_uses()
-  local snote = getselectedvariable()
-  if not snote then return end
+  local stoken = getselectedvariable()
+  if not stoken or not stoken.ast then return end
   
   editor.AutoCSeparator = 1
   local infos = {}
-  for _,note in ipairs(buffer.notes) do
-    if note.ast.id == snote.ast.id then
-      local linenum0 = editor:LineFromPosition(note[1]-1)
+  for _,token in ipairs(buffer.tokenlist) do
+    if token.ast and token.ast.id == stoken.ast.id then
+      local linenum0 = editor:LineFromPosition(token.fpos-1)
       infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
     end
   end
@@ -715,6 +717,7 @@ function M.show_all_variable_uses()
     editor:GotoLine(line1-1)
   end)
 end
+--IMPROVE: jump to exact position, not just line number.
 
 
 -- Command to select smallest statement (or comment) containing selection.
@@ -732,7 +735,7 @@ function M.select_statementblockcomment()
   local fpos, lpos = editor.Anchor, editor.CurrentPos
   if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
   fpos, lpos = fpos + 1, lpos + 1 - 1
-  local fpos, lpos = LI.select_statementblockcomment(buffer.ast, fpos, lpos, true)
+  local fpos, lpos = LI.select_statementblockcomment(buffer.ast, buffer.tokenlist, fpos, lpos, true)
   editor:SetSel(fpos-1, lpos-1 + 1)
 end
 
@@ -833,7 +836,7 @@ style.script_lua.selection.back=#808080
                     last:match'^%d+$' and name or last
         end) -- convert to real style name
         if props[name] ~= '' then value = props[name] end -- override by user
-        --print('DEBUG:' .. realname .. '=' .. value)
+        --DEBUG(realname .. '=' .. value)
         props[realname] = value
     end
   end
