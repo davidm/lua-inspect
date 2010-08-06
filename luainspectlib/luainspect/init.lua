@@ -647,21 +647,21 @@ local iscertainstat = {Do=true, Set=true, While=true, Repeat=true, If=true,
 function M.mark_tag2(ast, context)
   context = context or 'Block'
   ast.tag2 = context
-  for i,ast2 in ipairs(ast) do
-    if type(ast2) == 'table' then
+  for i,bast in ipairs(ast) do
+    if type(bast) == 'table' then
       local nextcontext
-      if ast2.tag == 'Do' then
+      if bast.tag == 'Do' then
         nextcontext = 'StatBlock'
-      elseif iscertainstat[ast2.tag] then
+      elseif iscertainstat[bast.tag] then
         nextcontext = 'Stat'
-      elseif ast2.tag == 'Call' or ast2.tag == 'Invoke' then
+      elseif bast.tag == 'Call' or bast.tag == 'Invoke' then
         nextcontext = context == 'Block' and 'Stat' or 'Exp'
         --DESIGN:Metalua: these calls actually contain expression lists,
         --  but the expression list is not represented as a complete node
         --  by Metalua (as blocks are in `Do statements)
-      elseif ast2.tag == 'Pair' then
+      elseif bast.tag == 'Pair' then
         nextcontext = 'Pair'
-      elseif not ast2.tag then
+      elseif not bast.tag then
         if ast.tag == 'Set' or ast.tag == 'Local' or ast.tag == 'Localrec'
           or ast.tag == 'Forin' and i <= 2
           or ast.tag == 'Function'  and i == 1
@@ -673,7 +673,7 @@ function M.mark_tag2(ast, context)
       else
         nextcontext = 'Exp'
       end
-      M.mark_tag2(ast2, nextcontext)
+      M.mark_tag2(bast, nextcontext)
     end
   end
 end
