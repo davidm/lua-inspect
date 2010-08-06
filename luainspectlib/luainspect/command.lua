@@ -7,6 +7,7 @@ package.path = package.path .. ';metalualib/?.lua'
 package.path = package.path .. ';luainspectlib/?.lua'
 
 
+local LA = require "luainspect.ast"
 local LI = require "luainspect.init"
 local LH = require "luainspect.html"
 
@@ -25,11 +26,11 @@ if not path then
 end
 
 local src = loadfile(path)
-local ast, err, linenum, colnum, linenum2 = LI.ast_from_string(src, path)
+local ast, err, linenum, colnum, linenum2 = LA.ast_from_string(src, path)
 
 --require "metalua.table2"; table.print(ast, 'hash', 50)
 if ast then
-  local tokenlist = LI.ast_to_tokenlist(ast, src)
+  local tokenlist = LA.ast_to_tokenlist(ast, src)
   LI.inspect(ast, tokenlist)
   LI.mark_related_keywords(ast, tokenlist, src)
 

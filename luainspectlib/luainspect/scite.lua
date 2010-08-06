@@ -18,6 +18,7 @@ local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilatio
 local PERFORMANCE_TESTS = scite_GetProp('luainspect.performance.tests', '0') == '1'
 
 local LI = require "luainspect.init"
+local LA = require "luainspect.ast"
 local LS = require "luainspect.signatures"
 
 local M = {}
@@ -194,12 +195,12 @@ local function update_ast()
     -- note: nothing to do besides display
   else  
    -- note: loadstring and metalua don't parse shebang
-   local newtextm = LI.remove_shebang(newtext)
+   local newtextm = LA.remove_shebang(newtext)
 
    -- Quick syntax check.   
    -- loadstring is much faster than Metalua, so try that first.
    -- Furthermore, Metalua accepts a superset of the Lua grammar.
-   local f; f, err, linenum, colnum, linenum2 = LI.loadstring(newtextm)
+   local f; f, err, linenum, colnum, linenum2 = LA.loadstring(newtextm)
 
    -- Analyze code using LuaInspect, and apply decorations
    if f then
@@ -208,7 +209,7 @@ local function update_ast()
     local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compiletext
     if isincremental then
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LI.invalidated_code(buffer.ast, buffer.tokenlist, LI.remove_shebang(buffer.text), newtextm)
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.text), newtextm)
       compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
       DEBUG('inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
       DEBUG('inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
@@ -221,7 +222,7 @@ local function update_ast()
     local ast
     if old_type ~= 'whitespace' then
       --currently not needed: compiletext = compiletext .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
-      ast, err, linenum, colnum, linenum2 = LI.ast_from_string(compiletext, "noname.lua")
+      ast, err, linenum, colnum, linenum2 = LA.ast_from_string(compiletext, "noname.lua")
       --DEBUG(table.tostring(ast, 20))
     end
     clock 't3'
@@ -229,18 +230,18 @@ local function update_ast()
     if err then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
     else
-      local tokenlist = ast and LI.ast_to_tokenlist(ast, compiletext)
+      local tokenlist = ast and LA.ast_to_tokenlist(ast, compiletext)
         -- note: ast nil if whitespace
-      --LI.dump_tokenlist(tokenlist)
+      --LA.dump_tokenlist(tokenlist)
       
    
       buffer.text = newtext
       if isincremental and old_type ~= 'full' then
         -- Adjust line numbers.
         local delta = pos2l - pos1l
-        LI.adjust_lineinfo(buffer.tokenlist, pos1l, delta)
+        LA.adjust_lineinfo(buffer.tokenlist, pos1l, delta)
         if ast then
-          LI.adjust_lineinfo(tokenlist, 1, pos2f-1)
+          LA.adjust_lineinfo(tokenlist, 1, pos2f-1)
         end
  
         -- Inject AST
@@ -253,7 +254,7 @@ local function update_ast()
           token.fpos, token.lpos, token[1], token[4] =
               newcommenttoken.fpos, newcommenttoken.lpos, newcommenttoken[1], newcommenttoken[4]
         else assert(old_type == 'statblock')
-          LI.replace_statements(buffer.ast, buffer.tokenlist, old_ast, ast, tokenlist)
+          LA.replace_statements(buffer.ast, buffer.tokenlist, old_ast, ast, tokenlist)
         end
 
         if not(old_type == 'comment' or old_type == 'whitespace') then
@@ -270,8 +271,8 @@ local function update_ast()
         LI.inspect(buffer.ast, buffer.tokenlist)
       end
       if LUAINSPECT_DEBUG then
-        DEBUG(LI.dump_tokenlist(buffer.tokenlist))
-        DEBUG(LI.dumpstring(buffer.ast))
+        DEBUG(LA.dump_tokenlist(buffer.tokenlist))
+        DEBUG(LA.dumpstring(buffer.ast))
         --DEBUG(table.tostring(buffer.ast, 20))
       end
     end
@@ -435,7 +436,7 @@ scite_OnUpdateUI(function()
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
     fpos, lpos = fpos + 1, lpos + 1 - 1
     local match1_ast, match1_comment, iswhitespace =
-      LI.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.text, fpos, lpos)
+      LA.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.text, fpos, lpos)
     -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.
@@ -449,7 +450,7 @@ scite_OnUpdateUI(function()
     
     -- Mark range of lines covered by item on selection.
     if not id then
-      local fpos, lpos = LI.ast_pos_range(match1_ast, buffer.tokenlist)
+      local fpos, lpos = LA.ast_pos_range(match1_ast, buffer.tokenlist)
       if fpos then scope_positions(fpos, lpos) end
     end
   end
@@ -599,9 +600,9 @@ local function OnStyle(styler)
   --   Does that improve performance?
   local level = 0
   local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
-  LI.walk(buffer.ast, function(ast)
+  LA.walk(buffer.ast, function(ast)
     if isblock[ast.tag] then
-      local fline1, lline1 =  LI.ast_pos_range(ast, buffer.tokenlist)
+      local fline1, lline1 =  LA.ast_pos_range(ast, buffer.tokenlist)
       levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
       level = level + 1      
       for line1=fline1+1, lline1 do
@@ -674,7 +675,7 @@ end
 local function ast_to_definition_position(ast, tokenlist)
   local local_ast = ast.localdefinition
   if local_ast then
-    local tidx = LI.ast_idx_range_in_tokenlist(tokenlist, local_ast)
+    local tidx = LA.ast_idx_range_in_tokenlist(tokenlist, local_ast)
     if tidx then return tokenlist[tidx].fpos end
   end
 end
@@ -755,7 +756,7 @@ function M.select_statementblockcomment()
   local fpos, lpos = editor.Anchor, editor.CurrentPos
   if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
   fpos, lpos = fpos + 1, lpos + 1 - 1
-  local fpos, lpos = LI.select_statementblockcomment(buffer.ast, buffer.tokenlist, fpos, lpos, true)
+  local fpos, lpos = LA.select_statementblockcomment(buffer.ast, buffer.tokenlist, fpos, lpos, true)
   editor:SetSel(fpos-1, lpos-1 + 1)
 end
 
