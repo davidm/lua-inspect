@@ -649,6 +649,7 @@ function M.rename_selected_variable(newname)
     editor:EndUndoAction()
   end
 end
+-- IMPROVE: prevent rename to conflicting existing variable.
 
 
 -- Gets 1-indexed character position of definition associated with AST node (if any).
