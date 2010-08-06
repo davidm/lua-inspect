@@ -750,7 +750,7 @@ function M.infer_values(top_ast)
         end --FIX: handle functions with multiple returns
         --FIX: propagate to definition or localdefinition?
       end
-    elseif ast.tag == "Id" then
+    elseif ast.tag == 'Id' then
       if ast.localdefinition then
         local localdefinition = ast.localdefinition
         if localdefinition.valueknown and not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
@@ -766,12 +766,12 @@ function M.infer_values(top_ast)
           ast.valueknown, ast.value = pcall(tindex, _G, ast[1])
         end
       end
-    elseif ast.tag == "Index" then
+    elseif ast.tag == 'Index' then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
         ast.valueknown, ast.value = pcall(tindex, t_ast.value, k_ast.value)
       end
-    elseif ast.tag == "Call" then
+    elseif ast.tag == 'Call' then
       local args_known = true
       for i=2,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
       if ast[1].valueknown and args_known then
@@ -782,13 +782,13 @@ function M.infer_values(top_ast)
           --TODO: handle multiple return values
         end
       end
-    elseif ast.tag == "Invoke" then
+    elseif ast.tag == 'Invoke' then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
         ast.idxvalueknown, ast.idxvalue = pcall(tindex, t_ast.value, k_ast.value)
       end
 
-      -- note: similar to "Call" code
+      -- note: similar to 'Call' code
       local args_known = true
       for i=3,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
       if ast.idxvalueknown and args_known then
@@ -799,10 +799,10 @@ function M.infer_values(top_ast)
           --TODO: handle multiple return values
         end
       end
-    elseif ast.tag == "String" or ast.tag == "Number" then
+    elseif ast.tag == 'String' or ast.tag == 'Number' then
       ast.value = ast[1]; ast.valueknown = true
-    elseif ast.tag == "True" or ast.tag == "False" then
-      ast.value = (ast.tag == "True"); ast.valueknown = true
+    elseif ast.tag == 'True' or ast.tag == 'False' then
+      ast.value = (ast.tag == 'True'); ast.valueknown = true
     elseif ast.tag == 'Function' then
       if not ast.valueknown then -- avoid redefinition
         ast.value = function() end -- IMPROVE?
@@ -828,9 +828,9 @@ function M.infer_values(top_ast)
         --table.foreach(value, print)
         ast.value = value; ast.valueknown = true
       end
-    elseif ast.tag == "Paren" then
+    elseif ast.tag == 'Paren' then
       ast.value = ast[1].value; ast.valueknown = ast[1].valueknown
-    elseif ast.tag == "Op" then
+    elseif ast.tag == 'Op' then
       local opid, aast, bast = ast[1], ast[2], ast[3]
       if aast.valueknown and (not bast or bast.valueknown) then
         local ok, val = pcall(ops[opid], aast.value, bast and bast.value)
