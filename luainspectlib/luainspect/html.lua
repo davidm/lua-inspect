@@ -35,7 +35,7 @@ function M.ast_to_html(ast, src, tokenlist)
   local snip_html = escape_html(snip_src)
   if token then
     local ast = token.ast
-    if ast.tag == 'Id' or ast.isfield then
+    if token.tag == 'Id' or ast.isfield then
       local class = 'id'
       local desc_html = escape_html(class)
 

@@ -527,7 +527,7 @@ local function OnStyle(styler)
     
     if token and i >= token.fpos and i <= token.lpos then
       local ast = token.ast
-      if ast.tag == 'Id' then
+      if token.tag == 'Id' then
         if ast.localdefinition then -- local
           if not ast.localdefinition.isused then
             styler:SetState(S_LOCAL_UNUSED)
@@ -551,15 +551,15 @@ local function OnStyle(styler)
             styler:SetState(S_GLOBAL_UNRECOGNIZED)
           end
         end
-      elseif ast.isfield then
+      elseif ast.isfield then -- implies token.tag == 'String'
         if ast.definedglobal or ast.seevalue.valueknown and ast.seevalue.value ~= nil then
           styler:SetState(S_FIELD_RECOGNIZED)
         else
           styler:SetState(S_FIELD)
         end
-      elseif ast.tag == 'Comment' then
+      elseif token.tag == 'Comment' then
         styler:SetState(S_COMMENT)
-      elseif ast.tag == 'String' then -- note: excludes ast.isfield
+      elseif token.tag == 'String' then -- note: excludes ast.isfield
         styler:SetState(S_STRING)
       elseif token.tag == 'Keyword' then
         styler:SetState(S_KEYWORD)
