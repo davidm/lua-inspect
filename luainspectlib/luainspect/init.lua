@@ -379,12 +379,11 @@ end
 -- note: decorates ast1 as side-effect
 function M.invalidated_code(top_ast, tokenlist, src, bsrc)
   -- Converts posiiton range in src1 to position range in src2.
-  local function range_transform(src1_fpos, src1_lpos)
-    local src1_nlpos = #src - src1_lpos
-    local src2_fpos = src1_fpos
-    local src2_lpos = #bsrc - src1_nlpos
-    return src2_fpos, src2_lpos
-    --IMPROVE: rename variables
+  local function range_transform(src_fpos, src_lpos)
+    local src_nlpos = #src - src_lpos
+    local bsrc_fpos = src_fpos
+    local bsrc_lpos = #bsrc - src_nlpos
+    return bsrc_fpos, bsrc_lpos
   end
 
   if src == bsrc then return end -- up-to-date
