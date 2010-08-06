@@ -79,7 +79,7 @@ SciTE property files:
 
   luainspect.update.always (0 or 1, default 1)
   luainspect.annotate.all.locals (0 or 1, default 0)
-  luainspect.incremental.compilation (0 or 1, default 0)
+  luainspect.incremental.compilation (0 or 1, default 1)
   luainspect.performance.tests (0 or 1, default 0)
 
 For details, see scite.lua.
@@ -129,6 +129,7 @@ Peter Odding for VIM editor support [2]
   core/SciTE/HTML: identifies local variables that mask other locals (same name):
          e.g. local x=1; local x=2 (strikethrough)
   HTML: highlight keywords in selected block
+  SciTE: the incremental compilation feature is now on by default.
 
 20100803
   core:Evaluate special comments (prefixed by '!') to inject semantic information into analysis

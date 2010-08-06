@@ -10,10 +10,9 @@ local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 -- Allows Lua to be used like a Mathcad worksheet.
 local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
 
--- WARNING: Experimental feature--Probably still has bugs.
 -- When user edits code, recompile only the portion of code that is edited.
--- This should improve performance.
-local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilation', '0') == '1'
+-- This can improve performance and normally should be true unless you find problems.
+local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilation', '1') == '1'
 
 -- Whether to run timing tests (for internal development purposes).
 local PERFORMANCE_TESTS = scite_GetProp('luainspect.performance.tests', '0') == '1'
