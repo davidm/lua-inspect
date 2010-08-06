@@ -524,27 +524,29 @@ local function OnStyle(styler)
     
     if token and i >= token.fpos and i <= token.lpos then
       local ast = token.ast
-      if ast.tag == 'Id' and not ast.localdefinition then -- global
-        if ast.definedglobal then
-          styler:SetState(S_GLOBAL_RECOGNIZED)
-        else
-          styler:SetState(S_GLOBAL_UNRECOGNIZED)
-        end
-      elseif ast.tag == 'Id' and ast.localdefinition then -- local
-        if not ast.localdefinition.isused then
-          styler:SetState(S_LOCAL_UNUSED)
-        elseif ast.localdefinition.functionlevel  < ast.functionlevel then  -- upvalue
-          if ast.localdefinition.isset then
-            styler:SetState(S_UPVALUE_MUTATE)
+      if ast.tag == 'Id' then
+        if ast.localdefinition then -- local
+          if not ast.localdefinition.isused then
+            styler:SetState(S_LOCAL_UNUSED)
+          elseif ast.localdefinition.functionlevel  < ast.functionlevel then  -- upvalue
+            if ast.localdefinition.isset then
+              styler:SetState(S_UPVALUE_MUTATE)
+            else
+              styler:SetState(S_UPVALUE)
+            end
+          elseif ast.localdefinition.isset then
+            styler:SetState(S_LOCAL_MUTATE)
+          elseif ast.localdefinition.isparam then
+            styler:SetState(S_LOCAL_PARAM)
           else
-            styler:SetState(S_UPVALUE)
+            styler:SetState(S_LOCAL)
           end
-        elseif ast.localdefinition.isset then
-          styler:SetState(S_LOCAL_MUTATE)
-        elseif ast.localdefinition.isparam then
-          styler:SetState(S_LOCAL_PARAM)
-        else
-          styler:SetState(S_LOCAL)
+        else -- global
+          if ast.definedglobal then
+            styler:SetState(S_GLOBAL_RECOGNIZED)
+          else
+            styler:SetState(S_GLOBAL_UNRECOGNIZED)
+          end
         end
       elseif ast.isfield then
         if ast.definedglobal or ast.seevalue.valueknown and ast.seevalue.value ~= nil then
@@ -554,7 +556,7 @@ local function OnStyle(styler)
         end
       elseif ast.tag == 'Comment' then
         styler:SetState(S_COMMENT)
-      elseif ast.tag == 'String' then
+      elseif ast.tag == 'String' then -- note: excludes ast.isfield
         styler:SetState(S_STRING)
       elseif token.tag == 'Keyword' then
         styler:SetState(S_KEYWORD)
