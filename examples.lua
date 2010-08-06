@@ -45,6 +45,8 @@ do  -- more masking testss
   local function bcd(bcd, abc, cde) local bcd end -- not mask, mask, mask, mask, not mask
   for cde, cde in pairs{} do local cde end -- not mask, mask, mask
   for def=1,2 do local def end -- not mask, mask
+  function abc:def() local self end  -- not mask, mask
+  function abc:def(self) end -- not mask, mask
 end
 
 -- Field accesses

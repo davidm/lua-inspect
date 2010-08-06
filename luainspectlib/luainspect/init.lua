@@ -1089,8 +1089,10 @@ function M.ast_to_tokenlist(top_ast, src)
   M.walk(top_ast, function(ast)
     if isterminal[ast.tag] then -- Extract terminal
       local token = ast
-      token.fpos, token.lpos, token.ast = ast.lineinfo.first[3], ast.lineinfo.last[3], ast
-      table.insert(tokens, token)
+      if ast.lineinfo then
+        token.fpos, token.lpos, token.ast = ast.lineinfo.first[3], ast.lineinfo.last[3], ast
+        table.insert(tokens, token)
+      end
     else -- Extract non-terminal
       local keywordposlist = M.get_keywords(ast, src)
       for i=1,#keywordposlist,2 do
