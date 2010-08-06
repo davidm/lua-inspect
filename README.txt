@@ -34,6 +34,7 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
       (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
     * Evaluate special comments (prefixed by '!') to inject semantic information into analysis
        (similar to luaanalyze).
+    * Auto-complete typing support (SciTE only) (experimental)
 
 == Files in this directory ==
 
@@ -82,6 +83,7 @@ SciTE property files:
   luainspect.annotate.all.locals (0 or 1, default 0)
   luainspect.incremental.compilation (0 or 1, default 1)
   luainspect.performance.tests (0 or 1, default 0)
+  luainspect.autocomplete (0 or 1, default 0)
 
 For details, see scite.lua.
 
@@ -129,6 +131,8 @@ Peter Odding for VIM editor support [2]
   SciTE: mark lines of invalidated code upon introducing code errors and display
             error message below invalidated code (not on exact line of error)
   SciTE: add styling delay option to improve performance (luainspect.update.delay)
+  SciTE: preliminary auto-complete typing support (luainspect.autocomplete)
+            (experimental and currently off by default)
 
 20100805
   core: Major internal refactoring to simplify incremental compilation

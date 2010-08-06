@@ -10,16 +10,20 @@ local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 -- 1 implies always style.  Increase to improve performance.
 local UPDATE_DELAY = math.max(1, tonumber(scite_GetProp('luainspect.update.delay', '5')))
 
--- Experimental feature: display types/values of all known locals as annotations.
--- Allows Lua to be used like a Mathcad worksheet.
-local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
-
 -- When user edits code, recompile only the portion of code that is edited.
 -- This can improve performance and normally should be true unless you find problems.
 local INCREMENTAL_COMPILATION = scite_GetProp('luainspect.incremental.compilation', '1') == '1'
 
 -- Whether to run timing tests (for internal development purposes).
 local PERFORMANCE_TESTS = scite_GetProp('luainspect.performance.tests', '0') == '1'
+
+-- Experimental feature: display types/values of all known locals as annotations.
+-- Allows Lua to be used like a Mathcad worksheet.
+local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
+
+-- WARNING: experimental and currently buggy.
+-- Auto-completes typing.  Like http://lua-users.org/wiki/SciteAutoExpansion .
+local AUTOCOMPLETE = scite_GetProp('luainspect.autocomplete', '0') == '1'
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
@@ -117,6 +121,9 @@ local MARKER_SCOPEBEGIN = 1
 local MARKER_SCOPEMIDDLE = 2
 local MARKER_SCOPEEND = 3
 local MARKER_ERRORLINE = 5
+
+-- Indicator for autocomplete characters (typing over them is ignored).
+local INDICATOR_AUTOCOMPLETE = 6
 
 
 local function formatvariabledetails(token)
@@ -339,7 +346,6 @@ local function update_ast()
          editor:MarkerAdd(line0, MARKER_ERROR)
        end
      end
-     return
   else
     
     --old: editor:CallTipCancel()
@@ -352,6 +358,37 @@ local function update_ast()
     editor:MarkerDeleteAll(MARKER_ERROR)
 
     if ANNOTATE_ALL_LOCALS then annotate_all_locals() end
+  end
+  
+  -- Do auto-completion.
+  -- WARNING:FIX:the implementations here are currently rough.
+  if AUTOCOMPLETE and errfpos0 then
+    editor.IndicStyle[INDICATOR_AUTOCOMPLETE] = INDIC_BOX
+    editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
+    editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
+    --DEBUG(buffer.lasttext)
+    local text = buffer.lasttext:sub(errfpos0+1, errlpos0+1)
+    print(text)
+    if text == "if " then
+      local more = " then end"
+      editor:InsertText(errlpos0+1, more)
+      editor:IndicatorFillRange(errlpos0+1, #more)
+    end
+    if text:match'^[^"]*"[^"]*$' then
+      local more = '"'
+      editor:InsertText(errlpos0+1, more)
+      editor:IndicatorFillRange(errlpos0+1, #more)
+    end
+    if text:match'%{[^%}]*$' then
+      more = '}'
+      editor:InsertText(errlpos0+1, more)
+      editor:IndicatorFillRange(errlpos0+1, #more)
+    end 
+    if text:match'%([^%)]*$' then
+      more = ')'
+      editor:InsertText(errlpos0+1, more)
+      editor:IndicatorFillRange(errlpos0+1, #more)
+    end
   end
 end
 
@@ -426,6 +463,14 @@ scite_OnUpdateUI(function()
   -- Hack below probably won't work with multiple Lua-based lexers.
   if editor.Lexer ~= 0 then return end
 
+  -- Disable any autocomplete indicators if cursor moved away.
+  if AUTOCOMPLETE and
+     editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) ~= 1
+  then
+    editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
+    editor:IndicatorClearRange(0, editor.Length)
+  end
+  
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
     local currentline = editor:LineFromPosition(editor.Anchor)
@@ -687,6 +732,23 @@ scite_OnDoubleClick(function()
   end
 end)
 
+if AUTOCOMPLETE then
+  scite_OnChar(function(c)
+    -- Ignore character typed over autocompleted text.
+    -- Q: is this the best way to ignore/delete current char?
+    if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
+      if editor.CharAt[editor.CurrentPos] == editor.CharAt[editor.CurrentPos-1] then
+        editor.TargetStart = editor.CurrentPos
+        editor.TargetEnd = editor.CurrentPos+1
+        editor:ReplaceTarget("")
+      else
+        -- chars typed should not be have autocomplete indicators on them.
+        editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
+        editor:IndicatorClearRange(editor.CurrentPos-1,1)
+      end
+    end
+  end)
+end
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
