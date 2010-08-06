@@ -107,6 +107,14 @@ STYLES.compiler_error = S_COMPILER_ERROR
 STYLES.indic_fore = 'indic_fore'
 STYLES.indic_style = 'indic_style'
 
+
+local MARKER_ERROR = 0
+local MARKER_SCOPEBEGIN = 1
+local MARKER_SCOPEMIDDLE = 2
+local MARKER_SCOPEEND = 3
+local MARKER_ERRORLINE = 5
+
+
 local function formatvariabledetails(token)
   local info = ""
   local ast = token.ast
@@ -191,6 +199,7 @@ local function update_ast()
   local err, linenum, colnum, linenum2
   
   -- Update AST.
+  local errfpos0, errlpos0
   if newtext == buffer.text then -- returned to previous good version
     -- note: nothing to do besides display
   else  
@@ -276,6 +285,13 @@ local function update_ast()
         --DEBUG(table.tostring(buffer.ast, 20))
       end
     end
+   else
+     -- Locate position range causing error.
+     if buffer.ast then
+       local pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.text), newtextm, true)
+       errfpos0, errlpos0 = pos2f-1, pos2l-1
+     end
    end
   end
   clockend 't4'
@@ -288,18 +304,36 @@ local function update_ast()
      editor.IndicatorCurrent = 0
      editor:IndicatorClearRange(0, editor.Length)
      editor:IndicatorFillRange(pos, 1) --IMPROVE:mark entire token?
-     editor:MarkerDefine(0, SC_MARK_CHARACTER+33) -- '!'
-     editor:MarkerSetFore(0, 0xffffff)
-     editor:MarkerSetBack(0, 0x0000ff)
-     editor:MarkerDeleteAll(0)
-     editor:MarkerAdd(linenum-1, 0)
+     editor:MarkerDefine(MARKER_ERRORLINE, SC_MARK_CHARACTER+33) -- '!'
+     editor:MarkerSetFore(MARKER_ERRORLINE, 0xffffff)
+     editor:MarkerSetBack(MARKER_ERRORLINE, 0x0000ff)
+     editor:MarkerDeleteAll(MARKER_ERRORLINE)
+     editor:MarkerAdd(linenum-1, MARKER_ERRORLINE)
      editor:AnnotationClearAll()
      editor.AnnotationVisible = ANNOTATION_BOXED
-     editor.AnnotationStyle[linenum-1] = S_COMPILER_ERROR
-     editor:AnnotationSetText(linenum-1, "error " .. err)
+     local errlinenum0 = errfpos0 and editor:LineFromPosition(errlpos0+1) or linenum-1
+        -- note: +1 to avoid error message moving above cursor on pressing Enter.
+     editor.AnnotationStyle[errlinenum0] = S_COMPILER_ERROR
+     editor:AnnotationSetText(errlinenum0, "error " .. err)
      if linenum2 then -- display error in two locations
-       editor.AnnotationStyle[linenum2-1] = S_COMPILER_ERROR
-       editor:AnnotationSetText(linenum2-1, "error " .. err)
+       --old:editor.AnnotationStyle[linenum2-1] = S_COMPILER_ERROR
+       --     editor:AnnotationSetText(linenum2-1, "error " .. err)
+       editor:MarkerAdd(linenum2-1, MARKER_ERRORLINE)
+     end
+
+     -- Indicator over invalidated position range causing error.
+     if errfpos0 then
+       --unused: editor.IndicatorCurrent = 4
+       --  editor:IndicatorClearRange(0, editor.Length)
+       --  editor.IndicStyle[4] = INDIC_SQUIGGLE
+       --  editor.IndicFore[4] = 0x0000ff
+       --  editor:IndicatorFillRange(errfpos0, errlpos0-errfpos0+1)
+       editor:MarkerDefine(MARKER_ERROR, SC_MARK_FULLRECT)
+       editor:MarkerSetBack(MARKER_ERROR, 0x000080)
+       editor:MarkerSetAlpha(MARKER_ERROR, 10)
+       for line0=editor:LineFromPosition(errfpos0), editor:LineFromPosition(errlpos0) do
+         editor:MarkerAdd(line0, MARKER_ERROR)
+       end
      end
      return
   else
@@ -307,8 +341,11 @@ local function update_ast()
     --old: editor:CallTipCancel()
     editor.IndicatorCurrent = 0
     editor:IndicatorClearRange(0, editor.Length)
-    editor:MarkerDeleteAll(0)
+    editor:MarkerDeleteAll(MARKER_ERRORLINE)
     editor:AnnotationClearAll()
+    --unused: editor.IndicatorCurrent = 4
+    -- editor:IndicatorClearRange(0, editor.Length)
+    editor:MarkerDeleteAll(MARKER_ERROR)
 
     if ANNOTATE_ALL_LOCALS then annotate_all_locals() end
   end
@@ -339,22 +376,22 @@ local function scope_lines(firstline0, lastline0)
   if firstline0 ~= lastline0 then
     --TODO: not rendering exactly as desired.  TCORNERCURVE should
     -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
-    editor:MarkerDefine(1, SC_MARK_TCORNERCURVE)
-    editor:MarkerDefine(2, SC_MARK_VLINE)
-    editor:MarkerDefine(3, SC_MARK_LCORNERCURVE)
-    editor:MarkerSetFore(1, 0x0000ff)
-    editor:MarkerSetFore(2, 0x0000ff)
-    editor:MarkerSetFore(3, 0x0000ff)
+    editor:MarkerDefine(MARKER_SCOPEBEGIN, SC_MARK_TCORNERCURVE)
+    editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
+    editor:MarkerDefine(MARKER_SCOPEEND, SC_MARK_LCORNERCURVE)
+    editor:MarkerSetFore(MARKER_SCOPEBEGIN, 0x0000ff)
+    editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
+    editor:MarkerSetFore(MARKER_SCOPEEND, 0x0000ff)
 
-    editor:MarkerAdd(firstline0, 1)
+    editor:MarkerAdd(firstline0, MARKER_SCOPEBEGIN)
     for n=firstline0+1,lastline0-1 do
-      editor:MarkerAdd(n, 2)
+      editor:MarkerAdd(n, MARKER_SCOPEMIDDLE)
     end
-    editor:MarkerAdd(lastline0, 3)
+    editor:MarkerAdd(lastline0, MARKER_SCOPEEND)
   else
-    editor:MarkerDefine(2, SC_MARK_VLINE)
-    editor:MarkerSetFore(2, 0x0000ff)
-    editor:MarkerAdd(firstline0, 2)
+    editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
+    editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
+    editor:MarkerAdd(firstline0, MARKER_SCOPEMIDDLE)
   end
 end
 
@@ -406,9 +443,9 @@ scite_OnUpdateUI(function()
   --end
 
   -- Highlight all instances of that identifier.
-  editor:MarkerDeleteAll(1)
-  editor:MarkerDeleteAll(2)
-  editor:MarkerDeleteAll(3)
+  editor:MarkerDeleteAll(MARKER_SCOPEBEGIN)
+  editor:MarkerDeleteAll(MARKER_SCOPEMIDDLE)
+  editor:MarkerDeleteAll(MARKER_SCOPEEND)
   editor.IndicatorCurrent = 1
   editor:IndicatorClearRange(0, editor.Length)
   if id then

@@ -125,6 +125,8 @@ Peter Odding for VIM editor support [2]
 
 20100806
   SciTE: jump to uses, not jumps to exact position, not just line number
+  SciTE: mark lines of invalidated code upon introducing code errors and display
+            error message below invalidated code (not on exact line of error)
 
 20100805
   core: Major internal refactoring to simplify incremental compilation

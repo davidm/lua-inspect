@@ -154,7 +154,7 @@ end  -- differs from longest_prefix only on line [*]
 -- `src` to `bsrc`, given previous AST `top_ast` and tokenlist `tokenlist` corresponding to `src`.
 -- note: decorates ast1 as side-effect
 -- CATEGORY: AST/tokenlist manipulation
-function M.invalidated_code(top_ast, tokenlist, src, bsrc)
+function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   -- Converts posiiton range in src to position range in bsrc.
   local function range_transform(src_fpos, src_lpos)
     local src_nlpos = #src - src_lpos
@@ -182,6 +182,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc)
 
   if iswhitespace then
     local bsrc_fpos, bsrc_lpos = range_transform(src_fpos, src_lpos)
+    if preserve then
+      return src_fpos, src_lpos, bsrc_fpos, bsrc_lpos, nil, 'whitespace'
+    end
     if bsrc:sub(bsrc_fpos, bsrc_lpos):match'^%s*$' then -- whitespace replaced with whitespace
       if not bsrc:sub(bsrc_fpos-1, bsrc_lpos+1):match'%s' then
         DEBUG('edit:white-space-eliminated')
@@ -193,6 +196,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc)
   elseif match_comment then
     local srcm_fpos, srcm_lpos = match_comment.fpos, match_comment.lpos
     local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
+    if preserve then
+      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
+    end
     -- If new text is not a single comment, then invalidate containing statementblock instead.
     local m2text = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
     DEBUG('inc-compile-comment[' .. m2text .. ']')
@@ -203,6 +209,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc)
     match_ast = M.get_containing_statementblock(match_ast, top_ast)
     local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
     local bsrcm_fpos, bsrc_lpos = range_transform(srcm_fpos, srcm_lpos)
+    if preserve then
+      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
+    end
     local m2text = bsrc:sub(bsrcm_fpos, bsrc_lpos)
     DEBUG('inc-compile-statblock:', match_ast and match_ast.tag, '[' .. m2text .. ']')
     if loadstring(m2text) then -- statementblock replaced with statementblock 
