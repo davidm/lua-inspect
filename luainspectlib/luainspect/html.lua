@@ -59,6 +59,10 @@ function M.ast_to_html(ast, src, tokenlist)
           class = class .. ' param'
           desc_html = desc_html .. ' param'
         end
+        if ast.ismasking then
+          class = class .. ' masking'
+          desc_html = desc_html .. ' masking'
+        end
         if ast.localdefinition.lineinfo then
           local linenum = ast.localdefinition.lineinfo.first[1]
           desc_html = desc_html .. ' defined-line:' .. linenum

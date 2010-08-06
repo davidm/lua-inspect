@@ -16,8 +16,9 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
     * identifies global (red) and local variables (blue)
     * identifies function arguments (dark blue)
     * identifies global variables that are probably undefined (white-on-red)
-    * identifies local variables that have non-constant binding (local x = 1; x = 2) (rendered in italic)
-    * identify unused variables: e.g. do local x=1 end
+    * identifies local variables that have non-constant binding (local x = 1; x = 2) (italic)
+    * identifies unused variables: e.g. do local x=1 end
+    * identifies local variables making other locals (same name): e.g. local x=1; local x=2 (strikethrough)
     * displays signatures of known global functions
     * identifies range of lines/scope where the local is defined (currently SciTE only) 
     * identifies fields and methods as interrogatable variables (e.g. a.b or a:b)
@@ -125,6 +126,8 @@ Peter Odding for VIM editor support [2]
 20100805
   core: Major internal refactoring to simplify incremental compilation
           (lineinfo managed in tokenlist).
+  core/SciTE/HTML: identifies local variables that mask other locals (same name):
+         e.g. local x=1; local x=2 (strikethrough)
   HTML: highlight keywords in selected block
 
 20100803

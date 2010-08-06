@@ -21,16 +21,16 @@ print(math) -- predefined global
 print(defined_global); defined_global = 2; print(defined_global)
 
 -- Scope tests for specific statements
-do local local1; for local1=local1,2 do end end  -- used, unused, used local
-do local local1; for local1 in local1 do end end  -- used, unused, used local
-do local local1; local local1 = local1 end -- used, unused, used local
-do local function local1() local1() end -- used, used local
-do local local1; local local1 = function() local1() end end end -- used, unused, used local
+do local local1; for local1=local1,2 do end end  -- used, unused+mask, used local
+do local local1; for local1 in local1 do end end  -- used, unused+mask, used local
+do local local1; local local1 = local1 end -- used, unused+mask, used local
+do local function local1() local1() end end -- used, used local
+do local local1; local local1 = function() local1() end end -- used, unused+mask, used local
 do -- test repeat-until
   local local1  -- unused local
   repeat
-    local local1 -- unused local
-    local local1 -- used local
+    local local1 -- unused local+mask
+    local local1 -- used local+mask
   until local1 -- used local
 end
 do -- test local var scope stays inside block
@@ -39,6 +39,12 @@ do -- test local var scope stays inside block
   for v4=1,1 do local v5 end
   for v6 in nil do local v6 end
   print(v2, v3, v4, v5, v6) -- undefined globals
+end
+do  -- more masking testss
+  local abc,abc -- not mask, mask
+  local function bcd(bcd, abc, cde) local bcd end -- not mask, mask, mask, mask, not mask
+  for cde, cde in pairs{} do local cde end -- not mask, mask, mask
+  for def=1,2 do local def end -- not mask, mask
 end
 
 -- Field accesses

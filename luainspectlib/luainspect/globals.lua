@@ -19,6 +19,8 @@ local M = {}
 --   ast.isparam is true iff ast is a lexical definition and a function parameter.
 --   ast.isset is true iff ast is a lexical definition and exists an assignment on it.
 --   ast.isused is true iff ast is a lexical definition and has been referred to.
+--   ast.ismasking is true iff ast is a lexical definition that masks a another lexical
+--     (i.e. same name)
 --   ast.isfield is true iff `String node ast is used for field access on object,
 --      e.g. x.y or x['y'].z
 --   ast.previous - For `Index{o,s} or `Invoke{o,s,...}, s.previous == o
@@ -37,6 +39,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
       assert(value_ast.tag == "Id")
       local name = value_ast[1]
       local parentscope = getmetatable(scope).__index
+      if parentscope[name] then value_ast.ismasking = true end
       parentscope[name] = value_ast
 
       value_ast.localdefinition = value_ast
@@ -58,6 +61,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
       local name = param_ast[1]
       assert(param_ast.tag == "Id" or param_ast.tag == "Dots")
       if param_ast.tag == "Id" then
+        if scope[name] then param_ast.ismasking = true end
         scope[name] = param_ast
         param_ast.localdefinition = param_ast
         param_ast.functionlevel = functionlevel
@@ -105,6 +109,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
     for i=2, #ast-1 do traverse(ast[i], scope, globals, level+1, functionlevel) end
     -- eval body in next scope
     local name = name_ast[1]
+    if scope[name] then name_ast.ismasking = true end
     scope[name] = name_ast
     name_ast.localdefinition = name_ast
     name_ast.functionlevel = functionlevel
@@ -116,6 +121,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
     -- eval body in next scope
     for _,name_ast in ipairs(namelist_ast) do
       local name = name_ast[1]
+      if scope[name] then name_ast.ismasking = true end
       scope[name] = name_ast
       name_ast.localdefinition = name_ast
       name_ast.functionlevel = functionlevel
@@ -138,6 +144,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
       assert(name_ast.tag == "Id")
       local name = name_ast[1]
       local parentscope = getmetatable(scope).__index
+      if parentscope[name] then name_ast.ismasking = true end
       parentscope[name] = name_ast
       name_ast.localdefinition = name_ast
       name_ast.functionlevel = functionlevel

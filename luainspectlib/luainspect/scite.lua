@@ -128,6 +128,9 @@ local function formatvariabledetails(token)
       info = info .. "param "
     end
     info = info .. "local "
+    if ast.ismasking then
+      info = info .. "masking "
+    end
   elseif ast.isfield then
     info = info .. "field "
     if ast.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
@@ -450,8 +453,9 @@ scite_OnUpdateUI(function()
       if fpos then scope_positions(fpos, lpos) end
     end
   end
-  
---[[
+
+
+  --[[
   -- Display callinfo help on function.
   if selectednote and selectednote.ast.resolvedname and LS.global_signatures[selectednote.ast.resolvedname] then
     local name = selectednote.ast.resolvedname
@@ -572,6 +576,20 @@ local function OnStyle(styler)
   end
   styler:EndStyling()  
 
+  -- Mark masked local variables.
+  editor.IndicatorCurrent = 3
+  editor.IndicStyle[3] = INDIC_STRIKE
+  editor.IndicFore[3] = 0x0000ff
+  editor:IndicatorClearRange(0, editor.Length)
+  local tokenlist = buffer.tokenlist
+  for idx=1,#tokenlist do
+    local token = tokenlist[idx]
+    local ast = token.ast
+    if ast and ast.ismasking then
+      editor:IndicatorFillRange(token.fpos-1, token.lpos - token.fpos + 1)
+    end
+  end
+  
   -- Apply folding.
   --[[FIX:disabled due to odd problems discussed below
   local linea0 = editor:LineFromPosition(styler.startPos)
