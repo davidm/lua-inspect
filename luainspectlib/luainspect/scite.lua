@@ -246,10 +246,10 @@ local function update_ast()
           -- nothing
         elseif old_type == 'comment' then
           assert(#tokenlist == 1 and tokenlist[1].tag == 'Comment') -- replacing with comment
-          local new_comment = tokenlist[1]
+          local newcommenttoken = tokenlist[1]
           local token = old_ast
           token.fpos, token.lpos, token[1], token[4] =
-              new_comment.fpos, new_comment.lpos, new_comment[1], new_comment[4]
+              newcommenttoken.fpos, newcommenttoken.lpos, newcommenttoken[1], newcommenttoken[4]
         else assert(old_type == 'statblock')
           LI.replace_statements(buffer.ast, buffer.tokenlist, old_ast, ast, tokenlist)
         end
