@@ -1,12 +1,12 @@
 -- luainspect.ast - Lua Abstract Syntax Tree (AST) and token list operations.
 --
--- To main structures are maintained.  A Metalua-style AST represents the
+-- Two main structures are maintained.  A Metalua-style AST represents the
 -- nested syntactic structure obtained from the parse.
 -- A separate linear ordered list of tokens represents the syntactic structure
 -- from the lexing, including line information (character positions only not row/columns),
 -- comments, and keywords, which is originally built from the lineinfo attributes 
--- njected by Metalua into the AST (IMPROVE: it probably would be simpler
--- to obtain this from the lexer directly).
+-- injected by Metalua into the AST (IMPROVE: it probably would be simpler
+-- to obtain this from the lexer directly rather then inferring it from the parsing).
 -- During AST manipulations, the lineinfo maintained in the AST is ignored
 -- because it was found more difficult to maintain and not in the optimal format.
 --
@@ -763,42 +763,49 @@ return M
 
 
 
-
 --FIX:Q: does this handle Unicode ok?
 
---FIX:Metalua: Metalua bug here: In `local --[[x]] function --[[y]] f() end`, 'x' comment omitted from AST.
+--FIX:Metalua: In `local --[[x]] function --[[y]] f() end`,
+--   'x' comment omitted from AST.
 
---Metalua:FIX: `do --[[x]] end` doesn't generate comments in AST.
---  `if x then --[[x]] end` and `while 1 do --[[x]] end` generates comments in first/last of block
+--FIX:Metalua: `do --[[x]] end` doesn't generate comments in AST.
+--  `if x then --[[x]] end` and `while 1 do --[[x]] end` generates
+--   comments in first/last of block
 
---Metalua:FIX: `--[[x]] f() --[[y]]` returns lineinfo around `f()`.  `--[[x]] --[[y]]` returns lineinfo around everything.
+--FIX:Metalua: `--[[x]] f() --[[y]]` returns lineinfo around `f()`.
+--  `--[[x]] --[[y]]` returns lineinfo around everything.
 
---Metalua:FIX: `while 1 do --[[x]] --[[y]] end` returns first > last lineinfo for contained block
+--FIX:Metalua: `while 1 do --[[x]] --[[y]] end` returns first > last
+--   lineinfo for contained block
 
---Metalua:NOTE: `do  f()   end` returns lineinfo around `do  f()   end`, while
+--FIX?:Metalua: loadstring parses "--x" but metalua omits the comment in the AST
+
+--FIX?:Metalua: `local x` is generating `Local{{`Id{x}}, {}}`, which
+--  has no lineinfo on {}.  This is contrary to the Metalua
+--  spec: `Local{ {ident+} {expr+}? }.
+--  Other things like `self` also generate no lineinfo.
+--  The ast2.lineinfo test above avoids this.
+
+--FIX:Metalua: Metalua shouldn't overwrite ipairs/pairs.  Note: Metalua version
+--  doesn't set errorlevel correctly.
+
+--Q:Metalua: Why does `return --[[y]]  z  --[[x]]` have
+--  lineinfo.first.comments, lineinfo.last.comments,
+--  plus lineinfo.comments (which is the same as lineinfo.first.comments) ?
+
+--CAUTION:Metalua: `do  f()   end` returns lineinfo around `do  f()   end`, while
 --  `while 1 do  f()  end` returns lineinfo around `f()` for inner block.
 
---Metalua:Q: Why does `return --[[y]]  z  --[[x]]` have lineinfo.first.comments, lineinfo.last.comments,
--- plus lineinfo.comments (which is the same as lineinfo.first.comments) ?
-
---Metalua:Q: loadstring parses "--x" but metalua omits the comment in the AST
-
--- CAUTION:Metalua: "local x" is generating `Local{{`Id{x}}, {}}`, which
--- has no lineinfo on {}.  This is contrary to the Metalua
--- spec: `Local{ {ident+} {expr+}? }.
--- Other things like `self` also generate no lineinfo.
--- The ast2.lineinfo test above avoids this.
-
---STYLE:Metalua: The lineinfo on Metalua comments is inconsistent with other nodes
+--CAUTION:Metalua: The lineinfo on Metalua comments is inconsistent with other
+--   nodes
         
---Metalua:FIX: Metalua shouldn't overwrite ipairs/pairs.  Note: Metalua version doesn't set
--- errorlevel correctly.
+--CAUTION:Metalua: lineinfo of table in `f{}` is [3,2], of `f{ x,y }` it's [4,6].
+--  This is inconsistent with `x={}` which is [3,4] and `f""` which is [1,2]
+--  for the string.
 
---Metalua:Q: lineinfo of table in `f{}` is [3,2], of `f{ x,y }` it's [4,6].
--- This is inconsistent with `x={}` which is [3,4] and `f""` which is [1,2] for the string.
+--CAUTION:Metalua: only the `function()` form of `Function includes `function`
+--   in lineinfo.  'function' is part of `Localrec and `Set in syntactic sugar form.
 
--- NOTE:Metalua: only the `function()` form of `Function includes `function` in lineinfo.
--- 'function' is part of `Localrec and `Set in syntactic sugar form.
 
 --[=[TESTSUITE
 -- utilities
