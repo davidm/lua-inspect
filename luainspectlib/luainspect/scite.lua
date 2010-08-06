@@ -114,7 +114,7 @@ local function formatvariabledetails(token)
   if not ast then return '?' end
   
   if ast.tag == 'Id' and not ast.localdefinition then -- global
-    info = info .. (token.definedglobal and "recognized" or "unrecognized") .. " global "
+    info = info .. (ast.definedglobal and "recognized" or "unrecognized") .. " global "
   elseif ast.localdefinition then
     if not ast.localdefinition.isused then
       info = info .. "unused "
