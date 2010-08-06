@@ -116,15 +116,25 @@ STYLES.indic_fore = 'indic_fore'
 STYLES.indic_style = 'indic_style'
 
 
+-- Marker for range of lines with invalidated code that doesn't parse.
 local MARKER_ERROR = 0
+-- Markers for lines of variable scope or block.
 local MARKER_SCOPEBEGIN = 1
 local MARKER_SCOPEMIDDLE = 2
 local MARKER_SCOPEEND = 3
-local MARKER_ERRORLINE = 5
+-- Marker for specific line with parser error.
+local MARKER_ERRORLINE = 4
 
+-- Indicator for syntax or other errors
+local INDICATOR_ERROR = 0
+-- Indicator for variable instances in scope.
+local INDICATOR_SCOPE = 1
+-- Indicator for related keywords in block.
+local INDICATOR_KEYWORD = 2
+-- Indicator or locals masked by other locals (name conflict).
+local INDICATOR_MASKED = 3
 -- Indicator for autocomplete characters (typing over them is ignored).
-local INDICATOR_AUTOCOMPLETE = 6
-
+local INDICATOR_AUTOCOMPLETE = 4
 
 local function formatvariabledetails(token)
   local info = ""
@@ -312,7 +322,7 @@ local function update_ast()
      local pos = linenum and editor:PositionFromLine(linenum-1) + colnum - 1
      --old: editor:CallTipShow(pos, err)
      --old: editor:BraceHighlight(pos,pos) -- highlight position of error (hack: using brace highlight)
-     editor.IndicatorCurrent = 0
+     editor.IndicatorCurrent = INDICATOR_ERROR
      editor:IndicatorClearRange(0, editor.Length)
      editor:IndicatorFillRange(pos, 1) --IMPROVE:mark entire token?
      editor:MarkerDefine(MARKER_ERRORLINE, SC_MARK_CHARACTER+33) -- '!'
@@ -334,10 +344,10 @@ local function update_ast()
 
      -- Indicator over invalidated position range causing error.
      if errfpos0 then
-       --unused: editor.IndicatorCurrent = 4
-       --  editor:IndicatorClearRange(0, editor.Length)
-       --  editor.IndicStyle[4] = INDIC_SQUIGGLE
-       --  editor.IndicFore[4] = 0x0000ff
+       --unused: editor.IndicatorCurrent = INDICATOR_INVALIDATED
+       --  editor:IndicatorClearRange(INDICATOR_INVALIDATED, editor.Length)
+       --  editor.IndicStyle[INDICATOR_INVALIDATED] = INDIC_SQUIGGLE
+       --  editor.IndicFore[INDICATOR_INVALIDATED] = 0x0000ff
        --  editor:IndicatorFillRange(errfpos0, errlpos0-errfpos0+1)
        editor:MarkerDefine(MARKER_ERROR, SC_MARK_FULLRECT)
        editor:MarkerSetBack(MARKER_ERROR, 0x000080)
@@ -349,11 +359,11 @@ local function update_ast()
   else
     
     --old: editor:CallTipCancel()
-    editor.IndicatorCurrent = 0
+    editor.IndicatorCurrent = INDICATOR_ERROR
     editor:IndicatorClearRange(0, editor.Length)
     editor:MarkerDeleteAll(MARKER_ERRORLINE)
     editor:AnnotationClearAll()
-    --unused: editor.IndicatorCurrent = 4
+    --unused: editor.IndicatorCurrent = INDICATOR_INVALIDATED
     -- editor:IndicatorClearRange(0, editor.Length)
     editor:MarkerDeleteAll(MARKER_ERROR)
 
@@ -446,13 +456,14 @@ end
 
 local function init_indicator_styles()
   local indic_style = props["style.script_lua.indic_style"]
-  editor.IndicStyle[1] = indic_style == '' and INDIC_ROUNDBOX or indic_style
-  editor.IndicStyle[2] = INDIC_PLAIN
+  editor.IndicStyle[INDICATOR_SCOPE] =
+      indic_style == '' and INDIC_ROUNDBOX or indic_style
+  editor.IndicStyle[INDICATOR_KEYWORD] = INDIC_PLAIN
   local indic_fore = props["style.script_lua.indic_fore"]
   if indic_fore ~= '' then
     local color = tonumber(indic_fore:sub(2), 16)
-    editor.IndicFore[1] = color
-    editor.IndicFore[2] = color
+    editor.IndicFore[INDICATOR_SCOPE] = color
+    editor.IndicFore[INDICATOR_KEYWORD] = color
   end
 end
 
@@ -464,11 +475,11 @@ scite_OnUpdateUI(function()
   if editor.Lexer ~= 0 then return end
 
   -- Disable any autocomplete indicators if cursor moved away.
-  if AUTOCOMPLETE and
-     editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) ~= 1
-  then
-    editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
-    editor:IndicatorClearRange(0, editor.Length)
+  if AUTOCOMPLETE then
+    if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) ~= 1 then
+      editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
+      editor:IndicatorClearRange(0, editor.Length)
+    end
   end
   
   -- This updates the AST when the selection is moved to a different line.
@@ -495,7 +506,7 @@ scite_OnUpdateUI(function()
   editor:MarkerDeleteAll(MARKER_SCOPEBEGIN)
   editor:MarkerDeleteAll(MARKER_SCOPEMIDDLE)
   editor:MarkerDeleteAll(MARKER_SCOPEEND)
-  editor.IndicatorCurrent = 1
+  editor.IndicatorCurrent = INDICATOR_SCOPE
   editor:IndicatorClearRange(0, editor.Length)
   if id then
     init_indicator_styles() --Q: how often need this be called?
@@ -514,7 +525,7 @@ scite_OnUpdateUI(function()
   
   -- Highlight related keywords.
   do
-    editor.IndicatorCurrent = 2
+    editor.IndicatorCurrent = INDICATOR_KEYWORD
     editor:IndicatorClearRange(0, editor.Length)
 
     -- Check for selection over statement or expression.
@@ -668,9 +679,9 @@ local function OnStyle(styler)
   styler:EndStyling()  
 
   -- Mark masked local variables.
-  editor.IndicatorCurrent = 3
-  editor.IndicStyle[3] = INDIC_STRIKE
-  editor.IndicFore[3] = 0x0000ff
+  editor.IndicatorCurrent = INDICATOR_MASKED
+  editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
+  editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
   editor:IndicatorClearRange(0, editor.Length)
   local tokenlist = buffer.tokenlist
   for idx=1,#tokenlist do
