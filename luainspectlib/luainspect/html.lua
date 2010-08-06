@@ -102,6 +102,9 @@ function M.ast_to_html(ast, src, tokenlist)
       return "<span class='comment'>" .. snip_html .. "</span>"
     elseif token.tag == 'String' then -- note: excludes ast.isfield
       return "<span class='string'>" .. snip_html .. "</span>"
+    elseif token.tag == 'Keyword' then
+      local id = token.keywordid and 'idk' .. tostring(token.keywordid) or ''
+      return "<span class='keyword " .. id .. "'>" .. snip_html .. "</span>"
     end
   end
   return snip_html

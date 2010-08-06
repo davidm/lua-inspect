@@ -31,6 +31,7 @@ local ast, err, linenum, colnum, linenum2 = LI.ast_from_string(src, path)
 if ast then
   local tokenlist = LI.ast_to_tokenlist(ast, src)
   LI.inspect(ast, tokenlist)
+  LI.mark_related_keywords(ast, tokenlist, src)
 
   local ast = LH.ast_to_html(ast, src, tokenlist)
 

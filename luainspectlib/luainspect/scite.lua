@@ -436,11 +436,10 @@ scite_OnUpdateUI(function()
     -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.
-    local kposlist; kposlist, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.tokenlist, buffer.text)
-    if kposlist then
-      for i=1,#kposlist,2 do
-        local fpos, lpos = kposlist[i], kposlist[i+1]
-        --DEBUG(fpos,lpos,'m')
+    local keywords; keywords, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.tokenlist, buffer.text)
+    if keywords then
+      for i=1,#keywords do
+        local fpos, lpos = keywords[i].fpos, keywords[i].lpos
         editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
       end
     end

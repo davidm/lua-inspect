@@ -4,7 +4,7 @@ function highlightSameClass(obj, enable) {
   var classes = obj.attr('class').split(' ');
   for (var i in classes) {
     var aclass = classes[i];
-    if (aclass.match(/^id\d+/)) {
+    if (aclass.match(/^id\w*\d+/)) {
       if (enable) {
         $("." + aclass).addClass("highlight");
       }
@@ -26,6 +26,14 @@ $(document).ready(function() {
     function() {
       var tip = $(this).next('span');
       tip.animate({opacity: "hide"}, "fast");
+      highlightSameClass($(this), false);
+    }
+  );
+  $(".keyword").hover(
+    function() {
+      highlightSameClass($(this), true);
+    },
+    function() {
       highlightSameClass($(this), false);
     }
   );

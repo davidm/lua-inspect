@@ -245,8 +245,7 @@ end
 -- function declaration syntactic sugar is handled specially too to ensure the 'function' keyword
 -- is highlighted even though it may be outside of the `Function AST.
 --
--- kposlist is list of begin/end positions of keywords.  Returned `ast` is AST containing related
--- keywords.
+-- Returns token list or nil if not applicable.  Returned `ast` is AST containing related keywords.
 local iskeystat = {Do=true, While=true, Repeat=true, If=true, Fornum=true, Forin=true,
     Local=true, Localrec=true, Return=true, Break=true, Function=true,
     Set=true -- note: Set for `function name`
@@ -303,12 +302,11 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
 
   --  keywords in statement/block.    
   if iskeystat[ast.tag] then
-    local kposlist = {}
+    local keywords = {}
     for i=1,#tokenlist do
      local token = tokenlist[i]
      if token.ast == ast and token.tag == 'Keyword' then
-       kposlist[#kposlist+1] = token.fpos
-       kposlist[#kposlist+1] = token.lpos
+       keywords[#keywords+1] = token
      end
     end
 
@@ -320,8 +318,7 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
           if type(cast) == 'table' then
             if cast.tag == 'Return' then
               local token = tokenlist[M.ast_idx_range_in_tokenlist(tokenlist, cast)]
-              kposlist[#kposlist+1] = token.fpos
-              kposlist[#kposlist+1] = token.lpos
+              keywords[#keywords+1] = token
             elseif cast.tag ~= 'Function' then f(cast) end
           end
         end
@@ -332,15 +329,13 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
       if grand_ast.tag == 'Set' then
         local token = tokenlist[M.ast_idx_range_in_tokenlist(tokenlist, grand_ast)]
         if token.tag == 'Keyword' and token[1] == 'function' then
-          kposlist[#kposlist+1] = token.fpos
-          kposlist[#kposlist+1] = token.lpos
+          keywords[#keywords+1] = token
         end
       elseif grand_ast.tag == 'Localrec' then
         local tidx = M.ast_idx_range_in_tokenlist(tokenlist, grand_ast)
         repeat tidx = tidx + 1 until tokenlist[tidx].tag == 'Keyword' and tokenlist[tidx][1] == 'function'
         local token = tokenlist[tidx]
-        kposlist[#kposlist+1] = token.fpos
-        kposlist[#kposlist+1] = token.lpos
+        keywords[#keywords+1] = token
       end
     elseif isloop[ast.tag] then
       -- if loop, also select 'break' keywords
@@ -348,9 +343,8 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
         for _,cast in ipairs(ast) do
           if type(cast) == 'table' then
             if cast.tag == 'Break' then
-              local kfpos, klpos = M.ast_pos_range(cast, tokenlist)
-              kposlist[#kposlist+1] = kfpos
-              kposlist[#kposlist+1] = klpos
+              local tidx = M.ast_idx_range_in_tokenlist(tokenlist, cast)
+              keywords[#keywords+1] = tokenlist[tidx]
             elseif not isloop[cast.tag]  then f(cast) end
           end
         end
@@ -358,7 +352,7 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
       f(ast)        
     end
     
-    return kposlist, ast
+    return keywords, ast
   end
   return nil, ast
 end
@@ -959,6 +953,30 @@ function M.eval_comments(ast, tokenlist)
   end
 end
 --IMPROVE: in `do f() --[[!g()]] h()` only apply g to h.
+
+
+-- Mark tokenlist (top_ast/tokenlist/src) with keywordid AST attributes.
+-- All keywords related to each other have the same keyword ID integer.
+-- NOTE: This is not done/undone by inspect/uninspect.
+function M.mark_related_keywords(top_ast, tokenlist, src)
+  local id = 0
+  local idof = {}
+  for _, token in ipairs(tokenlist) do
+    if token.tag == 'Keyword' and not idof[token] then
+      id = id + 1
+      local match_ast =
+        M.smallest_ast_in_range(top_ast, tokenlist, src, token.fpos, token.lpos)
+      local ktokenlist = M.related_keywords(match_ast, top_ast, tokenlist, src)
+      if ktokenlist then
+         for _, ktoken in ipairs(ktokenlist) do
+          ktoken.keywordid = id
+          idof[ktoken] = true
+        end
+      end
+      -- note: related_keywords may return a keyword set not containing given keyword.
+    end
+  end
+end
 
 
 -- Partially undoes effects of inspect().

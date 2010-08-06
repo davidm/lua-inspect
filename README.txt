@@ -12,7 +12,7 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
 == Features ==
 
     * cross-references local variables with their definitions and uses (pink highlight)
-    * shows all keywords in a statement (pink highlight - SciTE only)
+    * shows all keywords in selected block (underline)
     * identifies global (red) and local variables (blue)
     * identifies function arguments (dark blue)
     * identifies global variables that are probably undefined (white-on-red)
@@ -125,6 +125,7 @@ Peter Odding for VIM editor support [2]
 20100805
   core: Major internal refactoring to simplify incremental compilation
           (lineinfo managed in tokenlist).
+  HTML: highlight keywords in selected block
 
 20100803
   core:Evaluate special comments (prefixed by '!') to inject semantic information into analysis

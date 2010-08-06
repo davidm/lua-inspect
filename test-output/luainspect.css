@@ -1,4 +1,4 @@
-// LuaInspect CSS styles
+/* LuaInspect CSS styles */
 
 .id { cursor: pointer }
 .id.local { color: #000080; }
@@ -12,6 +12,8 @@
 .id.mutatebind { font-style: italic }
 .comment { color: #008000 }
 .string { color: #00c000 }
+.keyword { color: #505050; font-weight: bold }
+.keyword.highlight { text-decoration: underline }
 
 .id.highlight {background-color: #ffe0e0}
 
