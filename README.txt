@@ -78,6 +78,7 @@ The following LuaInspect options can be configured in one of your
 SciTE property files:
 
   luainspect.update.always (0 or 1, default 1)
+  luainspect.delay.count (integer >= 1, default 5)
   luainspect.annotate.all.locals (0 or 1, default 0)
   luainspect.incremental.compilation (0 or 1, default 1)
   luainspect.performance.tests (0 or 1, default 0)
@@ -127,6 +128,7 @@ Peter Odding for VIM editor support [2]
   SciTE: jump to uses, not jumps to exact position, not just line number
   SciTE: mark lines of invalidated code upon introducing code errors and display
             error message below invalidated code (not on exact line of error)
+  SciTE: add styling delay option to improve performance (luainspect.update.delay)
 
 20100805
   core: Major internal refactoring to simplify incremental compilation

@@ -6,6 +6,10 @@
 -- is moved to a different line (false).  false can be more efficient for large files.
 local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 
+-- Styling will be applied only every DELAY_COUNT styling events.
+-- 1 implies always style.  Increase to improve performance.
+local UPDATE_DELAY = math.max(1, tonumber(scite_GetProp('luainspect.update.delay', '5')))
+
 -- Experimental feature: display types/values of all known locals as annotations.
 -- Allows Lua to be used like a Mathcad worksheet.
 local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
@@ -508,13 +512,17 @@ end)
 -- Respond to requests for restyling.
 -- Note: if StartStyling is not applied over the entire requested range, than this function is quickly recalled
 --   (which possibly can be useful for incremental updates)
-local n = 0
+local count = -1
 local isblock = {Function=true}
 local function OnStyle(styler)
   if styler.language ~= "script_lua" then return end -- avoid conflict with other stylers
 
-  --if n == 0 then n = 2 else n = n - 1; return end -- this may improves performance on larger files only marginally
-  --IMPROVE: could metalua libraries parse text across multiple calls to `OnStyle` to reduce long pauses with big files?
+  -- Optionally delay styling.
+  count = (count + 1) % UPDATE_DELAY
+  if count ~= 0 then return end
+  
+  --IMPROVE: could metalua libraries parse text across multiple calls to
+  --`OnStyle` to reduce long pauses with big files?  Maybe use coroutines.
 
   --DEBUG("style",styler.language, styler.startPos, styler.lengthDoc, styler.initStyle)
 
