@@ -723,22 +723,28 @@ function M.show_all_variable_uses()
   local stoken = getselectedvariable()
   if not stoken or not stoken.ast then return end
   
+  local pos0of = {}
+  
   editor.AutoCSeparator = 1
   local infos = {}
   for _,token in ipairs(buffer.tokenlist) do
     if token.ast and token.ast.id == stoken.ast.id then
-      local linenum0 = editor:LineFromPosition(token.fpos-1)
-      infos[#infos+1] = (linenum0+1) .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
+      local pos0 = token.fpos-1
+      local linenum0 = editor:LineFromPosition(pos0)
+      local linenum1 = linenum0 + 1
+      if not pos0of[linenum1] then
+        pos0of[linenum1] = pos0
+        infos[#infos+1] = linenum1 .. ": " .. editor:GetLine(linenum0):gsub("[\r\n]+$", "")
+      end
     end
   end
   --editor:UserListShow(1, table.concat(infos, "\1"))  
   scite_UserListShow(infos, 1, function(text)
-    local line1 = tonumber(text:match("^%d+"))
+    local linenum1 = tonumber(text:match("^%d+"))
     if set_mark then set_mark() end -- if ctagsdx.lua available
-    editor:GotoLine(line1-1)
+    editor:GotoPos(pos0of[linenum1])
   end)
 end
---IMPROVE: jump to exact position, not just line number.
 
 
 -- Command to select smallest statement (or comment) containing selection.

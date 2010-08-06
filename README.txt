@@ -123,6 +123,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100806
+  SciTE: jump to uses, not jumps to exact position, not just line number
+
 20100805
   core: Major internal refactoring to simplify incremental compilation
           (lineinfo managed in tokenlist).  Breaks API.
