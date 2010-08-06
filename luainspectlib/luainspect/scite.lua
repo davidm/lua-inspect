@@ -380,8 +380,9 @@ end
 
 -- Respond to UI updates.  This includes moving the cursor.
 scite_OnUpdateUI(function()
-  -- FIX: how to make the occur only in Lua buffers.
-  if editor.Lexer ~= 0 then return end -- FIX: hack: probably won't work with multiple Lua-based lexers
+  -- FIX: how do we make this event only occur for Lua buffers?
+  -- Hack below probably won't work with multiple Lua-based lexers.
+  if editor.Lexer ~= 0 then return end
 
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
