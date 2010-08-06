@@ -125,9 +125,10 @@ Peter Odding for VIM editor support [2]
 
 20100805
   core: Major internal refactoring to simplify incremental compilation
-          (lineinfo managed in tokenlist).
+          (lineinfo managed in tokenlist).  Breaks API.
   core/SciTE/HTML: identifies local variables that mask other locals (same name):
          e.g. local x=1; local x=2 (strikethrough)
+  core: added version number variable APIVERSION to luainspect.init.
   HTML: highlight keywords in selected block
   SciTE: the incremental compilation feature is now on by default.
 
