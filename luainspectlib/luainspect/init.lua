@@ -378,7 +378,7 @@ end
 -- `src` to `bsrc`, given previous AST `top_ast` and tokenlist `tokenlist` corresponding to `src`.
 -- note: decorates ast1 as side-effect
 function M.invalidated_code(top_ast, tokenlist, src, bsrc)
-  -- Converts posiiton range in src1 to position range in src2.
+  -- Converts posiiton range in src to position range in bsrc.
   local function range_transform(src_fpos, src_lpos)
     local src_nlpos = #src - src_lpos
     local bsrc_fpos = src_fpos
@@ -392,44 +392,44 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc)
   local npost = math.min(#src-npre, longest_postfix(src, bsrc))
     -- note: min to avoid overlap ambiguity
     
-  -- Find range of positions in src1 that differences correspond to.
-  -- note: for zero byte range, src1_pos2 = src1_pos1 - 1.
-  local src1_fpos, src1_lpos = 1 + npre, #src - npost
+  -- Find range of positions in src that differences correspond to.
+  -- note: for zero byte range, src_pos2 = src_pos1 - 1.
+  local src_fpos, src_lpos = 1 + npre, #src - npost
   
-  -- Find smallest AST node in ast1 containing src1 range above,
+  -- Find smallest AST node in ast containing src range above,
   -- optionally contained comment or whitespace
-  local match1_ast, match1_comment, iswhitespace =
-      M.smallest_ast_in_range(top_ast, tokenlist, src, src1_fpos, src1_lpos)
+  local match_ast, match_comment, iswhitespace =
+      M.smallest_ast_in_range(top_ast, tokenlist, src, src_fpos, src_lpos)
 
-  DEBUG('invalidate-smallest:', match1_ast and (match1_ast.tag or 'notag'), match1_comment, iswhitespace)
+  DEBUG('invalidate-smallest:', match_ast and (match_ast.tag or 'notag'), match_comment, iswhitespace)
 
   if iswhitespace then
-    local src2_fpos, src2_lpos = range_transform(src1_fpos, src1_lpos)
-    if bsrc:sub(src2_fpos, src2_lpos):match'^%s*$' then -- whitespace replaced with whitespace
-      if not bsrc:sub(src2_fpos-1, src2_lpos+1):match'%s' then
+    local bsrc_fpos, bsrc_lpos = range_transform(src_fpos, src_lpos)
+    if bsrc:sub(bsrc_fpos, bsrc_lpos):match'^%s*$' then -- whitespace replaced with whitespace
+      if not bsrc:sub(bsrc_fpos-1, bsrc_lpos+1):match'%s' then
         DEBUG('edit:white-space-eliminated')
         -- whitespace eliminated, continue
       else
-        return src1_fpos, src1_lpos, src2_fpos, src2_lpos, nil, 'whitespace'
+        return src_fpos, src_lpos, bsrc_fpos, bsrc_lpos, nil, 'whitespace'
       end
     end -- else continue
-  elseif match1_comment then
-    local src1m_fpos, src1m_lpos = match1_comment.fpos, match1_comment.lpos
-    local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
+  elseif match_comment then
+    local srcm_fpos, srcm_lpos = match_comment.fpos, match_comment.lpos
+    local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
     -- If new text is not a single comment, then invalidate containing statementblock instead.
-    local m2text = bsrc:sub(src2m_fpos, src2m_lpos)
+    local m2text = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
     DEBUG('inc-compile-comment[' .. m2text .. ']')
     if quick_parse_comment(m2text) then  -- comment replaced with comment
-      return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_comment, 'comment'
+      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
     end -- else continue
   else -- statementblock modified
-    match1_ast = M.get_containing_statementblock(match1_ast, top_ast)
-    local src1m_fpos, src1m_lpos = M.ast_pos_range(match1_ast, tokenlist)
-    local src2m_fpos, src2m_lpos = range_transform(src1m_fpos, src1m_lpos)
-    local m2text = bsrc:sub(src2m_fpos, src2m_lpos)
-    DEBUG('inc-compile-statblock:', match1_ast and match1_ast.tag, '[' .. m2text .. ']')
+    match_ast = M.get_containing_statementblock(match_ast, top_ast)
+    local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
+    local bsrcm_fpos, bsrc_lpos = range_transform(srcm_fpos, srcm_lpos)
+    local m2text = bsrc:sub(bsrcm_fpos, bsrc_lpos)
+    DEBUG('inc-compile-statblock:', match_ast and match_ast.tag, '[' .. m2text .. ']')
     if loadstring(m2text) then -- statementblock replaced with statementblock 
-      return src1m_fpos, src1m_lpos, src2m_fpos, src2m_lpos, match1_ast, 'statblock'
+      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
     end -- else continue
   end
 
