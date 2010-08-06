@@ -17,7 +17,7 @@ local function annotate_source(src, ast, tokenlist, emit)
   local start = 1
   local fmt_srcs = {}
   for _,token in ipairs(tokenlist) do
-    local fchar, lchar = token[1], token[2]
+    local fchar, lchar = token.fpos, token.lpos
     if fchar > start then
       table.insert(fmt_srcs, emit(src:sub(start, fchar-1)))
     end
@@ -31,70 +31,77 @@ local function annotate_source(src, ast, tokenlist, emit)
 end
 
 function M.ast_to_html(ast, src, tokenlist)
- local src_html = annotate_source(src, ast, tokenlist, function(snip_src, token)
+  local src_html = annotate_source(src, ast, tokenlist, function(snip_src, token)
   local snip_html = escape_html(snip_src)
   if token then
-    if token.type == 'comment' then
-      return "<span class='comment'>" .. snip_html .. "</span>"
-    elseif token.type == 'string' then
-      return "<span class='string'>" .. snip_html .. "</span>"
-    elseif token.type == 'global' or token.type == 'local' or token.type == 'field' then -- Id
-      local class = token.type
+    local ast = token.ast
+    if ast.tag == 'Id' or ast.isfield then
+      local class = 'id'
       local desc_html = escape_html(class)
 
-      if token.type == 'global'  then
-        if token.definedglobal then
+      if ast.localdefinition then
+        class = class .. ' local'
+        desc_html = desc_html .. ' local'
+        if ast.functionlevel > ast.localdefinition.functionlevel then
+          class = class .. ' upvalue'
+          desc_html = desc_html .. ' upvalue'
+        end
+        if not ast.localdefinition.isused then
+          class = class .. ' unused'
+        end
+        if ast.localdefinition.isset then
+          class = class .. ' mutatebind'
+          desc_html = desc_html .. ' mutate-bind'
+        else
+          class = class .. ' constbind'
+        end
+        if ast.isparam then
+          class = class .. ' param'
+          desc_html = desc_html .. ' param'
+        end
+        if ast.localdefinition.lineinfo then
+          local linenum = ast.localdefinition.lineinfo.first[1]
+          desc_html = desc_html .. ' defined-line:' .. linenum
+        end
+      elseif ast.isfield then
+        class = class .. ' field'
+        desc_html = desc_html .. ' field'
+        if ast.definedglobal or ast.seevalue.value ~= nil then
           class = class .. ' recognized'
           desc_html = desc_html .. ' recognized'
         else
           class = class .. ' unrecognized'
           desc_html = desc_html .. ' unrecognized'
         end
-      elseif token.type == 'local' then
-        if token.ast.functionlevel > token.ast.localdefinition.functionlevel then
-          class = class .. ' upvalue'
-          desc_html = desc_html .. ' upvalue'
-        end
-        if not token.ast.localdefinition.isused then
-          class = class .. ' unused'
-        end
-        if token.ast.localdefinition.isset then
-          class = class .. ' mutatebind'
-          desc_html = desc_html .. ' mutate-bind'
+      else -- global
+        class = class .. ' global'
+        desc_html = desc_html .. ' global'
+        if ast.definedglobal then
+          class = class .. ' recognized'
+          desc_html = desc_html .. ' recognized'
         else
-          class = class .. ' constbind'
-        end
-        if token.isparam then
-          class = class .. ' param'
-          desc_html = desc_html .. ' param'
-        end
-        if token.ast.localdefinition.lineinfo then
-          local linenum = token.ast.localdefinition.lineinfo.first[1]
-          desc_html = desc_html .. ' defined-line:' .. linenum
-        end
-      elseif token.type == 'field' then
-        if token.definedglobal or token.ast.seevalue.value ~= nil then
-          class = class .. ' field recognized'
-          desc_html = desc_html .. ' field recognized'
-        else
-          class = class .. ' field unrecognized'
-          desc_html = desc_html .. ' field unrecognized'
+          class = class .. ' unrecognized'
+          desc_html = desc_html .. ' unrecognized'
         end
       end
       
       local id_html = ''
-      if token.ast.id then
-        id_html = " id='id" .. token.ast.id .. "'"
-        class = class .. " id" .. token.ast.id
-      elseif token.ast.id then
-        class = class .. " id" .. token.ast.localdefinition.id
+      if ast.id then
+        id_html = " id='id" .. ast.id .. "'"
+        class = class .. " id" .. ast.id
+      elseif ast.id then
+        class = class .. " id" .. ast.localdefinition.id
       end
 
-      if token.ast.resolvedname and LS.global_signatures[token.ast.resolvedname] then
-        local name = token.ast.resolvedname
+      if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
+        local name = ast.resolvedname
         desc_html = desc_html .. "<br>" .. escape_html(LS.global_signatures[name])
       end
-      return "<span class='id " .. class .. "'" .. id_html .. ">" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
+      return "<span class='" .. class .. "'" .. id_html .. ">" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
+    elseif token.tag == 'Comment' then
+      return "<span class='comment'>" .. snip_html .. "</span>"
+    elseif token.tag == 'String' then -- note: excludes ast.isfield
+      return "<span class='string'>" .. snip_html .. "</span>"
     end
   end
   return snip_html
