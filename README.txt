@@ -132,6 +132,8 @@ Peter Odding for VIM editor support [2]
   SciTE: Add luainspect.path.append/luainspect.cpath.append properties
             to append to package.path/cpath
   SciTE: Add custom searcher function to locate modules in same path as current buffer.
+  SciTE: Added "force reinspect" command to force full reinspection of code.
+            Note: this will also attempt to unload any modules loaded by previous inspection.
 
 20100806
   SciTE: jump to uses, not jumps to exact position, not just line number

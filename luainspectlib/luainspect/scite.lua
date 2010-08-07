@@ -766,6 +766,7 @@ if AUTOCOMPLETE then
   end)
 end
 
+
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
 function M.rename_selected_variable(newname)
@@ -870,6 +871,17 @@ function M.show_all_variable_uses()
 end
 
 
+-- Command for forcing redoing of inspection.  Note: reloads modules imported via require.
+function M.force_reinspect()
+  if buffer.ast then
+    LI.uninspect(buffer.ast)
+    collectgarbage() -- note package.loaded was given weak keys.
+    LI.inspect(buffer.ast, buffer.tokenlist)
+  end
+end
+--IMPROVE? possibly should reparse AST as well in case AST got corrupted.
+
+
 -- Command to select smallest statement (or comment) containing selection.
 -- Executing multiple times selects larger statements containing current statement.
 function M.select_statementblockcomment()
@@ -915,6 +927,7 @@ function M.install()
   scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
   scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
   scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
+  scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
@@ -922,6 +935,7 @@ function M.install()
   _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
   _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
   _G.luainspect_select_statementblockcomment = M.select_statementblockcomment
+  _G.luainspect_force_reinspect = M.force_reinspect
 
   -- apply styles if not overridden in properties file.
   local light_styles = [[
@@ -1026,6 +1040,14 @@ style.script_lua.selection.back=#808080
   if CPATH_APPEND ~= '' then
     package.cpath = package.cpath .. ';' .. CPATH_APPEND
   end
+
+  -- Make package.loaded have weak values.  This makes modules more readilly get unloaded,
+  -- such as when doing force_reinspect.
+  -- WARNING: Global change to Lua.
+  local oldmt = getmetatable(package.loaded)
+  local mt = oldmt  or {}
+  if not mt.__mode then mt.__mode = 'v' end
+  if not oldmt then setmetatable(package.loaded, mt) end
 end
 
 --COMMENT:SciTE: when Lua code fails, why doesn't SciTE display a full stack traceback
