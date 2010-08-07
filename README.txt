@@ -84,6 +84,8 @@ SciTE property files:
   luainspect.incremental.compilation (0 or 1, default 1)
   luainspect.performance.tests (0 or 1, default 0)
   luainspect.autocomplete (0 or 1, default 0)
+  luainspect.path.append (string, default '')
+  luainspect.cpath.append (string, default '')
 
 For details, see scite.lua.
 
@@ -125,6 +127,11 @@ Peter Odding for VIM editor support [2]
 [2] http://peterodding.com/code/vim/lua-inspect/ - VIM editor support
 
 == Changes ==
+
+20100807
+  SciTE: Add luainspect.path.append/luainspect.cpath.append properties
+            to append to package.path/cpath
+  SciTE: Add custom searcher function to locate modules in same path as current buffer.
 
 20100806
   SciTE: jump to uses, not jumps to exact position, not just line number

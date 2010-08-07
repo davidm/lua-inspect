@@ -25,6 +25,11 @@ local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0')
 -- Auto-completes typing.  Like http://lua-users.org/wiki/SciteAutoExpansion .
 local AUTOCOMPLETE = scite_GetProp('luainspect.autocomplete', '0') == '1'
 
+-- Paths to append to package.path and package.cpath.
+local PATH_APPEND = scite_GetProp('luainspect.path.append', '')
+local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
+
+
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
 local LS = require "luainspect.signatures"
@@ -885,6 +890,25 @@ function M.select_statementblockcomment()
 end
 
 
+-- Lua module searcher function that attemps to retrieve module from
+-- same file path as current file.
+local function mysearcher(name)
+  local tries = ""
+  local dir = props.FileDir
+  repeat
+    for i=1,2 do
+      local path = dir .. '/' .. name:gsub("%.", "/") ..
+        (i==1 and ".lua" or "/init.lua")
+      --DEBUG(path)
+      local f, err = loadfile(path)
+      if f then return f end
+      tries = tries .. "\tno file " .. path .. "\n"
+    end
+    dir = dir:gsub("[\\/]?[^\\/]+$", "")
+  until dir == ''
+  return tries
+end
+
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
@@ -993,7 +1017,15 @@ style.script_lua.selection.back=#808080
   -- user property file changed it to a non-blank value.  This is the reason why the above
   -- dark_styles uses style.script_lua.selection.back (which is undefined by SciTE) rather
   -- than selection.back (which SciTE may predefine to a non-blank value).
-  
+
+  -- Allow finding modules.
+  table.insert(package.loaders, mysearcher)
+  if PATH_APPEND ~= '' then
+    package.path = package.path .. ';' .. PATH_APPEND
+  end
+  if CPATH_APPEND ~= '' then
+    package.cpath = package.cpath .. ';' .. CPATH_APPEND
+  end
 end
 
 --COMMENT:SciTE: when Lua code fails, why doesn't SciTE display a full stack traceback
