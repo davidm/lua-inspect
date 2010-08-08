@@ -6,8 +6,9 @@
 -- is moved to a different line (false).  false can be more efficient for large files.
 local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
 
--- Styling will be applied only every DELAY_COUNT styling events.
--- 1 implies always style.  Increase to improve performance.
+-- Styling will be delayed for DELAY_COUNT styling events following user typing.
+-- However it will be immediately triggered on a cursor or line change.
+-- 0 implies always style.  Increase to improve performance but delay display update.
 local UPDATE_DELAY = math.max(1, tonumber(scite_GetProp('luainspect.update.delay', '5')))
 
 -- When user edits code, recompile only the portion of code that is edited.
@@ -129,6 +130,9 @@ local MARKER_SCOPEMIDDLE = 2
 local MARKER_SCOPEEND = 3
 -- Marker for specific line with parser error.
 local MARKER_ERRORLINE = 4
+-- Marker displayed to alter user that syntax highlighting has been delayed
+-- during user typing.
+local MARKER_WAIT = 5
 
 -- Indicator for syntax or other errors
 local INDICATOR_ERROR = 0
@@ -570,17 +574,41 @@ scite_OnUpdateUI(function()
 end)
 
 
+
 -- Respond to requests for restyling.
 -- Note: if StartStyling is not applied over the entire requested range, than this function is quickly recalled
 --   (which possibly can be useful for incremental updates)
-local count = -1
+local style_delay_count = 0
 local isblock = {Function=true}
 local function OnStyle(styler)
   if styler.language ~= "script_lua" then return end -- avoid conflict with other stylers
 
   -- Optionally delay styling.
-  count = (count + 1) % UPDATE_DELAY
-  if count ~= 0 then return end
+  --print('DEBUG:style-count', style_delay_count)
+  if style_delay_count > 0 then
+    -- Dislpay wait marker if not displayed and new text parsing not yet attempted.
+    if not buffer.wait_marker_line and editor:GetText() ~= buffer.lasttext then
+      buffer.wait_marker_line = editor:LineFromPosition(editor.CurrentPos)
+      editor:MarkerDefine(MARKER_WAIT, SC_MARK_CHARACTER+43) -- '+'
+      editor:MarkerSetFore(MARKER_WAIT, 0xffffff)
+      editor:MarkerSetBack(MARKER_WAIT, 0xff0000)
+      editor:MarkerDeleteAll(MARKER_WAIT)
+      editor:MarkerAdd(buffer.wait_marker_line, MARKER_WAIT)
+      style_delay_count = style_delay_count + 1
+        -- +1 is hack to work around warning described below.
+    end
+    style_delay_count = style_delay_count - 1
+    return
+  elseif style_delay_count == 0 then
+    if buffer.wait_marker_line then
+      editor:MarkerDeleteAll(MARKER_WAIT)
+      buffer.wait_marker_line = nil
+    end
+  end
+  style_delay_count = UPDATE_DELAY
+  -- WARNING: updating marker causes another style event to be called immediately.
+  -- Therefore, we take care to only update marker when marker state needs changed
+  -- and correct the count when we do.
   
   --IMPROVE: could metalua libraries parse text across multiple calls to
   --`OnStyle` to reduce long pauses with big files?  Maybe use coroutines.
@@ -598,9 +626,9 @@ local function OnStyle(styler)
 
   --DEBUG('OnStyle', editor:LineFromPosition(styler.startPos), editor:LineFromPosition(styler.startPos+styler.lengthDoc), styler.initStyle)
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
-    -- note: SciTE will repeatedly call OnStyle until StartStyling is performed.
-    -- However, StartStyling clears styles in the given range, but we prefer to leave
-    -- the styles as is.
+  -- WARNING: SciTE will repeatedly call OnStyle until StartStyling is performed.
+  -- However, StartStyling/Forward/EndStyling clears styles in the given range,
+  -- but we prefer to leave the styles as is.
  
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
@@ -748,6 +776,7 @@ scite_OnDoubleClick(function()
   end
 end)
 
+
 if AUTOCOMPLETE then
   scite_OnChar(function(c)
     -- Ignore character typed over autocompleted text.
@@ -765,6 +794,27 @@ if AUTOCOMPLETE then
     end
   end)
 end
+
+
+-- key codes (IMPROVE? may be Windows specific)
+local KEY_UP = 38
+local KEY_DOWN = 40
+local KEY_LEFT = 37
+local KEY_RIGHT = 39
+local KEY_ENTER = 13
+
+
+scite_OnKey(function(key)
+  -- Adjusting styling delays due to user typing.
+  if key == KEY_UP or key == KEY_DOWN or
+     key == KEY_LEFT or key == KEY_RIGHT or key == KEY_ENTER
+  then -- trigger on line/cursor change
+    style_delay_count = 0
+  else  -- delay for all other user typing
+    style_delay_count = UPDATE_DELAY
+  end
+  --print('DEBUG:key', key)
+end)
 
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`

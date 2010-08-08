@@ -134,6 +134,8 @@ Peter Odding for VIM editor support [2]
   SciTE: Add custom searcher function to locate modules in same path as current buffer.
   SciTE: Added "force reinspect" command to force full reinspection of code.
             Note: this will also attempt to unload any modules loaded by previous inspection.
+  SciTE: Improve luainspect.update.delay to delay inspection for given tick count
+           following user typing.  Also displays blue '+' marker when inspection has been delayed.
 
 20100806
   SciTE: jump to uses, not jumps to exact position, not just line number
