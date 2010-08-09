@@ -129,6 +129,7 @@ Peter Odding for VIM editor support [2]
 == Changes ==
 
 20100809
+  core/SciTE: jump to definition now supports functions in different files.
   core/SciTE/HTML: improvements to displaying masking/masked lexicals.
 
 20100807

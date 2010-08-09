@@ -275,7 +275,7 @@ local function update_ast()
     local ast
     if old_type ~= 'whitespace' then
       --currently not needed: compiletext = compiletext .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
-      ast, err, linenum, colnum, linenum2 = LA.ast_from_string(compiletext, "noname.lua")
+      ast, err, linenum, colnum, linenum2 = LA.ast_from_string(compiletext, props.FilePath)
       --DEBUG(table.tostring(ast, 20))
     end
     clock 't3'
@@ -426,7 +426,7 @@ local function update_ast()
 end
 
 
--- Gets note assocated with currently selected variable (if any).
+-- Gets token assocated with currently selected variable (if any).
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectedtoken
@@ -887,12 +887,45 @@ end
 -- IMPROVE: prevent rename to conflicting existing variable.
 
 
--- Gets 1-indexed character position of definition associated with AST node (if any).
+-- Gets 1-indexed character (or line) position and filename of
+-- definition associated with AST node (if any).
 local function ast_to_definition_position(ast, tokenlist)
   local local_ast = ast.localdefinition
+  local fpos, fline, path
   if local_ast then
     local tidx = LA.ast_idx_range_in_tokenlist(tokenlist, local_ast)
-    if tidx then return tokenlist[tidx].fpos end
+    if tidx then
+      local spath = ast.lineinfo.first[4] -- a HACK? using lineinfo
+      fpos = tokenlist[tidx].fpos; path = spath
+    end
+  end
+  if not fpos then
+    local valueast = ast.seevalue or ast
+    local val = valueast and valueast.value
+    local info = LI.debuginfo[val] or type(val) == 'function' and debug.getinfo(val)
+    if info then
+      if info.source:match'^@' then
+        path = info.source:match'@(.*)'
+        if info.linedefined then
+          fline = info.linedefined
+        else
+          fpos = info.fpos
+        end
+      end
+    end
+  end
+  return fpos, fline, path
+end
+
+
+-- jump to 0-indexed line in file path.
+-- Preferrably jump to exact position if given, else 0-indexed line.
+local function goto_file_line_pos(path, line0, pos0)
+  scite.Open(path)
+  if pos0 then
+    editor:GotoPos(pos0)
+  else
+    editor:GotoLine(line0)
   end
 end
 
@@ -901,11 +934,16 @@ end
 -- TODO: currently only works for locals in the same file.
 function M.goto_definition()
   local selectedtoken = getselectedvariable()
-  local pos1 = selectedtoken.ast and ast_to_definition_position(selectedtoken.ast, buffer.tokenlist) --FIX:may be nil
-  if pos1 then
-    if set_mark then set_mark() end -- if ctagsdx.lua available
-    editor:GotoPos(pos1 - 1)
-  end  
+  if selectedtoken then
+    local fpos, fline, path = ast_to_definition_position(selectedtoken.ast, buffer.tokenlist)
+    if not fline and fpos then
+      fline = editor:LineFromPosition(fpos-1)+1
+    end
+    if fline then
+      if set_mark then set_mark() end -- if ctagsdx.lua available
+      goto_file_line_pos(path, fline and fline-1, fpos and fpos-1)
+    end
+  end
 end
 
 

@@ -32,6 +32,8 @@ local LS = require "luainspect.signatures"
 
 --! require 'luainspect.typecheck' (context)
 
+-- Like info in debug.getinfo but inferred by static analysis.
+M.debuginfo = setmetatable({}, {__mode='kv'})
 
 -- Stringifies interpreted value for debugging.
 -- CATEGORY: debug
@@ -250,7 +252,7 @@ end
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 -- CATEGORY: code interpretation
 local nil_value_ast = {}
-function M.infer_values(top_ast)
+function M.infer_values(top_ast, tokenlist)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
 
   -- infer values
@@ -343,7 +345,12 @@ function M.infer_values(top_ast)
       ast.value = (ast.tag == 'True'); ast.valueknown = true
     elseif ast.tag == 'Function' then
       if not ast.valueknown then -- avoid redefinition
-        ast.value = function() end -- IMPROVE?
+        local x
+        local val = function() x=nil end
+        local fpos = LA.ast_pos_range(ast, tokenlist)
+        local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
+        M.debuginfo[val] = {fpos=fpos, source="@" .. source}
+        ast.value = val
       end
       ast.valueknown = true
     elseif ast.tag == 'Table' then
@@ -547,8 +554,8 @@ function M.inspect(top_ast, tokenlist)
 
   M.eval_comments(top_ast, tokenlist)
   
-  M.infer_values(top_ast)
-  M.infer_values(top_ast) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
+  M.infer_values(top_ast, tokenlist)
+  M.infer_values(top_ast, tokenlist) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
   
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
