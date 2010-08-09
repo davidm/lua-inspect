@@ -472,8 +472,8 @@ end
 
 -- Mark in margin range of 0-indexed positions.
 local function scope_positions(fpos0, lpos0)
-  local firstline0 = editor:LineFromPosition(fpos0-1)
-  local lastline0 = editor:LineFromPosition(lpos0-1)
+  local firstline0 = editor:LineFromPosition(fpos0)
+  local lastline0 = editor:LineFromPosition(lpos0)
   scope_lines(firstline0, lastline0)
 end
 
@@ -599,7 +599,7 @@ scite_OnUpdateUI(function()
     -- Mark range of lines covered by item on selection.
     if not id then
       local fpos, lpos = LA.ast_pos_range(match1_ast, buffer.tokenlist)
-      if fpos then scope_positions(fpos, lpos) end
+      if fpos then scope_positions(fpos-1, lpos-1) end
     end
   end
 
