@@ -69,6 +69,20 @@ local function ast_from_string_helper(src, filename)
 end
 
 
+-- Count number of lines in text.
+-- Warning: the decision of whether to count a trailing new-line in a file
+-- or an empty file as a line is a little subjective.  This function currently
+-- defines the line count as 1 plus the number of new line characters.
+-- CATEGORY: utility/string
+local function linecount(text)
+  local n = 1
+  for _ in text:gmatch'\n' do
+    n = n + 1
+  end
+  return n
+end
+
+
 -- Converts Lua source string to Lua AST (via mlp/gg).
 -- CATEGORY: Lua parsing
 function M.ast_from_string(src, filename)
@@ -85,8 +99,8 @@ function M.ast_from_string(src, filename)
       -- without the normal line/char numbers given things like "if x then end end".  Should be
       -- fixed probably with gg.parse_error in _chunk in mlp_misc.lua.
       -- TODO-Metalua: remove when fixed in Metalua.
-      linenum = editor.LineCount - 1
-      colnum = 0
+      linenum = linecount(src)
+      colnum = 1
     end
     local linenum2 = nil
     return nil, err, linenum, colnum, linenum2
