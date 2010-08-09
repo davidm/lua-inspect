@@ -858,6 +858,10 @@ scite_OnKey(function(key)
   --print('DEBUG:key', key)
 end)
 
+scite_OnOpen(function()
+  -- Trigger styling immediately on new file open.
+  style_delay_count = 0
+end)
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
