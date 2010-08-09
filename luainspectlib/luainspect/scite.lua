@@ -711,7 +711,7 @@ local function OnStyle(styler)
   end
   styler:EndStyling()  
 
-  -- Mark masked local variables.
+  -- Mark masking local variables.
   editor.IndicatorCurrent = INDICATOR_MASKED
   editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
   editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
