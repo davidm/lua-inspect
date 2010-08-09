@@ -48,7 +48,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
       assert(value_ast.tag == "Id")
       local name = value_ast[1]
       local parentscope = getmetatable(scope).__index
-      definelocal(parentscope, value_ast)
+      definelocal(parentscope, name, value_ast)
       value_ast.localdefinition = value_ast
       value_ast.functionlevel = functionlevel
     end
