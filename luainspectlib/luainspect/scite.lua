@@ -557,12 +557,12 @@ scite_OnUpdateUI(function()
       local fpos, lpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
       if fpos then
         local maskedlinenum0 = editor:LineFromPosition(fpos-1)
-	local maskinglinenum0 = editor:LineFromPosition(selectedtoken.fpos-1)
+        local maskinglinenum0 = editor:LineFromPosition(selectedtoken.fpos-1)
         editor:MarkerDefine(MARKER_MASKED, SC_MARK_CHARACTER+77) -- 'M'
         editor:MarkerSetFore(MARKER_MASKED, 0xffffff)
         editor:MarkerSetBack(MARKER_MASKED, 0x000080)
         editor:MarkerAdd(maskedlinenum0, MARKER_MASKED)
-	editor:MarkerDefine(MARKER_MASKING, SC_MARK_CHARACTER+77) -- 'M'
+        editor:MarkerDefine(MARKER_MASKING, SC_MARK_CHARACTER+77) -- 'M'
         editor:MarkerSetFore(MARKER_MASKING, 0xffffff)
         editor:MarkerSetBack(MARKER_MASKING, 0x0000ff)
         editor:MarkerAdd(maskinglinenum0, MARKER_MASKING)
