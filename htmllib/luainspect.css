@@ -14,7 +14,8 @@
 .string { color: #00c000 }
 .keyword { color: #505050; font-weight: bold }
 .keyword.highlight { text-decoration: underline }
-.masking { text-decoration: line-through }
+.masking { text-decoration: underline }
+.masked { /*text-decoration: line-through*/ }
 
 .id.highlight {background-color: #ffe0e0}
 

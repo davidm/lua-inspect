@@ -128,6 +128,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100809
+  core/SciTE/HTML: improvements to displaying masking/masked lexicals.
+
 20100807
   SciTE: Add luainspect.path.append/luainspect.cpath.append properties
             to append to package.path/cpath

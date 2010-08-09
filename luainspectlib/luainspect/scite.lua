@@ -133,6 +133,10 @@ local MARKER_ERRORLINE = 4
 -- Marker displayed to alter user that syntax highlighting has been delayed
 -- during user typing.
 local MARKER_WAIT = 5
+-- Marker displayed next to local definition that is masked by selected local definition.
+local MARKER_MASKED = 6
+-- Marker displayed next to local definition masking another local defintion.
+local MARKER_MASKING = 7
 
 -- Indicator for syntax or other errors
 local INDICATOR_ERROR = 0
@@ -140,10 +144,12 @@ local INDICATOR_ERROR = 0
 local INDICATOR_SCOPE = 1
 -- Indicator for related keywords in block.
 local INDICATOR_KEYWORD = 2
--- Indicator or locals masked by other locals (name conflict).
-local INDICATOR_MASKED = 3
+-- Indicator or locals masking other locals (name conflict).
+local INDICATOR_MASKING = 3
 -- Indicator for autocomplete characters (typing over them is ignored).
 local INDICATOR_AUTOCOMPLETE = 4
+-- Indicator or locals masked by other locals (name conflict).
+local INDICATOR_MASKED = 5
 
 local function formatvariabledetails(token)
   local info = ""
@@ -166,8 +172,16 @@ local function formatvariabledetails(token)
       info = info .. "param "
     end
     info = info .. "local "
-    if ast.ismasking then
+    if ast.localmasking then
       info = info .. "masking "
+      local fpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
+      if fpos then
+        local linenum0 = editor:LineFromPosition(fpos)
+        info = info .. "definition at line " .. (linenum0+1) .. " "
+      end
+    end
+    if ast.localmasked then
+      info = info .. "masked "
     end
   elseif ast.isfield then
     info = info .. "field "
@@ -503,7 +517,7 @@ scite_OnUpdateUI(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
-  local selectednote, id = getselectedvariable()
+  local selectedtoken, id = getselectedvariable()
 
   --test: adding items to context menu upon variable selection
   --if id then
@@ -515,11 +529,17 @@ scite_OnUpdateUI(function()
   editor:MarkerDeleteAll(MARKER_SCOPEBEGIN)
   editor:MarkerDeleteAll(MARKER_SCOPEMIDDLE)
   editor:MarkerDeleteAll(MARKER_SCOPEEND)
+  editor:MarkerDeleteAll(MARKER_MASKED)
+  editor:MarkerDeleteAll(MARKER_MASKING)
   editor.IndicatorCurrent = INDICATOR_SCOPE
+  editor:IndicatorClearRange(0, editor.Length)
+  editor.IndicatorCurrent = INDICATOR_MASKED
   editor:IndicatorClearRange(0, editor.Length)
   if id then
     init_indicator_styles() --Q: how often need this be called?
 
+    -- Indicate uses of variable.
+    editor.IndicatorCurrent = INDICATOR_SCOPE
     local ftoken, ltoken -- first and last occurances
     for _,token in ipairs(buffer.tokenlist) do
       if token.ast.id == id then
@@ -530,6 +550,28 @@ scite_OnUpdateUI(function()
     end
 
     scope_positions(ftoken.fpos-1, ltoken.lpos-1)
+    
+    -- identify any local definition masked by any selected local definition.
+    local ast = selectedtoken -- cast: `Id tokens are AST nodes.
+    if ast.localmasking then
+      local fpos, lpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
+      if fpos then
+        local maskedlinenum0 = editor:LineFromPosition(fpos-1)
+	local maskinglinenum0 = editor:LineFromPosition(selectedtoken.fpos-1)
+        editor:MarkerDefine(MARKER_MASKED, SC_MARK_CHARACTER+77) -- 'M'
+        editor:MarkerSetFore(MARKER_MASKED, 0xffffff)
+        editor:MarkerSetBack(MARKER_MASKED, 0x000080)
+        editor:MarkerAdd(maskedlinenum0, MARKER_MASKED)
+	editor:MarkerDefine(MARKER_MASKING, SC_MARK_CHARACTER+77) -- 'M'
+        editor:MarkerSetFore(MARKER_MASKING, 0xffffff)
+        editor:MarkerSetBack(MARKER_MASKING, 0x0000ff)
+        editor:MarkerAdd(maskinglinenum0, MARKER_MASKING)
+        editor.IndicatorCurrent = INDICATOR_MASKED
+        editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
+        editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
+        editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
+      end
+    end
   end
   
   -- Highlight related keywords.
@@ -712,15 +754,15 @@ local function OnStyle(styler)
   styler:EndStyling()  
 
   -- Mark masking local variables.
-  editor.IndicatorCurrent = INDICATOR_MASKED
-  editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
-  editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
+  editor.IndicatorCurrent = INDICATOR_MASKING
+  editor.IndicStyle[INDICATOR_MASKING] = INDIC_SQUIGGLE
+  editor.IndicFore[INDICATOR_MASKING] = 0x008080
   editor:IndicatorClearRange(0, editor.Length)
   local tokenlist = buffer.tokenlist
   for idx=1,#tokenlist do
     local token = tokenlist[idx]
     local ast = token.ast
-    if ast and ast.ismasking then
+    if ast and ast.localmasking then
       editor:IndicatorFillRange(token.fpos-1, token.lpos - token.fpos + 1)
     end
   end
