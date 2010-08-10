@@ -861,6 +861,10 @@ end
 
 if AUTOCOMPLETE then
   scite_OnChar(function(c)
+    -- FIX: how do we make this event only occur for Lua buffers?
+    -- Hack below probably won't work with multiple Lua-based lexers.
+    if editor.Lexer ~= 0 then return end    
+
     -- Auto-complete variable names.
     if not editor:AutoCActive() then
       -- Build list of locals and globals in current scope.
