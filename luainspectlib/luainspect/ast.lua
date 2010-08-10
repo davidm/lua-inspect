@@ -420,7 +420,7 @@ function M.tokenlist_idx_range_over_pos_range(tokenlist, fpos, lpos)
       end
     end
   end
-  assert(fidx and lidx)
+  assert(fidx and lidx) --Q:ok if no tokens?
   return fidx, lidx
 end
 
@@ -454,7 +454,7 @@ end
 
 -- Get character position range covered by ast in tokenlist.  Returns nil,nil if not found
 -- CATEGORY: AST/tokenlist query
-function M.ast_pos_range(ast, tokenlist)
+function M.ast_pos_range(ast, tokenlist) -- IMPROVE:style: ast_idx_range_in_tokenlist has params reversed
   local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
   if fidx then
     return tokenlist[fidx].fpos, tokenlist[lidx].lpos
@@ -504,6 +504,31 @@ function M.smallest_ast_in_range(top_ast, tokenlist, src, pos1, pos2)
 end
 --IMPROVE: handle string edits and maybe others
 
+
+-- Gets smallest statement block containing position pos or
+-- nearest statement block before pos, whichever is smaller, given ast/tokenlist.
+function M.current_statementblock(ast, tokenlist, pos)
+  local fidx,lidx = M.tokenlist_idx_range_over_pos_range(buffer.tokenlist, pos, pos)
+  if not fidx then return ast, false end
+  if fidx > lidx then fidx = lidx end -- use nearest backward
+  
+  -- Find closest AST node backward
+  while fidx >= 1 and buffer.tokenlist[fidx].tag == 'Comment' do fidx=fidx-1 end
+  
+  if fidx < 1 then return ast, false end
+  local mast = buffer.tokenlist[fidx].ast
+  if not mast then return ast, false end
+  mast = M.get_containing_statementblock(mast, ast)
+  local isafter = false
+  if mast.tag2 ~= 'Block' then
+    local mfidx,mlidx = M.ast_idx_range_in_tokenlist(tokenlist, mast)
+    if pos > mlidx then
+      isafter = true
+    end
+  end
+
+  return mast, isafter  
+end
 
 -- Gets index of bast in ast (nil if not found).
 -- CATEGORY: AST query

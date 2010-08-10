@@ -133,6 +133,7 @@ Peter Odding for VIM editor support [2]
   core/SciTE: add function argument count check
   core/SciTE: jump to definition now supports functions in different files.
   core/SciTE/HTML: improvements to displaying masking/masked lexicals.
+  core/SciTE: add command to just to previous statement
   SciTE: add missing style.script_lua.local_param_mutate style.
 
 20100807

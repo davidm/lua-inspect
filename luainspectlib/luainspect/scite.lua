@@ -1066,6 +1066,20 @@ function M.select_statementblockcomment()
 end
 
 
+-- Command to jump to beginning or end of previous statement (whichever is closer).
+function M.goto_previous_statement()
+  local pos1 = editor.CurrentPos+1
+  if pos1 == 1 then return end
+  pos1 = pos1 - 1 -- ensures repeated calls advance back
+  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos1)
+  local fpos, lpos = LA.ast_pos_range(mast, buffer.tokenlist)
+  if (editor.CurrentPos+1) > lpos + 1 then
+    editor:GotoPos(lpos+1-1)
+  else
+    editor:GotoPos(fpos-1)
+  end
+end
+
 -- Lua module searcher function that attemps to retrieve module from
 -- same file path as current file.
 local function mysearcher(name)
@@ -1092,6 +1106,7 @@ function M.install()
   scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
   scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
   scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
+  scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+P")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
@@ -1100,6 +1115,7 @@ function M.install()
   _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
   _G.luainspect_select_statementblockcomment = M.select_statementblockcomment
   _G.luainspect_force_reinspect = M.force_reinspect
+  _G.luainspect_goto_previous_statement = M.goto_previous_statement
 
   -- apply styles if not overridden in properties file.
   local light_styles = [[
