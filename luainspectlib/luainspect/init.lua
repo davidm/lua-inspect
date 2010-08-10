@@ -247,6 +247,39 @@ local function tastnewindex(t_ast, k_ast, v_ast)
 end
 
 
+-- Get expected number of parameters for function (min, max) values.
+-- In case of vararg, max is unknown and set to nil.
+local function function_param_range(ast)
+  local names_ast = ast[1]
+  if #names_ast >= 1 and names_ast[#names_ast].tag == 'Dots' then
+    return #names_ast-1, nil
+  else
+    return #names_ast, #names_ast
+  end
+end
+
+-- Gets number of arguments to function call: (min, max) range.
+-- In case of trailing vararg or function call, max is unknown and set to nil.
+local function call_arg_range(ast)
+  if ast.tag == 'Invoke' then
+    if #ast >= 3 and
+      (ast[#ast].tag == 'Dots' or ast[#ast].tag == 'Call' or ast[#ast].tag == 'Invoke')
+    then
+      return #ast-2, nil
+    else
+      return #ast-1, #ast-1
+    end    
+  else
+    if #ast >= 2 and
+      (ast[#ast].tag == 'Dots' or ast[#ast].tag == 'Call' or ast[#ast].tag == 'Invoke')
+    then
+      return #ast-2, nil
+    else
+      return #ast-1, #ast-1
+    end
+  end
+end
+
 -- Infer values of variables.
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
@@ -311,7 +344,7 @@ function M.infer_values(top_ast, tokenlist)
       if t_ast.valueknown and k_ast.valueknown then
         ast.valueknown, ast.value = pcall(tindex, t_ast.value, k_ast.value)
       end
-    elseif ast.tag == 'Call' then
+    elseif ast.tag == 'Call' then   
       local args_known = true
       for i=2,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
       if ast[1].valueknown and args_known then
@@ -349,7 +382,7 @@ function M.infer_values(top_ast, tokenlist)
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
-        M.debuginfo[val] = {fpos=fpos, source="@" .. source}
+        M.debuginfo[val] = {fpos=fpos, source="@" .. source, fast=ast}
         ast.value = val
       end
       ast.valueknown = true
@@ -520,6 +553,8 @@ function M.uninspect(top_ast)
     ast.isused = nil
     ast.isfield = nil
     ast.previous = nil
+    ast.localmasked = nil
+    ast.localmasking = nil
   
     -- undo mark_identifiers
     ast.id = nil
@@ -536,6 +571,9 @@ function M.uninspect(top_ast)
     
     -- undo walk setting ast.definedglobal
     ast.definedglobal = nil
+
+    -- undo notes
+    ast.note = nil
   end)
   
   -- undo infer_values
@@ -564,7 +602,7 @@ function M.inspect(top_ast, tokenlist)
     if ast.tag == "Index" then
       ast[2].seevalue = ast
     elseif ast.tag == "Invoke" then
-      ast[2].seevalue = {value=ast.idxvalue, valueknown=ast.idxvalueknown}
+      ast[2].seevalue = {value=ast.idxvalue, valueknown=ast.idxvalueknown, parent=ast}
     end
   end)
 
@@ -592,6 +630,36 @@ function M.inspect(top_ast, tokenlist)
                  atype == 'global' and (globals[vname] and globals[vname].set) or nil
       ast.definedglobal = definedglobal
       -- FIX: _G includes modules imported by inspect.lua, which is not desired
+    elseif ast.tag == 'Call' or ast.tag == 'Invoke' then
+      -- Argument count check.
+      local value = ast.idxvalue or ast[1].value
+      local info = M.debuginfo[value]
+      local fast = info and info.fast
+      if fast or LS.argument_counts[value] then
+        local nparammin, nparammax
+        if fast then
+          nparammin, nparammax = function_param_range(info.fast)
+        else
+          nparammin, nparammax = unpack(LS.argument_counts[value])
+        end
+        local nargmin, nargmax = call_arg_range(ast)
+        --print('DEBUG:', nparammin, nparammax, nargmin, nargmax)
+        local iswarn
+        local target_ast = ast.tag == 'Call' and ast[1] or ast[2]
+        if (nargmax or math.huge) < nparammin then
+          ast.note = "Too few arguments.  "
+          iswarn = true
+        elseif nargmin > (nparammax or math.huge) then
+          ast.note = "Too many arguments.  "
+          iswarn = true
+        end
+        if iswarn then
+          ast.note = ast.note ..  "Expected "
+            .. nparammin .. (nparammax == nparammin and "" or " to " .. (nparammax or "infinity"))
+            .. " but got "
+            .. nargmin .. (nargmax == nargmin and "" or " to " .. (nargmax or "infinity")) .. "."
+        end
+      end
     end
   end)
 end

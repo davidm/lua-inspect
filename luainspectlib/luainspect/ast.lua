@@ -373,8 +373,7 @@ function M.ast_to_tokenlist(top_ast, src)
         end
       end end
     end
-    
-  end)
+  end, nil)
   table.sort(tokens, compare_tokens_)
   return tokens
 end

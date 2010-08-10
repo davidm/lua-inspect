@@ -35,6 +35,7 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
     * Evaluate special comments (prefixed by '!') to inject semantic information into analysis
        (similar to luaanalyze).
     * Auto-complete typing support (SciTE only) (experimental)
+    * checks number of function arguments (SciTE only)
 
 == Files in this directory ==
 
@@ -129,6 +130,7 @@ Peter Odding for VIM editor support [2]
 == Changes ==
 
 20100809
+  core/SciTE: add function argument count check
   core/SciTE: jump to definition now supports functions in different files.
   core/SciTE/HTML: improvements to displaying masking/masked lexicals.
 

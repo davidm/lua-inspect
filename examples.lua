@@ -77,3 +77,27 @@ print(loc1) -- IMPROVE? infer value even though binding mutable?
 function f(myshape) print(myshape.color, myshape.size.x, myshape.undef, myshape.f():len()) end
 --IMPROVE: `len` above
 
+-- Argument count checks.
+function zero() end
+function one(a) end
+function two(a,b) end
+function oneplus(a,...) end
+function zeroplus(...) end
+zero() zero(1) zero(1,2)
+one() one(1) one(1,2)
+one(f()) one(1,zero()) one(1,2,zero())
+two() two() two(1,2)
+oneplus() oneplus(1) oneplus(1,2) oneplus(1,2,3)
+zeroplus()
+math.sqrt(1) math.sqrt(1,2) _G.math.sqrt(1,2)
+local sq = math.sqrt
+sq(1,2)
+function f(...)
+  one(...) one(1, ...) one(1, 2, ...)
+end
+local tt = {zero=zero,one=one, more={one=one}}  -- test methods
+tt:zero() tt:zero(1)
+tt:one() tt:one(1)
+tt.more:one() tt.more:one(1)
+
+

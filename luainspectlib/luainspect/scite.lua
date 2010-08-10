@@ -50,7 +50,7 @@ local M = {}
 -- Performance test utilities.  Enabled only for PERFORMANCE_TESTS.
 local perf_names = {}
 local perf_times = {os.clock()}
-local nilfunc = function() end
+local nilfunc = function(name_) end
 local clock = PERFORMANCE_TESTS and function(name)
   perf_times[#perf_times+1] = os.clock()
   perf_names[#perf_names+1] = name
@@ -150,6 +150,8 @@ local INDICATOR_MASKING = 3
 local INDICATOR_AUTOCOMPLETE = 4
 -- Indicator or locals masked by other locals (name conflict).
 local INDICATOR_MASKED = 5
+-- Indicator for warnings.
+local INDICATOR_WARNING = 6
 
 local function formatvariabledetails(token)
   local info = ""
@@ -203,6 +205,14 @@ local function formatvariabledetails(token)
   elseif vast.value then
     info = info .. "\nerror value= " .. tostring(vast.value) .. " "
   end -- else no info
+
+  -- Render warning notes attached to calls/invokes.
+  local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
+                    and vast.parent.note
+  if note then
+    info = info .. "\nWARNING: " .. note .. " "
+  end
+  
   return info
 end
 
@@ -401,7 +411,7 @@ local function update_ast()
     editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
     --DEBUG(buffer.lasttext)
     local text = buffer.lasttext:sub(errfpos0+1, errlpos0+1)
-    print(text)
+
     if text == "if " then
       local more = " then end"
       editor:InsertText(errlpos0+1, more)
@@ -753,17 +763,28 @@ local function OnStyle(styler)
   end
   styler:EndStyling()  
 
-  -- Mark masking local variables.
-  editor.IndicatorCurrent = INDICATOR_MASKING
+  -- Apply indicators in token list.
+  -- Mark masking local variables and warnings.
   editor.IndicStyle[INDICATOR_MASKING] = INDIC_SQUIGGLE
   editor.IndicFore[INDICATOR_MASKING] = 0x008080
+  editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
+  editor.IndicFore[INDICATOR_WARNING] = 0x008080
+  editor.IndicatorCurrent = INDICATOR_MASKING
+  editor:IndicatorClearRange(0, editor.Length)
+  editor.IndicatorCurrent = INDICATOR_WARNING
   editor:IndicatorClearRange(0, editor.Length)
   local tokenlist = buffer.tokenlist
   for idx=1,#tokenlist do
     local token = tokenlist[idx]
     local ast = token.ast
     if ast and ast.localmasking then
+      editor.IndicatorCurrent = INDICATOR_MASKING
       editor:IndicatorFillRange(token.fpos-1, token.lpos - token.fpos + 1)
+    end
+    if ast and (ast.seevalue or ast).note then
+      local fpos, lpos = LA.ast_pos_range(ast.seevalue or ast, buffer.tokenlist)
+      editor.IndicatorCurrent = INDICATOR_WARNING
+      editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
     end
   end
   
