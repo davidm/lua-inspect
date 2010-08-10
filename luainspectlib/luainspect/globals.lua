@@ -196,7 +196,6 @@ function M.variables_in_scope(ast, isafter)
         end
       elseif cast ~= ast and (bast.tag == 'For' or bast.tag == 'Forin' or bast.tag == 'Function') then
         local names_ast = bast[1]
-        table.print(names_ast, 'nohash')
         for bidx=1,#names_ast do
           local name_ast = names_ast[bidx]
           if name_ast.tag == 'Id' then  --Q: or maybe `Dots should be included
