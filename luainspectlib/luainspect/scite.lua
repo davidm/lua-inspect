@@ -855,7 +855,7 @@ end)
 local function mycshow(list, len)
   editor.AutoCSeparator = 1
   editor.AutoCIgnoreCase = true 
-  editor:AutoCShow(len, table.concat(list, '\1'))
+  editor:AutoCShow(len or 0, table.concat(list, '\1'))
 end
 
 
@@ -1042,9 +1042,9 @@ function M.inspect_variable_contents()
     end
     mycshow(list, 0)
   elseif type(ast.value) == 'userdata' then
-    editor:AutoCShow(0, "userdata not inspectable") -- unfortunately without __pairs.
+    mycshow({"userdata not inspectable"}) -- unfortunately without __pairs.
   else
-    editor:AutoCShow(0, tostring(ast.value) .. " not inspectable")
+    mycshow({tostring(ast.value) .. " not inspectable"})
   end
 end
 
