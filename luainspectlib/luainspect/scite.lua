@@ -1023,29 +1023,46 @@ function M.goto_definition()
   end
 end
 
+-- Convert object to string (no nesting).
+-- utility function
+local function dump_shallow(o)
+  return type(o) == 'string' and string.format('%q', o) or tostring(o)
+end
+
+-- Convert table key to string (no nesting)
+-- utility function
+local function dump_key_shallow(o)
+  return type(o) == 'string' and o:match'^[%a_][%w+]*$' and o
+           or "[" .. dump_shallow(o) .. "]"
+end
 
 -- Command for inspecting fields of selected table variable.
 function M.inspect_variable_contents()
   local token = getselectedvariable()
   if not token or not token.ast then return end
-  local ast = token.ast 
+  local ast = token.ast
 
-  if type(ast.value) == 'table' then
-    local t = ast.value
+  local iast = ast.seevalue or ast
+
+  if not iast.valueknown then
+    mycshow({"value unknown"})
+  elseif type(iast.value) == 'table' then
+    local t = iast.value
     local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
-    table.sort(keys)
     local list = {}
     for _,k in ipairs(keys) do
-      local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
-      local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
+      local ks = dump_key_shallow(k); if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
+      local vs = dump_shallow(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
       list[#list+1] = ks .. "=" .. vs
     end
+    table.sort(list)
+    table.insert(list, 1, "{")
+    table.insert(list, "}")
     mycshow(list, 0)
-  elseif type(ast.value) == 'userdata' then
-    mycshow({"userdata not inspectable"}) -- unfortunately without __pairs.
   else
-    mycshow({tostring(ast.value) .. " not inspectable"})
+    mycshow({tostring(iast.value)}, 0)
   end
+  -- unfortunately, userdata is not inspectable without 5.2 __pairs.
 end
 
 -- Command to show all uses of selected variable
