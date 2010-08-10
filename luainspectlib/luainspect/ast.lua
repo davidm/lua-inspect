@@ -508,15 +508,15 @@ end
 -- Gets smallest statement block containing position pos or
 -- nearest statement block before pos, whichever is smaller, given ast/tokenlist.
 function M.current_statementblock(ast, tokenlist, pos)
-  local fidx,lidx = M.tokenlist_idx_range_over_pos_range(buffer.tokenlist, pos, pos)
+  local fidx,lidx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos, pos)
   if not fidx then return ast, false end
   if fidx > lidx then fidx = lidx end -- use nearest backward
   
   -- Find closest AST node backward
-  while fidx >= 1 and buffer.tokenlist[fidx].tag == 'Comment' do fidx=fidx-1 end
+  while fidx >= 1 and tokenlist[fidx].tag == 'Comment' do fidx=fidx-1 end
   
   if fidx < 1 then return ast, false end
-  local mast = buffer.tokenlist[fidx].ast
+  local mast = tokenlist[fidx].ast
   if not mast then return ast, false end
   mast = M.get_containing_statementblock(mast, ast)
   local isafter = false

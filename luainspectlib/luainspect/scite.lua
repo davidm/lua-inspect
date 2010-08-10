@@ -866,7 +866,7 @@ if AUTOCOMPLETE then
     if editor.Lexer ~= 0 then return end    
 
     -- Auto-complete variable names.
-    if not editor:AutoCActive() then
+    if buffer.ast and not editor:AutoCActive() then
       -- Build list of locals and globals in current scope.
       local lpos = editor.CurrentPos
       local fpos = editor:WordStartPosition(lpos, true)
