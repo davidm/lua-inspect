@@ -917,7 +917,18 @@ scite_OnKey(function(key)
 end)
 
 scite_OnOpen(function()
-  -- Trigger styling immediately on new file open.
+  -- Trigger styling immediately on new file open
+  -- Note: only happens in current buffer; therefore, also do this in OnSwitchFile.
+  style_delay_count = 0
+end)
+
+scite_OnBeforeSave(function()
+  -- Trigger styling immediately before save.
+  style_delay_count = 0
+end)
+
+scite_OnSwitchFile(function()
+  -- Trigger styling immediately on switch buffer so that styling immediately displays.
   style_delay_count = 0
 end)
 
