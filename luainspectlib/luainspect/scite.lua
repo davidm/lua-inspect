@@ -1144,7 +1144,7 @@ function M.install()
   scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+I")
   scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
   scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
-  scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+P")
+  scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
