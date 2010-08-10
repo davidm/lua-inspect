@@ -766,7 +766,7 @@ local function OnStyle(styler)
   -- Apply indicators in token list.
   -- Mark masking local variables and warnings.
   editor.IndicStyle[INDICATOR_MASKING] = INDIC_SQUIGGLE
-  editor.IndicFore[INDICATOR_MASKING] = 0x008080
+  editor.IndicFore[INDICATOR_MASKING] = 0x0000ff
   editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
   editor.IndicFore[INDICATOR_WARNING] = 0x008080
   editor.IndicatorCurrent = INDICATOR_MASKING
