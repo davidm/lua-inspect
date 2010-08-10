@@ -119,7 +119,7 @@ See LICENSE file.
 David Manura, original author.
 Steve Donovan for discussions on design and SciTE.
 Fabien Fleutot for Metalua and discussions.
-SciTE suggestions by Tymur Gubayev.
+SciTE suggestions/fixes by Tymur Gubayev.
 Peter Odding for VIM editor support [2]
 
 == References ==
@@ -133,6 +133,7 @@ Peter Odding for VIM editor support [2]
   core/SciTE: add function argument count check
   core/SciTE: jump to definition now supports functions in different files.
   core/SciTE/HTML: improvements to displaying masking/masked lexicals.
+  SciTE: add missing style.script_lua.local_param_mutate style.
 
 20100807
   SciTE: Add luainspect.path.append/luainspect.cpath.append properties

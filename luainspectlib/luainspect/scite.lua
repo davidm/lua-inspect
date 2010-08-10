@@ -90,6 +90,7 @@ local S_LOCAL = 1
 local S_LOCAL_MUTATE = 6
 local S_LOCAL_UNUSED = 7
 local S_LOCAL_PARAM = 8
+local S_LOCAL_PARAM_MUTATE = 16
 local S_UPVALUE = 10
 local S_UPVALUE_MUTATE = 15
 local S_GLOBAL_RECOGNIZED = 2
@@ -107,6 +108,7 @@ STYLES['local'] = S_LOCAL
 STYLES.local_mutate = S_LOCAL_MUTATE
 STYLES.local_unused = S_LOCAL_UNUSED
 STYLES.local_param = S_LOCAL_PARAM
+STYLES.local_param_mutate = S_LOCAL_PARAM_MUTATE
 STYLES.upvalue = S_UPVALUE
 STYLES.upvalue_mutate = S_UPVALUE_MUTATE
 STYLES.global_recognized = S_GLOBAL_RECOGNIZED
@@ -687,6 +689,7 @@ local function OnStyle(styler)
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
   editor.StyleHotSpot[S_LOCAL_UNUSED] = true
   editor.StyleHotSpot[S_LOCAL_PARAM] = true
+  editor.StyleHotSpot[S_LOCAL_PARAM_MUTATE] = true
   editor.StyleHotSpot[S_UPVALUE] = true
   editor.StyleHotSpot[S_UPVALUE_MUTATE] = true
   editor.StyleHotSpot[S_GLOBAL_RECOGNIZED] = true
@@ -724,12 +727,18 @@ local function OnStyle(styler)
             else
               styler:SetState(S_UPVALUE)
             end
-          elseif ast.localdefinition.isset then
-            styler:SetState(S_LOCAL_MUTATE)
           elseif ast.localdefinition.isparam then
-            styler:SetState(S_LOCAL_PARAM)
+            if ast.localdefinition.isset then
+              styler:SetState(S_LOCAL_PARAM_MUTATE)
+            else
+              styler:SetState(S_LOCAL_PARAM)
+            end
           else
-            styler:SetState(S_LOCAL)
+            if ast.localdefinition.isset then
+              styler:SetState(S_LOCAL_MUTATE)
+            else
+              styler:SetState(S_LOCAL)
+            end
           end
         else -- global
           if ast.definedglobal then
@@ -1101,6 +1110,7 @@ style.script_lua.local=fore:#000080
 style.script_lua.local_mutate=fore:#000080,italics
 style.script_lua.local_unused=fore:#ffffff,back:#000080
 style.script_lua.local_param=fore:#000040
+style.script_lua.local_param_mutate=fore:#000040,italics
 style.script_lua.upvalue=fore:#0000ff
 style.script_lua.upvalue_mutate=fore:#0000ff,italics
 style.script_lua.global_recognized=fore:#600000
@@ -1142,6 +1152,7 @@ style.script_lua.local=fore:#c0c0ff
 style.script_lua.local_mutate=fore:#c0c0ff,italics
 style.script_lua.local_unused=fore:#ffffff,back:#000080
 style.script_lua.local_param=fore:#8080ff
+style.script_lua.local_param_mutate=fore:#8080ff,italics
 style.script_lua.upvalue=fore:#e8e8ff
 style.script_lua.upvalue_mutate=fore:#e8e8ff,italics
 style.script_lua.global_recognized=fore:#ffc080
