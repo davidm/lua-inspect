@@ -187,7 +187,7 @@ function M.variables_in_scope(ast, isafter)
     local midx = LA.ast_idx(cast.parent, cast)
     for idx=1,midx do
       local bast = cast.parent[idx]
-      if bast.tag == 'Local' or bast.tag == 'Localrec' and (idx < midx or not isafter) then
+      if bast.tag == 'Localrec' or bast.tag == 'Local' and (idx < midx or isafter) then
         local names_ast = bast[1]
         for bidx=1,#names_ast do
           local name_ast = names_ast[bidx]
