@@ -9,6 +9,8 @@ local M = {}
 
 --! require 'luainspect.typecheck' (context)
 
+local LA = require "luainspect.ast"
+
 local function definelocal(scope, name, ast)
   if scope[name] then
     scope[name].localmasked = true
@@ -173,6 +175,41 @@ function M.globals(ast)
   return globals
 end
 
+
+-- Gets locals in scope of statement of block ast.  If isafter is true and ast is statement,
+-- uses scope just after statement ast.
+-- Assumes 'parent' attributes on ast are marked.
+-- Returns table mapping name -> AST local definition.
+function M.variables_in_scope(ast, isafter)
+  local scope = {}
+  local cast = ast
+  while cast.parent do
+    local midx = LA.ast_idx(cast.parent, cast)
+    for idx=1,midx do
+      local bast = cast.parent[idx]
+      if bast.tag == 'Local' or bast.tag == 'Localrec' and (idx < midx or not isafter) then
+        local names_ast = bast[1]
+        for bidx=1,#names_ast do
+          local name_ast = names_ast[bidx]
+          local name = name_ast[1]
+          scope[name] = name_ast
+        end
+      elseif cast ~= ast and (bast.tag == 'For' or bast.tag == 'Forin' or bast.tag == 'Function') then
+        local names_ast = bast[1]
+        table.print(names_ast, 'nohash')
+        for bidx=1,#names_ast do
+          local name_ast = names_ast[bidx]
+          if name_ast.tag == 'Id' then  --Q: or maybe `Dots should be included
+            local name = name_ast[1]
+            scope[name] = name_ast
+          end
+        end
+      end
+    end
+    cast = cast.parent
+  end
+  return scope
+end
 
 
 return M

@@ -33,6 +33,7 @@ local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
+local LG = require "luainspect.globals"
 local LS = require "luainspect.signatures"
 
 local M = {}
@@ -849,8 +850,35 @@ scite_OnDoubleClick(function()
 end)
 
 
+--TODO:ExtMan: add to extman?  Currently extman includes scite_UserListShow wrapping UserListShow
+--CAREFUL: must be properly sorted (toupper if AutoCIgnoreCase)
+local function mycshow(list, len)
+  editor.AutoCSeparator = 1
+  editor.AutoCIgnoreCase = true 
+  editor:AutoCShow(len, table.concat(list, '\1'))
+end
+
+
 if AUTOCOMPLETE then
   scite_OnChar(function(c)
+    -- Auto-complete variable names.
+    if not editor:AutoCActive() then
+      -- Build list of locals and globals in current scope.
+      local lpos = editor.CurrentPos
+      local fpos = editor:WordStartPosition(lpos, true)
+      local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, fpos)
+      local scope = LG.variables_in_scope(mast, isafter)
+        --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
+      local names = {}
+      for name in pairs(scope) do names[#names+1] = name end
+      for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
+      table.sort(names, function(a,b) return a:upper() < b:upper() end)
+
+      if #names > 0 then -- display
+        mycshow(names, lpos-fpos)
+      end
+    end
+  
     -- Ignore character typed over autocompleted text.
     -- Q: is this the best way to ignore/delete current char?
     if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
@@ -987,18 +1015,17 @@ function M.inspect_variable_contents()
   if not token or not token.ast then return end
   local ast = token.ast 
 
-  editor.AutoCSeparator = 1
   if type(ast.value) == 'table' then
     local t = ast.value
     local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
     table.sort(keys)
-    local info = ''
+    local list = {}
     for _,k in ipairs(keys) do
       local ks = tostring(k);    if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
       local vs = tostring(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
-      info = info .. ks .. "=" .. vs .. "\1"
+      list[#list+1] = ks .. "=" .. vs
     end
-    editor:AutoCShow(0, info)
+    mycshow(list, 0)
   elseif type(ast.value) == 'userdata' then
     editor:AutoCShow(0, "userdata not inspectable") -- unfortunately without __pairs.
   else
