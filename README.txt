@@ -132,7 +132,7 @@ Peter Odding for VIM editor support [2]
 
 20100811
   SciTE: autocomplete functions arguments when cursor after '('
-  core: fix signatures for os library
+  core: fix signatures for os/debug libraries
   core/SciTE: display function argument list or helpinfo for variables
 
 20100810

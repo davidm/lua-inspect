@@ -45,6 +45,20 @@ M.global_signatures = {
   ["coroutine.status"] = "coroutine.status (co)",
   ["coroutine.wrap"] = "coroutine.wrap (f)",
   ["coroutine.yield"] = "coroutine.yield (···)",
+  ["debug.debug"] = "debug.debug ()",
+  ["debug.getfenv"] = "debug.getfenv (o)",
+  ["debug.gethook"] = "debug.gethook ([thread])",
+  ["debug.getinfo"] = "debug.getinfo ([thread,] function [, what])",
+  ["debug.getlocal"] = "debug.getlocal ([thread,] level, local)",
+  ["debug.getmetatable"] = "debug.getmetatable (object)",
+  ["debug.getregistry"] = "debug.getregistry ()",
+  ["debug.getupvalue"] = "debug.getupvalue (func, up)",
+  ["debug.setfenv"] = "debug.setfenv (object, table)",
+  ["debug.sethook"] = "debug.sethook ([thread,] hook, mask [, count])",
+  ["debug.setlocal"] = "debug.setlocal ([thread,] level, local, value)",
+  ["debug.setmetatable"] = "debug.setmetatable (object, table)",
+  ["debug.setupvalue"] = "debug.setupvalue (func, up, value)",
+  ["debug.traceback"] = "debug.traceback ([thread,] [message] [, level])",
   ["io.close"] = "io.close ([file])",
   ["io.flush"] = "io.flush ()",
   ["io.input"] = "io.input ([file])",
@@ -181,6 +195,20 @@ M.argument_counts = {
   [coroutine.status] = {1,1},
   [coroutine.wrap] = {1,1},
   [coroutine.yield] = {0,math.huge},
+  [debug.debug] = {0,0},
+  [debug.getfenv] = {1,1},
+  [debug.gethook] = {0,1},
+  [debug.getinfo] = {1,3},
+  [debug.getlocal] = {2,3},
+  [debug.getmetatable] = {1,1},
+  [debug.getregistry] = {0,0},
+  [debug.getupvalue] = {2,2},
+  [debug.setfenv] = {2,2},
+  [debug.sethook] = {2,4},
+  [debug.setlocal] = {3,4},
+  [debug.setmetatable] = {2,2},
+  [debug.setupvalue] = {3,3},
+  [debug.traceback] = {0,3},
   [io.close] = {0,1},
   [io.flush] = {0,0},
   [io.input] = {0,1},
@@ -266,8 +294,13 @@ M.safe_function = {
   [tostring] = true,
   [type] = true,
   [unpack] = true,
+  [coroutine.create] = true,
+  -- [coroutine.resume]
   [coroutine.running] = true,
   [coroutine.status] = true,
+  [coroutine.wrap] = true,
+  --[coroutine.yield]
+  -- [debug.debug]
   [debug.getfenv] = true,
   [debug.gethook] = true,
   [debug.getinfo] = true,
@@ -275,8 +308,14 @@ M.safe_function = {
   [debug.getmetatable] = true,
   [debug.getregistry] = true,
   [debug.getupvalue] = true,
+  -- [debug.setfenv]
+  -- [debug.sethook]
+  -- [debug.setlocal]
+  -- [debug.setmetatable]
+  -- [debug.setupvalue]
   -- [debug.traceback] = true,
   [io.type] = true,
+  -- skip all other io.*
   [math.abs] = true,
   [math.acos] = true,
   [math.asin] = true,
@@ -298,8 +337,8 @@ M.safe_function = {
   [math.modf] = true,
   [math.pow] = true,
   [math.rad] = true,
-  --math.random
-  --math.randomseed
+  --[math.random]
+  --[math.randomseed]
   [math.sin] = true,
   [math.sinh] = true,
   [math.sqrt] = true,
