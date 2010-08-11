@@ -86,6 +86,17 @@ M.global_signatures = {
   ["math.sqrt"] = "math.sqrt (x)",
   ["math.tan"] = "math.tan (x)",
   ["math.tanh"] = "math.tanh (x)",
+  ["os.clock"] = "os.clock ()",
+  ["os.date"] = "os.date ([format [, time]])",
+  ["os.difftime"] = "os.difftime (t2, t1)",
+  ["os.execute"] = "os.execute ([command])",
+  ["os.exit"] = "os.exit ([code])",
+  ["os.getenv"] = "os.getenv (varname)",
+  ["os.remove"] = "os.remove (filename)",
+  ["os.rename"] = "os.rename (oldname, newname)",
+  ["os.setlocale"] = "os.setlocale (locale [, category])",
+  ["os.time"] = "os.time ([table])",
+  ["os.tmpname"] = "os.tmpname ()",
   ["package.cpath"] = "package.cpath",
   ["package.loaded"] = "package.loaded",
   ["package.loaders"] = "package.loaders",
@@ -188,6 +199,17 @@ M.argument_counts = {
   [math.sqrt] = {1,1},
   [math.tan] = {1,1},
   [math.tanh] = {1,1},
+  [os.clock] = {0,0},
+  [os.date] = {0,2},
+  [os.difftime] = {2,2},
+  [os.execute] = {0,1},
+  [os.exit] = {0,1},
+  [os.getenv] = {1,1},
+  [os.remove] = {1,1},
+  [os.rename] = {2,2},
+  [os.setlocale] = {1,2},
+  [os.time] = {0,1},
+  [os.tmpname] = {0,0},
   [package.loadlib] = {2,2},
   [package.seeall] = {1,1},
   [string.byte] = {1,3},
@@ -262,6 +284,17 @@ M.safe_function = {
   [math.sqrt] = true,
   [math.tan] = true,
   [math.tanh] = true,
+  [os.clock] = true, -- safe but non-deterministic
+  [os.date]  = true,-- safe but non-deterministic
+  [os.difftime] = true,
+  --[os.execute]
+  --[os.exit]
+  [os.getenv] = true, -- though depends on environment
+  --[os.remove]
+  --[os.rename]
+  --[os.setlocale]
+  [os.time] = true, -- safe but non-deterministic
+  --[os.tmpname]
   [string.byte] = true,
   [string.char] = true,
   [string.dump] = true,
