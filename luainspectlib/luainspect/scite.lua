@@ -219,6 +219,11 @@ local function formatvariabledetails(token)
     info = info .. "\nWARNING: " .. note .. " "
   end
   
+  local sig = LI.get_signature(vast)
+  if sig then
+    info = info .. "\nsignature: " .. sig .. " "
+  end
+  
   return info
 end
 

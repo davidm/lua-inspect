@@ -382,7 +382,7 @@ function M.infer_values(top_ast, tokenlist)
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
-        M.debuginfo[val] = {fpos=fpos, source="@" .. source, fast=ast}
+        M.debuginfo[val] = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
         ast.value = val
       end
       ast.valueknown = true
@@ -711,6 +711,24 @@ function M.names_in_prefixexp(ids, pos, ast, tokenlist)
     end
   end
   return names
+end
+
+
+-- Gets signature (function argument string or helpinfo string) on variable ast.
+-- Returns nil on not found.
+function M.get_signature(ast)
+  if ast.valueknown then
+    local info = M.debuginfo[ast.value] -- first try this
+    if info and info.fast then
+      local fidx, lidx = LA.ast_idx_range_in_tokenlist(info.tokenlist, info.fast[1])
+      local ts = {}
+      for i=fidx,lidx do ts[#ts+1] = info.tokenlist[i][1] end
+      local sig = 'function(' .. table.concat(ts, ' ') .. ')'
+      return sig
+    end
+    local sig = LS.value_signatures[ast.value] -- else try this
+    return sig
+  end
 end
 
 return M

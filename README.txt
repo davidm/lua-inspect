@@ -133,6 +133,7 @@ Peter Odding for VIM editor support [2]
 20100811
   SciTE: autocomplete functions arguments when cursor after '('
   core: fix signatures for os library
+  core/SciTE: display function argument list or helpinfo for variables
 
 20100810
   SciTE: improved "inspect variable" command, supports browsing nested tables.
