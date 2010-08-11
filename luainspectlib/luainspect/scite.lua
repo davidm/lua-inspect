@@ -37,7 +37,6 @@ local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
-local LG = require "luainspect.globals"
 local LS = require "luainspect.signatures"
 
 local M = {}
@@ -863,15 +862,11 @@ local function mycshow(list, len)
 end
 
 
--- The following functions [*] are for autocompletion of variable and are currently
--- a bit rough and possibly should be moved elsewhere.
-
-
--- Gets array of identifier names in prefix expression preceeding pos0. [*]
+-- Gets array of identifier names in prefix expression preceeding pos0.
 -- Attempts even if AST is not up-to-date.
 -- warning: very rough, only recognizes simplest cases.  A better solution is
--- probably to have the parser return an incomplete AST on failure.
-local function get_prefix(pos0)
+-- probably to have the parser return an incomplete AST on failure and use that.
+local function get_prefixexp(pos0)
   local ids = {}
   repeat
     local fpos0 = editor:WordStartPosition(pos0, true)
@@ -883,78 +878,30 @@ local function get_prefix(pos0)
   return ids
 end
 
--- Resolve identifier to value [*]
-local function resolve_id(id, scope, valueglobals, _G)
-  local val
-  local i
-  if scope[id] then
-    val = scope[id].value
-  elseif valueglobals[id] ~= nil then
-    val = valueglobals[id]
-  else
-    val = _G[id]
-  end
-  return val
-end
-
--- Resolve prefix chain expression to value. [*]
-local function resolve_prefix(ids, scope, valueglobals, _G)
-  local val = resolve_id(ids[1], scope, valueglobals, _G)
-  for i=2,#ids do
-    val = val[ids[i]]
-  end
-  return val
-end
-
--- Get local scope at given 1-indexed char position
-local function get_scope(pos1)
-  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos1)
-  local scope = LG.variables_in_scope(mast, isafter)
-  return scope
-end
-
--- Gets names in prefix expression. [*]
-local function names_in_prefix(ids, pos)
-  local scope = get_scope(pos)
-  --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
-  local names = {}
-  if #ids == 0 then
-    for name in pairs(scope) do names[#names+1] = name end
-    for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
-    for name in pairs(_G) do names[#names+1] = name end
-  else
-    local t = resolve_prefix(ids, scope, buffer.ast.valueglobals, _G)
-    if type(t) == 'table' then
-      for name in pairs(t) do names[#names+1] = name end
-    end
-  end
-  return names
-end
-
 
 -- Command to autocomplete current variable or function arguments.
 function M.autocomplete_variable(_, minchars)
   local lpos0 = editor.CurrentPos
   local c = string.char(editor.CharAt[lpos0-1])
   if c == '(' then -- function arguments
-    local ids = get_prefix(lpos0-1)
+    local ids = get_prefixexp(lpos0-1)
     if ids[1] ~= '' then
-      local scope = get_scope(lpos0-1)
-      local o = resolve_prefix(ids, scope, buffer.ast.valueglobals, _G)
+      local scope = LI.get_scope(lpos0-1, buffer.ast, buffer.tokenlist)
+      local o = LI.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
       local sig = LS.value_signatures[o]
       if sig then
         editor:CallTipShow(lpos0, sig)
       end
     end
   else -- variable
-    local fpos1 = editor:WordStartPosition(lpos0, true)
-    if lpos0 - fpos1 >= (minchars or 0) then
-      local ids = get_prefix(editor.CurrentPos)
+    local fpos0 = editor:WordStartPosition(lpos0, true)
+    if lpos0 - fpos0 >= (minchars or 0) then
+      local ids = get_prefixexp(editor.CurrentPos)
       table.remove(ids)
-      local names = names_in_prefix(ids, lpos0)
+      local names = LI.names_in_prefixexp(ids, lpos0, buffer.ast, buffer.tokenlist)
       table.sort(names, function(a,b) return a:upper() < b:upper() end)
       if #names > 0 then -- display
-        mycshow(names, lpos0-fpos1)
+        mycshow(names, lpos0-fpos0)
       end
     end
   end

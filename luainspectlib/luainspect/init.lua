@@ -665,4 +665,52 @@ function M.inspect(top_ast, tokenlist)
 end
 
 
+-- Resolve identifier to value [*]
+function M.resolve_id(id, scope, valueglobals, _G)
+  local val
+  local i
+  if scope[id] then
+    val = scope[id].value
+  elseif valueglobals[id] ~= nil then
+    val = valueglobals[id]
+  else
+    val = _G[id]
+  end
+  return val
+end
+
+-- Resolve prefix chain expression to value. [*]
+function M.resolve_prefixexp(ids, scope, valueglobals, _G)
+  local val = M.resolve_id(ids[1], scope, valueglobals, _G)
+  for i=2,#ids do
+    val = val[ids[i]]
+  end
+  return val
+end
+
+-- Get local scope at given 1-indexed char position
+function M.get_scope(pos1, ast, tokenlist)
+  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos1)
+  local scope = LG.variables_in_scope(mast, isafter)
+  return scope
+end
+
+-- Gets names in prefix expression. [*]
+function M.names_in_prefixexp(ids, pos, ast, tokenlist)
+  local scope = M.get_scope(pos, ast, tokenlist)
+  --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
+  local names = {}
+  if #ids == 0 then -- global
+    for name in pairs(scope) do names[#names+1] = name end
+    for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
+    for name in pairs(_G) do names[#names+1] = name end
+  else  -- field
+    local t = M.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
+    if type(t) == 'table' then
+      for name in pairs(t) do names[#names+1] = name end
+    end
+  end
+  return names
+end
+
 return M
