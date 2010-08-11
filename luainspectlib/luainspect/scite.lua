@@ -867,6 +867,30 @@ local function mycshow(list, len)
 end
 
 
+-- Convert object to string (no nesting).
+-- utility function
+local function dump_shallow(o)
+  return type(o) == 'string' and string.format('%q', o) or tostring(o)
+end
+
+-- Convert table key to string (no nesting)
+-- IMPROVE: keywords should be but in square bracket form ["for"]
+-- utility function
+local function dump_key_shallow(o)
+  return type(o) == 'string' and o:match'^[%a_][%w_]*$' and o
+           or "[" .. dump_shallow(o) .. "]"
+end
+
+-- Find index i such that t[i] == e, else returns nil
+-- utility function
+local function tfind(t, e)
+  for i=1,#t do
+    if t[i] == e then return i end
+  end
+  return nil
+end
+
+
 -- Gets array of identifier names in prefix expression preceeding pos0.
 -- Attempts even if AST is not up-to-date.
 -- warning: very rough, only recognizes simplest cases.  A better solution is
@@ -893,7 +917,7 @@ function M.autocomplete_variable(_, minchars)
     if ids[1] ~= '' then
       local scope = LI.get_scope(lpos0-1, buffer.ast, buffer.tokenlist)
       local o = LI.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
-      local sig = LS.value_signatures[o]
+      local sig = LI.get_signature_of_value(o)
       if sig then
         editor:CallTipShow(lpos0, sig)
       end
@@ -904,6 +928,9 @@ function M.autocomplete_variable(_, minchars)
       local ids = get_prefixexp(editor.CurrentPos)
       table.remove(ids)
       local names = LI.names_in_prefixexp(ids, lpos0, buffer.ast, buffer.tokenlist)
+      for i,name in ipairs(names) do names[i] = dump_key_shallow(name) end
+          --IMPROVE: remove '.' if key must uses square brackets on indexing.
+          --IMPROVE: For method calls ':', square bracket key isn't support in Lua, so prevent that.
       table.sort(names, function(a,b) return a:upper() < b:upper() end)
       if #names > 0 then -- display
         mycshow(names, lpos0-fpos0)
@@ -1067,27 +1094,6 @@ function M.goto_definition()
   end
 end
 
--- Convert object to string (no nesting).
--- utility function
-local function dump_shallow(o)
-  return type(o) == 'string' and string.format('%q', o) or tostring(o)
-end
-
--- Convert table key to string (no nesting)
--- utility function
-local function dump_key_shallow(o)
-  return type(o) == 'string' and o:match'^[%a_][%w+]*$' and o
-           or "[" .. dump_shallow(o) .. "]"
-end
-
--- Find index i such that t[i] == e, else returns nil
--- utility function
-local function tfind(t, e)
-  for i=1,#t do
-    if t[i] == e then return i end
-  end
-  return nil
-end
 
 local inspect_queued
 

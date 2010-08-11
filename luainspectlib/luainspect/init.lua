@@ -33,7 +33,7 @@ local LS = require "luainspect.signatures"
 --! require 'luainspect.typecheck' (context)
 
 -- Like info in debug.getinfo but inferred by static analysis.
-M.debuginfo = setmetatable({}, {__mode='kv'})
+M.debuginfo = setmetatable({}, {__mode='k'})
 
 -- Stringifies interpreted value for debugging.
 -- CATEGORY: debug
@@ -713,21 +713,32 @@ function M.names_in_prefixexp(ids, pos, ast, tokenlist)
   return names
 end
 
+-- Gets signature (function argument string or helpinfo string) on value.
+-- Returns nil on not found.
+function M.get_signature_of_value(value)
+  local info = M.debuginfo[value] -- first try this
+  if info and info.fast then
+    local fidx, lidx = LA.ast_idx_range_in_tokenlist(info.tokenlist, info.fast[1])
+    local ts = {}
+    if fidx then
+      for i=fidx,lidx do
+        local token = info.tokenlist[i]
+        ts[#ts+1] = token.tag == 'Dots' and '...' or token[1]
+      end
+    end
+    local sig = 'function(' .. table.concat(ts, ' ') .. ')'
+    return sig
+  end
+  local sig = LS.value_signatures[value] -- else try this
+  return sig
+end
+
 
 -- Gets signature (function argument string or helpinfo string) on variable ast.
 -- Returns nil on not found.
 function M.get_signature(ast)
   if ast.valueknown then
-    local info = M.debuginfo[ast.value] -- first try this
-    if info and info.fast then
-      local fidx, lidx = LA.ast_idx_range_in_tokenlist(info.tokenlist, info.fast[1])
-      local ts = {}
-      for i=fidx,lidx do ts[#ts+1] = info.tokenlist[i][1] end
-      local sig = 'function(' .. table.concat(ts, ' ') .. ')'
-      return sig
-    end
-    local sig = LS.value_signatures[ast.value] -- else try this
-    return sig
+    return M.get_signature_of_value(ast.value)
   end
 end
 
