@@ -23,8 +23,12 @@ local PERFORMANCE_TESTS = scite_GetProp('luainspect.performance.tests', '0') == 
 local ANNOTATE_ALL_LOCALS = scite_GetProp('luainspect.annotate.all.locals', '0') == '1'
 
 -- WARNING: experimental and currently buggy.
--- Auto-completes typing.  Like http://lua-users.org/wiki/SciteAutoExpansion .
-local AUTOCOMPLETE = scite_GetProp('luainspect.autocomplete', '0') == '1'
+-- Auto-completes variables.
+local AUTOCOMPLETE_VARS = scite_GetProp('luainspect.autocomplete.vars', '0') == '1'
+
+-- WARNING: experimental and currently buggy.
+-- Auto-completes syntax.  Like http://lua-users.org/wiki/SciteAutoExpansion .
+local AUTOCOMPLETE_SYNTAX = scite_GetProp('luainspect.autocomplete.syntax', '0') == '1'
 
 -- Paths to append to package.path and package.cpath.
 local PATH_APPEND = scite_GetProp('luainspect.path.append', '')
@@ -408,7 +412,7 @@ local function update_ast()
   
   -- Do auto-completion.
   -- WARNING:FIX:the implementations here are currently rough.
-  if AUTOCOMPLETE and errfpos0 then
+  if AUTOCOMPLETE_SYNTAX and errfpos0 then
     editor.IndicStyle[INDICATOR_AUTOCOMPLETE] = INDIC_BOX
     editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
     editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
@@ -511,7 +515,7 @@ scite_OnUpdateUI(function()
   if editor.Lexer ~= 0 then return end
 
   -- Disable any autocomplete indicators if cursor moved away.
-  if AUTOCOMPLETE then
+  if AUTOCOMPLETE_SYNTAX then
     if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) ~= 1 then
       editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
       editor:IndicatorClearRange(0, editor.Length)
@@ -854,39 +858,106 @@ end)
 --CAREFUL: must be properly sorted (toupper if AutoCIgnoreCase)
 local function mycshow(list, len)
   editor.AutoCSeparator = 1
-  editor.AutoCIgnoreCase = true 
+  editor.AutoCIgnoreCase = true
   editor:AutoCShow(len or 0, table.concat(list, '\1'))
 end
 
 
-if AUTOCOMPLETE then
+-- The following functions [*] are for autocompletion of variable and are currently
+-- a bit rough and possibly should be moved elsewhere.
+
+
+-- Gets array of identifier names in prefix expression preceeding pos0. [*]
+-- Attempts even if AST is not up-to-date.
+-- warning: very rough, only recognizes simplest cases.  A better solution is
+-- probably to have the parser return an incomplete AST on failure.
+local function get_prefix(pos0)
+  local ids = {}
+  repeat
+    local fpos0 = editor:WordStartPosition(pos0, true)
+    local word = editor:textrange(fpos0,pos0)
+    table.insert(ids, 1, word)
+    local c = string.char(editor.CharAt[fpos0-1])
+    pos0 = fpos0-1
+  until c ~= '.' and c ~= ':'
+  table.remove(ids)
+  return ids
+end
+
+-- Resolve identifier to value [*]
+local function resolve_id(id, scope, valueglobals, _G)
+  local val
+  local i
+  if scope[id] then
+    val = scope[id].value
+  elseif valueglobals[id] ~= nil then
+    val = valueglobals[id]
+  else
+    val = _G[id]
+  end
+  return val
+end
+
+-- Resolve prefix chain expression to value. [*]
+local function resolve_prefix(ids, scope, valueglobals, _G)
+  local val = resolve_id(ids[1], scope, valueglobals, _G)
+  for i=2,#ids do
+    val = val[ids[i]]
+  end
+  return val
+end
+
+-- Gets names in prefix expression. [*]
+local function names_in_prefix(ids, pos)
+  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos)
+  local scope = LG.variables_in_scope(mast, isafter)
+  --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
+  local names = {}
+  if #ids == 0 then
+    for name in pairs(scope) do names[#names+1] = name end
+    for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
+    for name in pairs(_G) do names[#names+1] = name end
+  else
+    local t = resolve_prefix(ids, scope, buffer.ast.valueglobals, _G)
+    for name in pairs(t) do names[#names+1] = name end
+  end
+  return names
+end
+
+
+-- Command to autocomplete current variable.
+function M.autocomplete_variable(_, minchars)
+  -- Build list of locals and globals in current scope.
+  local lpos = editor.CurrentPos
+  local fpos = editor:WordStartPosition(lpos, true)
+  if lpos - fpos >= (minchars or 0) then
+    local ids = get_prefix(editor.CurrentPos)
+    local names = names_in_prefix(ids, lpos)
+    table.sort(names, function(a,b) return a:upper() < b:upper() end)
+    if #names > 0 then -- display
+      mycshow(names, lpos-fpos)
+    end
+   end
+end
+
+
+if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
   scite_OnChar(function(c)
     -- FIX: how do we make this event only occur for Lua buffers?
     -- Hack below probably won't work with multiple Lua-based lexers.
     if editor.Lexer ~= 0 then return end    
 
     -- Auto-complete variable names.
-    if buffer.ast and not editor:AutoCActive() then
-      -- Build list of locals and globals in current scope.
-      local lpos = editor.CurrentPos
-      local fpos = editor:WordStartPosition(lpos, true)
-      local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, fpos)
-      local scope = LG.variables_in_scope(mast, isafter)
-        --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
-      local names = {}
-      for name in pairs(scope) do names[#names+1] = name end
-      for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
-      for name in pairs(_G) do names[#names+1] = name end
-      table.sort(names, function(a,b) return a:upper() < b:upper() end)
-
-      if #names > 0 then -- display
-        mycshow(names, lpos-fpos)
-      end
+    -- note: test ./: not effective
+    if AUTOCOMPLETE_VARS and
+        buffer.ast and (not editor:AutoCActive() or c == '.' or c == ':' )
+    then
+      M.autocomplete_variable(nil, 1)
     end
   
     -- Ignore character typed over autocompleted text.
     -- Q: is this the best way to ignore/delete current char?
-    if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
+    if AUTOCOMPLETE_SYNTAX and editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
       if editor.CharAt[editor.CurrentPos] == editor.CharAt[editor.CurrentPos-1] then
         editor.TargetStart = editor.CurrentPos
         editor.TargetEnd = editor.CurrentPos+1
@@ -1226,6 +1297,7 @@ function M.install()
   scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
   scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
   scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
+  scite_Command("Autocomplete variable|luainspect_autocomplete_variable|*.lua|Ctrl+Alt+C")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
@@ -1235,6 +1307,7 @@ function M.install()
   _G.luainspect_select_statementblockcomment = M.select_statementblockcomment
   _G.luainspect_force_reinspect = M.force_reinspect
   _G.luainspect_goto_previous_statement = M.goto_previous_statement
+  _G.luainspect_autocomplete_variable = M.autocomplete_variable
 
   -- apply styles if not overridden in properties file.
   local light_styles = [[

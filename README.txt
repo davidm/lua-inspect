@@ -84,7 +84,8 @@ SciTE property files:
   luainspect.annotate.all.locals (0 or 1, default 0)
   luainspect.incremental.compilation (0 or 1, default 1)
   luainspect.performance.tests (0 or 1, default 0)
-  luainspect.autocomplete (0 or 1, default 0)
+  luainspect.autocomplete.vars (0 or 1, default 0)
+  luainspect.autocomplete.syntax (0 or 1, default 0)
   luainspect.path.append (string, default '')
   luainspect.cpath.append (string, default '')
 
@@ -131,6 +132,9 @@ Peter Odding for VIM editor support [2]
 
 20100810
   SciTE: improved "inspect variable" command, supports browsing nested tables.
+  SciTE: split luainspect.autocomplete property into two properties
+  SciTE: add autocomplete function
+  SciTE: autocomplete table fields.
 
 20100809
   core/SciTE: add function argument count check
