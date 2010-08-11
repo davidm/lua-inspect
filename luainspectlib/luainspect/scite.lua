@@ -876,6 +876,7 @@ if AUTOCOMPLETE then
       local names = {}
       for name in pairs(scope) do names[#names+1] = name end
       for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
+      for name in pairs(_G) do names[#names+1] = name end
       table.sort(names, function(a,b) return a:upper() < b:upper() end)
 
       if #names > 0 then -- display
@@ -1036,8 +1037,80 @@ local function dump_key_shallow(o)
            or "[" .. dump_shallow(o) .. "]"
 end
 
+-- Find index i such that t[i] == e, else returns nil
+-- utility function
+local function tfind(t, e)
+  for i=1,#t do
+    if t[i] == e then return i end
+  end
+  return nil
+end
+
+local inspect_queued
+
+-- Displays value in drop-down list for user inspection of contents.
+-- User can navigate in and out of tables, in a stack-like manner.
+local function inspect_value(o, prevmenu)
+  if type(o) == 'table' then
+    local data = {}
+    local ok, err = pcall(function()
+      for k,v in pairs(o) do
+        local ks = dump_key_shallow(k); if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
+        local vs = dump_shallow(v); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
+        data[#data+1] = {ks .. "=" .. vs, v}
+      end
+    end)
+    local list = {}
+    if ok then
+      table.sort(data, function(a,b) return a[1]:upper() < b[1]:upper() end)
+        -- note: data must be sorted this way under editor.AutoCIgnoreCase==true;
+        -- otherwise, AutoCSelect will not work properly.
+      for i=1,#data do list[i] = data[i][1] end
+    else
+      data = {}
+      list[#list+1] = '\tError: Could not read table: ' .. tostring(err)
+    end
+    table.insert(list, 1, "\t{" .. (prevmenu and ' (navigate back)' or ''))
+    table.insert(list, "}")
+      -- note: \t ensure list is remains sorted.
+    local selectidx
+    local function menu()
+      editor.AutoCIgnoreCase = true 
+      scite_UserListShow(list, 1, function(text)
+        selectidx = tfind(list, text)
+        if selectidx then
+          if text:match'^[%[%"%a_]' then
+            local val = data[selectidx-1][2]
+            if type(val) == 'table' then
+              -- This doesn't work.  scite:UserListShow from inside OnUserListSelection
+              -- has no effect. Q:Why?
+              --inspect_value(val)
+              -- workaround:
+              inspect_queued = function() inspect_value(val, menu) end
+              scite_MenuCommand('Inspect table contents')
+            end
+          else -- go back
+            if prevmenu then
+              inspect_queued = prevmenu
+              scite_MenuCommand('Inspect table contents')
+            end
+          end
+        end
+      end)
+      if selectidx then editor.AutoCAutoHide=false; editor:AutoCSelect(list[selectidx]) end
+    end
+    menu()
+  else
+    scite_UserListShow({dump_shallow(o)})
+  end
+end
+
 -- Command for inspecting fields of selected table variable.
 function M.inspect_variable_contents()
+  if inspect_queued then
+    local f = inspect_queued; inspect_queued = nil; f()
+    return
+  end
   local token = getselectedvariable()
   if not token or not token.ast then return end
   local ast = token.ast
@@ -1045,22 +1118,9 @@ function M.inspect_variable_contents()
   local iast = ast.seevalue or ast
 
   if not iast.valueknown then
-    mycshow({"value unknown"})
-  elseif type(iast.value) == 'table' then
-    local t = iast.value
-    local keys = {}; for k,v in pairs(t) do keys[#keys+1] = k end
-    local list = {}
-    for _,k in ipairs(keys) do
-      local ks = dump_key_shallow(k); if ks:len() > 50 then ks = ks:sub(1,50)..'...' end
-      local vs = dump_shallow(t[k]); if vs:len() > 50 then vs = vs:sub(1,50)..'...' end
-      list[#list+1] = ks .. "=" .. vs
-    end
-    table.sort(list)
-    table.insert(list, 1, "{")
-    table.insert(list, "}")
-    mycshow(list, 0)
+    scite_UserListShow({"value unknown"})
   else
-    mycshow({tostring(iast.value)}, 0)
+    inspect_value(iast.value)
   end
   -- unfortunately, userdata is not inspectable without 5.2 __pairs.
 end

@@ -129,6 +129,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100810
+  SciTE: improved "inspect variable" command, supports browsing nested tables.
+
 20100809
   core/SciTE: add function argument count check
   core/SciTE: jump to definition now supports functions in different files.
