@@ -874,10 +874,15 @@ local function dump_shallow(o)
 end
 
 -- Convert table key to string (no nesting)
--- IMPROVE: keywords should be but in square bracket form ["for"]
 -- utility function
+local iskeyword_ = {
+  ['and']=true, ['break']=true, ['do']=true, ['else']=true, ['elseif']=true,
+  ['end']=true, ['false']=true, ['for']=true, ['function']=true, ['if']=true,
+  ['in']=true, ['local']=true, ['nil']=true, ['not']=true, ['or']=true,
+  ['repeat']=true, ['return']=true, ['then']=true, ['true']=true, ['until']=true, ['while']=true
+}
 local function dump_key_shallow(o)
-  return type(o) == 'string' and o:match'^[%a_][%w_]*$' and o
+  return type(o) == 'string' and o:match'^[%a_][%w_]*$' and not iskeyword_[o] and o
            or "[" .. dump_shallow(o) .. "]"
 end
 
