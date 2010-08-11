@@ -125,6 +125,27 @@ M.global_signatures = {
   ["table.sort"] = "table.sort (table [, comp])",
 }
 
+-- utility function.  Converts e.g. name 'math.sqrt' to its value.
+local function resolve_global_helper_(name)
+  local o = _G
+  for fieldname in name:gmatch'[^%.]+' do o = o[fieldname] end
+  return o
+end
+local function resolve_global(name)
+  local a, b = pcall(resolve_global_helper_, name)
+  if a then return b else return nil, b end
+end
+
+-- Same as global_signatures but maps value (not name) to signature.
+M.value_signatures = {}
+local isobject = {['function']=true, ['table']=true, ['userdata']=true, ['coroutine']=true}
+for name,sig in pairs(M.global_signatures) do
+  local val, err = resolve_global(name)
+  if isobject[type(val)] then
+    M.value_signatures[val] = sig
+  end
+end
+
 -- min,max argument counts.
 M.argument_counts = {
   [assert] = {1,2},

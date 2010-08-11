@@ -130,6 +130,10 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100811
+  SciTE: autocomplete functions arguments when cursor after '('
+  core: fix signatures for os library
+
 20100810
   SciTE: improved "inspect variable" command, supports browsing nested tables.
   SciTE: split luainspect.autocomplete property into two properties

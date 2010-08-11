@@ -880,7 +880,6 @@ local function get_prefix(pos0)
     local c = string.char(editor.CharAt[fpos0-1])
     pos0 = fpos0-1
   until c ~= '.' and c ~= ':'
-  table.remove(ids)
   return ids
 end
 
@@ -907,10 +906,16 @@ local function resolve_prefix(ids, scope, valueglobals, _G)
   return val
 end
 
+-- Get local scope at given 1-indexed char position
+local function get_scope(pos1)
+  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos1)
+  local scope = LG.variables_in_scope(mast, isafter)
+  return scope
+end
+
 -- Gets names in prefix expression. [*]
 local function names_in_prefix(ids, pos)
-  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos)
-  local scope = LG.variables_in_scope(mast, isafter)
+  local scope = get_scope(pos)
   --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
   local names = {}
   if #ids == 0 then
@@ -919,25 +924,40 @@ local function names_in_prefix(ids, pos)
     for name in pairs(_G) do names[#names+1] = name end
   else
     local t = resolve_prefix(ids, scope, buffer.ast.valueglobals, _G)
-    for name in pairs(t) do names[#names+1] = name end
+    if type(t) == 'table' then
+      for name in pairs(t) do names[#names+1] = name end
+    end
   end
   return names
 end
 
 
--- Command to autocomplete current variable.
+-- Command to autocomplete current variable or function arguments.
 function M.autocomplete_variable(_, minchars)
-  -- Build list of locals and globals in current scope.
-  local lpos = editor.CurrentPos
-  local fpos = editor:WordStartPosition(lpos, true)
-  if lpos - fpos >= (minchars or 0) then
-    local ids = get_prefix(editor.CurrentPos)
-    local names = names_in_prefix(ids, lpos)
-    table.sort(names, function(a,b) return a:upper() < b:upper() end)
-    if #names > 0 then -- display
-      mycshow(names, lpos-fpos)
+  local lpos0 = editor.CurrentPos
+  local c = string.char(editor.CharAt[lpos0-1])
+  if c == '(' then -- function arguments
+    local ids = get_prefix(lpos0-1)
+    if ids[1] ~= '' then
+      local scope = get_scope(lpos0-1)
+      local o = resolve_prefix(ids, scope, buffer.ast.valueglobals, _G)
+      local sig = LS.value_signatures[o]
+      if sig then
+        editor:CallTipShow(lpos0, sig)
+      end
     end
-   end
+  else -- variable
+    local fpos1 = editor:WordStartPosition(lpos0, true)
+    if lpos0 - fpos1 >= (minchars or 0) then
+      local ids = get_prefix(editor.CurrentPos)
+      table.remove(ids)
+      local names = names_in_prefix(ids, lpos0)
+      table.sort(names, function(a,b) return a:upper() < b:upper() end)
+      if #names > 0 then -- display
+        mycshow(names, lpos0-fpos1)
+      end
+    end
+  end
 end
 
 
@@ -950,7 +970,7 @@ if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
     -- Auto-complete variable names.
     -- note: test ./: not effective
     if AUTOCOMPLETE_VARS and
-        buffer.ast and (not editor:AutoCActive() or c == '.' or c == ':' )
+        buffer.ast and (not editor:AutoCActive() or c == '.' or c == ':'  or c == '(')
     then
       M.autocomplete_variable(nil, 1)
     end
