@@ -136,7 +136,7 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
         end
       end
       f(ast)
-      if not ast.parent then M.mark_parents(top_ast) end
+      if not ast.parent then LA.mark_parents(top_ast) end
       local grand_ast = ast.parent.parent
       if grand_ast.tag == 'Set' then
         local token = tokenlist[LA.ast_idx_range_in_tokenlist(tokenlist, grand_ast)]
