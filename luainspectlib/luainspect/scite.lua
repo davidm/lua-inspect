@@ -167,7 +167,7 @@ local function annotate_all_locals()
   for i=1,#buffer.tokenlist do
     local token = buffer.tokenlist[i]
     if token.ast.localdefinition == token.ast then
-      local info = LI.get_value_details(token.ast)
+      local info = LI.get_value_details(token.ast, buffer.text)
       local linenum = editor:LineFromPosition(token.lpos-1)
       annotations[linenum] = (annotations[linenum] or "") .. "detail: " .. info
     end
@@ -784,7 +784,7 @@ scite_OnDoubleClick(function()
   -- check if selection if currently on identifier
   local token = getselectedvariable()
   if token and token.ast then
-    local info  = LI.get_value_details(token.ast)
+    local info  = LI.get_value_details(token.ast, buffer.text)
     editor:CallTipShow(token.fpos-1, info)
   end
 end)

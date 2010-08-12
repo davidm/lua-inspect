@@ -34,6 +34,20 @@ local function DEBUG(...)
 end
 
 
+-- Convert character position to row,column position in string src.
+-- Add values are 1-indexed.
+function M.pos_to_linecol(pos, src)
+  local linenum = 1
+  local lasteolpos = 0
+  for eolpos in src:gmatch"()\n" do
+    if eolpos > pos then break end
+    linenum = linenum + 1
+    lasteolpos = eolpos
+  end
+  local colnum = pos - lasteolpos
+  return linenum, colnum
+end
+
 -- Remove any sheband ("#!") line from Lua source string.
 -- CATEGORY: Lua parsing
 function M.remove_shebang(src)

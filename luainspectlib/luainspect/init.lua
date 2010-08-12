@@ -782,7 +782,7 @@ end
 
 
 -- Get details information about value in AST node, as strnig.
-function M.get_value_details(ast)
+function M.get_value_details(ast, src)
   local info = ""
 
   if not ast then return '?' end
@@ -838,7 +838,11 @@ function M.get_value_details(ast)
 
   local fpos, fline, path = M.ast_to_definition_position(ast, buffer.tokenlist)
   if fpos or fline then
-    local location = path .. ":" .. (fline or "pos=" .. fpos)
+    local fcol
+    if fpos then
+      fline, fcol = LA.pos_to_linecol(fpos, src)
+    end
+    local location = path .. ":" .. (fline) .. (fcol and ":" .. fcol or "")
     info = info .. "\nlocation defined: " .. location .. " "
   end
   
