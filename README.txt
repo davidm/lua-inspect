@@ -51,7 +51,7 @@ Example:
 
 == Installation in SciTE ==
 
-Install SciTE version.  Version 2.12 works (older versions might not work).  
+Install SciTE version.  Version 2.12 and 2.20 work (older versions might not work).
 
 First install http://lua-users.org/wiki/SciteExtMan .
 
@@ -134,6 +134,8 @@ Peter Odding for VIM editor support [2]
   SciTE: autocomplete functions arguments when cursor after '('
   core: fix signatures for os/debug libraries
   core/SciTE: display function argument list or helpinfo for variables
+  SciTE: Ctrl+Alt+I changed to Ctrl+Alt+B to avoid conflict with
+            SciTE 2.20 incremental search
 
 20100810
   SciTE: improved "inspect variable" command, supports browsing nested tables.
