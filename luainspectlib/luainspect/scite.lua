@@ -853,10 +853,12 @@ function M.autocomplete_variable(_, minchars)
     local ids = get_prefixexp(lpos0-1)
     if ids[1] ~= '' then
       local scope = LI.get_scope(lpos0-1, buffer.ast, buffer.tokenlist)
-      local o = LI.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
-      local sig = LI.get_signature_of_value(o)
-      if sig then
-        editor:CallTipShow(lpos0, sig)
+      local o, err = LI.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
+      if not err then
+        local sig = LI.get_signature_of_value(o)
+        if sig then
+          editor:CallTipShow(lpos0, sig)
+        end
       end
     end
   else -- variable

@@ -668,23 +668,26 @@ end
 -- Resolve identifier to value [*]
 function M.resolve_id(id, scope, valueglobals, _G)
   local val
-  local i
   if scope[id] then
     val = scope[id].value
   elseif valueglobals[id] ~= nil then
     val = valueglobals[id]
   else
-    val = _G[id]
+    val = _G[id] -- assumes not raise
   end
   return val
 end
 
 -- Resolve prefix chain expression to value. [*]
+-- On error returns nil and error object
 function M.resolve_prefixexp(ids, scope, valueglobals, _G)
   local val = M.resolve_id(ids[1], scope, valueglobals, _G)
-  for i=2,#ids do
-    val = val[ids[i]]
-  end
+  local ok, err = pcall(function()
+    for i=2,#ids do
+      val = val[ids[i]]
+    end
+  end)
+  if err then return nil, err or '?' end
   return val
 end
 
@@ -705,8 +708,8 @@ function M.names_in_prefixexp(ids, pos, ast, tokenlist)
     for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
     for name in pairs(_G) do names[#names+1] = name end
   else  -- field
-    local t = M.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
-    if type(t) == 'table' then
+    local t, err_ = M.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
+    if type(t) == 'table' then  -- note: err_ implies false here
       for name in pairs(t) do names[#names+1] = name end
     end
   end
