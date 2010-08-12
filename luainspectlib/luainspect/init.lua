@@ -742,4 +742,114 @@ function M.get_signature(ast)
   end
 end
 
+
+-- Gets 1-indexed character (or line) position and filename of
+-- definition associated with AST node (if any).
+function M.ast_to_definition_position(ast, tokenlist)
+  local local_ast = ast.localdefinition
+  local fpos, fline, path
+  if local_ast then
+    local tidx = LA.ast_idx_range_in_tokenlist(tokenlist, local_ast)
+    if tidx then
+      local spath = ast.lineinfo.first[4] -- a HACK? using lineinfo
+      fpos = tokenlist[tidx].fpos; path = spath
+    end
+  end
+  if not fpos then
+    local valueast = ast.seevalue or ast
+    local val = valueast and valueast.value
+    local info = M.debuginfo[val] or type(val) == 'function' and debug.getinfo(val)
+    if info then
+      if info.source:match'^@' then
+        path = info.source:match'@(.*)'
+        if info.linedefined then
+          fline = info.linedefined
+        else
+          fpos = info.fpos
+        end
+      end
+    end
+  end
+  return fpos, fline, path
+end
+
+
+-- Returns true iff value in ast node is known in some way.
+function M.is_known_value(ast)
+  local vast = ast.seevalue or ast
+  return vast.definedglobal or vast.valueknown and vast.value ~= nil
+end
+
+
+-- Get details information about value in AST node, as strnig.
+function M.get_value_details(ast)
+  local info = ""
+
+  if not ast then return '?' end
+
+  local vast = ast.seevalue or ast
+  
+  if ast.localdefinition then
+    if not ast.localdefinition.isused then info = info .. "unused " end
+    if ast.localdefinition.isset then info = info .. "mutable " end
+    if ast.localdefinition.functionlevel < ast.functionlevel then
+      info = info .. "upvalue "
+    elseif ast.localdefinition.isparam then
+      info = info .. "function parameter "
+    else
+      info = info .. "local "
+    end
+
+    if ast.localmasking then
+      info = info .. "masking "
+      local fpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
+      if fpos then
+        local linenum0 = editor:LineFromPosition(fpos)
+        info = info .. "definition at line " .. (linenum0+1) .. " "
+      end
+    end
+    if ast.localmasked then
+      info = info .. "masked "
+    end
+  elseif ast.tag == 'Id' then -- global
+    info = info .. (M.is_known_value(vast) and "known" or "unknown")
+    info = info .. " global "
+  elseif ast.isfield then
+    info = info .. (M.is_known_value(vast) and "known" or "unknown")
+    info = info .. " field "
+  else
+    info = info .. "? "
+  end
+
+  if vast.valueknown == 'multiple' then
+    info = info .. "\nmultiple values including: " .. tostring(vast.value) .. " "
+  elseif vast.valueknown then
+    info = info .. "\nvalue: " .. tostring(vast.value) .. " "
+  elseif vast.value then
+    info = info .. "\nerror value: " .. tostring(vast.value) .. " "
+  end -- else no info
+
+ 
+  local sig = M.get_signature(vast)
+  if sig then
+    local kind = sig:find '%w%s*%b()$'  and 'signature' or 'description'
+    info = info .. "\n" .. kind .. ": " .. sig .. " "
+  end
+
+  local fpos, fline, path = M.ast_to_definition_position(ast, buffer.tokenlist)
+  if fpos or fline then
+    local location = path .. ":" .. (fline or "pos=" .. fpos)
+    info = info .. "\nlocation defined: " .. location .. " "
+  end
+  
+  -- Render warning notes attached to calls/invokes.
+  local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
+                    and vast.parent.note
+  if note then
+    info = info .. "\nWARNING: " .. note .. " "
+  end
+  
+  return info
+end
+
 return M

@@ -97,7 +97,7 @@ local S_LOCAL_PARAM = 8
 local S_LOCAL_PARAM_MUTATE = 16
 local S_UPVALUE = 10
 local S_UPVALUE_MUTATE = 15
-local S_GLOBAL_RECOGNIZED = 2
+local S_GLOBAL_RECOGNIZED = 2   --Q:rename recognized->known?
 local S_GLOBAL_UNRECOGNIZED = 3
 local S_FIELD = 11
 local S_FIELD_RECOGNIZED = 12
@@ -159,74 +159,6 @@ local INDICATOR_MASKED = 5
 -- Indicator for warnings.
 local INDICATOR_WARNING = 6
 
-local function formatvariabledetails(token)
-  local info = ""
-  local ast = token.ast
-
-  if not ast then return '?' end
-  
-  if ast.tag == 'Id' and not ast.localdefinition then -- global
-    info = info .. (ast.definedglobal and "recognized" or "unrecognized") .. " global "
-  elseif ast.localdefinition then
-    if not ast.localdefinition.isused then
-      info = info .. "unused "
-    end
-    if ast.localdefinition.isset then
-      info = info .. "mutable "
-    end
-    if ast.localdefinition.functionlevel < ast.functionlevel then
-      info = info .. "upvalue "
-    elseif ast.localdefinition.isparam then
-      info = info .. "param "
-    end
-    info = info .. "local "
-    if ast.localmasking then
-      info = info .. "masking "
-      local fpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
-      if fpos then
-        local linenum0 = editor:LineFromPosition(fpos)
-        info = info .. "definition at line " .. (linenum0+1) .. " "
-      end
-    end
-    if ast.localmasked then
-      info = info .. "masked "
-    end
-  elseif ast.isfield then
-    info = info .. "field "
-    if ast.definedglobal then info = info .. "recognized " else info = info .. "unrecognized " end
-  else
-    info = info .. "? "
-  end
-
-  if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
-    local name = ast.resolvedname
-    info = LS.global_signatures[name] .. "\n" .. info
-  end
- 
-  local vast = ast.seevalue or ast
-  if vast.valueknown == 'multiple' then
-    info = info .. "\nmultiple values including= " .. tostring(vast.value) .. " "
-  elseif vast.valueknown then
-    info = info .. "\nvalue= " .. tostring(vast.value) .. " "
-  elseif vast.value then
-    info = info .. "\nerror value= " .. tostring(vast.value) .. " "
-  end -- else no info
-
-  -- Render warning notes attached to calls/invokes.
-  local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
-                    and vast.parent.note
-  if note then
-    info = info .. "\nWARNING: " .. note .. " "
-  end
-  
-  local sig = LI.get_signature(vast)
-  if sig then
-    info = info .. "\nsignature: " .. sig .. " "
-  end
-  
-  return info
-end
-
 
 -- Used for ANNOTATE_ALL_LOCALS feature.
 local function annotate_all_locals()
@@ -235,7 +167,7 @@ local function annotate_all_locals()
   for i=1,#buffer.tokenlist do
     local token = buffer.tokenlist[i]
     if token.ast.localdefinition == token.ast then
-      local info = formatvariabledetails(token)
+      local info = LI.get_value_details(token.ast)
       local linenum = editor:LineFromPosition(token.lpos-1)
       annotations[linenum] = (annotations[linenum] or "") .. "detail: " .. info
     end
@@ -851,8 +783,8 @@ scite_OnDoubleClick(function()
   
   -- check if selection if currently on identifier
   local token = getselectedvariable()
-  if token then
-    local info  = formatvariabledetails(token)
+  if token and token.ast then
+    local info  = LI.get_value_details(token.ast)
     editor:CallTipShow(token.fpos-1, info)
   end
 end)
@@ -1040,37 +972,6 @@ end
 -- IMPROVE: prevent rename to conflicting existing variable.
 
 
--- Gets 1-indexed character (or line) position and filename of
--- definition associated with AST node (if any).
-local function ast_to_definition_position(ast, tokenlist)
-  local local_ast = ast.localdefinition
-  local fpos, fline, path
-  if local_ast then
-    local tidx = LA.ast_idx_range_in_tokenlist(tokenlist, local_ast)
-    if tidx then
-      local spath = ast.lineinfo.first[4] -- a HACK? using lineinfo
-      fpos = tokenlist[tidx].fpos; path = spath
-    end
-  end
-  if not fpos then
-    local valueast = ast.seevalue or ast
-    local val = valueast and valueast.value
-    local info = LI.debuginfo[val] or type(val) == 'function' and debug.getinfo(val)
-    if info then
-      if info.source:match'^@' then
-        path = info.source:match'@(.*)'
-        if info.linedefined then
-          fline = info.linedefined
-        else
-          fpos = info.fpos
-        end
-      end
-    end
-  end
-  return fpos, fline, path
-end
-
-
 -- jump to 0-indexed line in file path.
 -- Preferrably jump to exact position if given, else 0-indexed line.
 local function goto_file_line_pos(path, line0, pos0)
@@ -1088,7 +989,7 @@ end
 function M.goto_definition()
   local selectedtoken = getselectedvariable()
   if selectedtoken then
-    local fpos, fline, path = ast_to_definition_position(selectedtoken.ast, buffer.tokenlist)
+    local fpos, fline, path = LI.ast_to_definition_position(selectedtoken.ast, buffer.tokenlist)
     if not fline and fpos then
       fline = editor:LineFromPosition(fpos-1)+1
     end
