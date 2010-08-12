@@ -915,8 +915,6 @@ local KEY_LEFT = 37
 local KEY_RIGHT = 39
 local KEY_ENTER = 13
 
--- workaround if older extman.lua is used
-local scite_OnKey = scite_OnKey or function(f) OnKey = f end
 
 scite_OnKey(function(key)
   -- Adjusting styling delays due to user typing.
