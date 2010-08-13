@@ -56,10 +56,10 @@ local function debugvalue(ast)
 end
 
 
--- Read contents of text file in path.
+-- Read contents of text file in path, in binary mode.
 -- On error, returns nil and error message.
 local function readfile(path)
-  local fh, err = io.open(path)
+  local fh, err = io.open(path, 'rb')
   if fh then
     local data; data, err = fh:read'*a'
     if data then return data end
