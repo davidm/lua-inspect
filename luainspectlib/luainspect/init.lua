@@ -693,22 +693,22 @@ end
 
 -- Get local scope at given 1-indexed char position
 function M.get_scope(pos1, ast, tokenlist)
-  local mast, isafter = LA.current_statementblock(buffer.ast, buffer.tokenlist, pos1)
+  local mast, isafter = LA.current_statementblock(ast, tokenlist, pos1)
   local scope = LG.variables_in_scope(mast, isafter)
   return scope
 end
 
--- Gets names in prefix expression. [*]
+-- Gets names in prefix expression ids (as returned by resolve_prefixexp). [*]
 function M.names_in_prefixexp(ids, pos, ast, tokenlist)
   local scope = M.get_scope(pos, ast, tokenlist)
   --FIX: above does not handle `for x=1,2 do| print(x) end` where '|' is cursor position.
   local names = {}
   if #ids == 0 then -- global
     for name in pairs(scope) do names[#names+1] = name end
-    for name in pairs(buffer.ast.valueglobals) do names[#names+1] = name end
+    for name in pairs(ast.valueglobals) do names[#names+1] = name end
     for name in pairs(_G) do names[#names+1] = name end
   else  -- field
-    local t, err_ = M.resolve_prefixexp(ids, scope, buffer.ast.valueglobals, _G)
+    local t, err_ = M.resolve_prefixexp(ids, scope, ast.valueglobals, _G)
     if type(t) == 'table' then  -- note: err_ implies false here
       for name in pairs(t) do names[#names+1] = name end
     end
@@ -784,8 +784,8 @@ function M.is_known_value(ast)
 end
 
 
--- Get details information about value in AST node, as strnig.
-function M.get_value_details(ast, src)
+-- Get details information about value in AST node, as string.
+function M.get_value_details(ast, tokenlist, src)
   local info = ""
 
   if not ast then return '?' end
@@ -805,10 +805,10 @@ function M.get_value_details(ast, src)
 
     if ast.localmasking then
       info = info .. "masking "
-      local fpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
+      local fpos = LA.ast_pos_range(ast.localmasking, tokenlist)
       if fpos then
-        local linenum0 = editor:LineFromPosition(fpos)
-        info = info .. "definition at line " .. (linenum0+1) .. " "
+        local linenum = LA.pos_to_linecol(fpos)
+        info = info .. "definition at line " .. linenum .. " "
       end
     end
     if ast.localmasked then
@@ -839,7 +839,7 @@ function M.get_value_details(ast, src)
     info = info .. "\n" .. kind .. ": " .. sig .. " "
   end
 
-  local fpos, fline, path = M.ast_to_definition_position(ast, buffer.tokenlist)
+  local fpos, fline, path = M.ast_to_definition_position(ast, tokenlist)
   if fpos or fline then
     local fcol
     if fpos then
