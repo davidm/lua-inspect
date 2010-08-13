@@ -324,33 +324,48 @@ end
 -- Reports warning. List of strings.
 local function warn(...)
    if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
-     print(...) -- IMPROVE? eliminate editor-specific code
+     print('warning:', ...) -- IMPROVE? eliminate editor-specific code
    else
-     io.stderr:write(...); io.stderr:write'\n'
+     io.stderr:write('warning:', ...); io.stderr:write'\n'
    end
 end
+
+-- Reports status messages. List of strings.
+local function status(...)
+   if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
+     print('status:', ...) -- IMPROVE? eliminate editor-specific code
+   else
+     io.stderr:write('status:', ...); io.stderr:write'\n'
+   end
+end
+
 
 
 -- Version of require that does source analysis (inspect) on module.
 function M.require_inspect(name)
   local ast = M.package_loaded[name]
   if ast then return ast end
-  --print('DEBUG:loading:', name)
+  status('loading:' .. name)
   local msrc, mpath = load_module_source(name)
+  local vinfo
   if msrc then
-    local mast = LA.ast_from_string(msrc, mpath)
+    local mast, err = LA.ast_from_string(msrc, mpath)
     if mast then
       local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
       M.inspect(mast, mtokenlist)
-      if mast[#mast] and mast[#mast].tag == 'Return' then
-        local rast = mast[#mast][1]
-        M.package_loaded[name] = rast
-        if rast then return rast end --IMPROVE? what if no return given
-      else
-        warn(err) --Q: cache error in result too?
-      end
+      vinfo = mast[#mast] and mast[#mast].tag == 'Return' and mast[#mast][1]
+        or {valueknown=true, value=nil}
+      -- IMPROVE: return might not be last statement.
+    else
+      vinfo = {valueknown='error', value=err}
+      warn(err, " ", mpath) --Q:error printing good?
     end
+  else
+    warn('module not found: ' .. name)
+    vinfo = {valueknown='error', value='module not found'} --IMPROVE: include search paths?
   end
+  M.package_loaded[name] = vinfo
+  return vinfo
 end
 
 -- Infer values of variables.
