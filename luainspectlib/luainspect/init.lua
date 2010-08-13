@@ -11,21 +11,6 @@ local M = {}
 -- This is the API version.  It is an ISO8601 date expressed as a fraction.
 M.APIVERSION = 0.20100805
 
--- boilerplate/utility
--- LUA_PATH="?.lua;/path/to/metalua/src/compiler/?.lua;/path/to/metalua/src/lib/?.lua"
--- import modules -- order is important
-require "lexer"
-require "gg"
-require "mlp_lexer"
-require "mlp_misc"
-require "mlp_table"
-require "mlp_meta"
-require "mlp_expr"
-require "mlp_stat"
---require "mlp_ext"
-_G.mlc = {} -- make gg happy
--- Metalua:IMPROVE: make above imports simpler
-
 local LA = require "luainspect.ast"
 local LG = require "luainspect.globals"
 local LS = require "luainspect.signatures"

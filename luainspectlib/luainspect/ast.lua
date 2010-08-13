@@ -23,6 +23,21 @@
 
 --! require 'luainspect.typecheck' (context)
 
+-- boilerplate/utility
+-- LUA_PATH="?.lua;/path/to/metalua/src/compiler/?.lua;/path/to/metalua/src/lib/?.lua"
+-- import modules -- order is important
+require "lexer"
+require "gg"
+require "mlp_lexer"
+require "mlp_misc"
+require "mlp_table"
+require "mlp_meta"
+require "mlp_expr"
+require "mlp_stat"
+--require "mlp_ext"
+_G.mlc = {} -- make gg happy
+-- Metalua:IMPROVE: make above imports simpler
+
 local M = {}
 
 
