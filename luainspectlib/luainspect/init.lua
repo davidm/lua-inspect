@@ -34,7 +34,8 @@ local LS = require "luainspect.signatures"
 
 -- Like info in debug.getinfo but inferred by static analysis.
 -- object -> {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
--- Careful: value may reference key (affects pre-5.2 which lacks emphemerons)
+-- Careful: value may reference key (affects pre-5.2 which lacks emphemerons).
+--   See also ast.nocollect.
 M.debuginfo = setmetatable({}, {__mode='v'})
 
 -- Modules loaded via require_inspect.
@@ -481,6 +482,7 @@ function M.infer_values(top_ast, tokenlist)
         local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
         M.debuginfo[val] = info
         ast.value = val
+        ast.nocollect = info -- prevents garbage collection while ast exists
       end
       ast.valueknown = true
     elseif ast.tag == 'Table' then
@@ -666,6 +668,8 @@ function M.uninspect(top_ast)
 
     -- undo notes
     ast.note = nil
+    
+    ast.nocollect = nil
   end)
   
   -- undo infer_values
