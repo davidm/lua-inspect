@@ -33,7 +33,14 @@ local LS = require "luainspect.signatures"
 --! require 'luainspect.typecheck' (context)
 
 -- Like info in debug.getinfo but inferred by static analysis.
-M.debuginfo = setmetatable({}, {__mode='k'})
+-- object -> {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
+-- Careful: value may reference key (affects pre-5.2 which lacks emphemerons)
+M.debuginfo = setmetatable({}, {__mode='v'})
+
+-- Modules loaded via require_inspect.
+-- module name string -> AST node
+-- note: no weak refs
+M.package_loaded = {}
 
 -- Stringifies interpreted value for debugging.
 -- CATEGORY: debug
@@ -45,6 +52,39 @@ local function debugvalue(ast)
     s = '?'
   end
   return s
+end
+
+
+-- Read contents of text file in path.
+-- On error, returns nil and error message.
+local function readfile(path)
+  local fh, err = io.open(path)
+  if fh then
+    local data; data, err = fh:read'*a'
+    if data then return data end
+  end
+  return nil, err
+end
+
+-- Loads source code of given module name.
+-- Returns code followed by path.
+-- CATEGORY: utility/package
+local function load_module_source(name)
+  for spec in package.path:gmatch'[^;]+' do
+    local testpath = spec:gsub('%?', name:gsub('%.', '/'))
+    local src, err_ = readfile(testpath)
+    if src then return src, testpath end
+  end
+  return nil
+end
+
+
+-- Clears global state.
+-- This includes cached inspected modules.
+function M.clear_cache()
+  for k,v in pairs(M.package_loaded) do
+    M.package_loaded[k] = nil
+  end
 end
 
 
@@ -280,6 +320,39 @@ local function call_arg_range(ast)
   end
 end
 
+
+-- Reports warning. List of strings.
+local function warn(...)
+   if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
+     print(...) -- IMPROVE? eliminate editor-specific code
+   else
+     io.stderr:write(...); io.stderr:write'\n'
+   end
+end
+
+
+-- Version of require that does source analysis (inspect) on module.
+function M.require_inspect(name)
+  local ast = M.package_loaded[name]
+  if ast then return ast end
+  --print('DEBUG:loading:', name)
+  local msrc, mpath = load_module_source(name)
+  if msrc then
+    local mast = LA.ast_from_string(msrc, mpath)
+    if mast then
+      local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
+      M.inspect(mast, mtokenlist)
+      if mast[#mast] and mast[#mast].tag == 'Return' then
+        local rast = mast[#mast][1]
+        M.package_loaded[name] = rast
+        if rast then return rast end --IMPROVE? what if no return given
+      else
+        warn(err) --Q: cache error in result too?
+      end
+    end
+  end
+end
+
 -- Infer values of variables.
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
@@ -349,7 +422,15 @@ function M.infer_values(top_ast, tokenlist)
       for i=2,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
       if ast[1].valueknown and args_known then
         local func = ast[1].value
-        if LS.safe_function[func] then
+        local found
+        if func == require and ast[2].valueknown then
+          local rast = M.require_inspect(ast[2].value)
+          if rast and rast.valueknown then
+            ast.valueknown, ast.value = rast.valueknown, rast.value
+            found = true
+          end
+        end
+        if not found and LS.safe_function[func] then
           local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
           ast.valueknown, ast.value = pcall(func, unpack(values,1,#ast-1))
           --TODO: handle multiple return values
@@ -382,7 +463,8 @@ function M.infer_values(top_ast, tokenlist)
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
-        M.debuginfo[val] = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
+        local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
+        M.debuginfo[val] = info
         ast.value = val
       end
       ast.valueknown = true
@@ -512,15 +594,10 @@ function M.eval_comments(ast, tokenlist)
     if f then
       setfenv(f, env); env.ast = ast
       local ok, err = pcall(f, ast)
-      if not ok then io.stderr:write(err, ': ', command) end
+      if not ok then warn(err, ': ', command) end
       env.ast = nil
    else
-     local message = err, ': ', command
-     if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
-       print(message) -- IMPROVE? eliminate editor-specific code
-     else
-       io.stderr:write(message, "\n")
-     end
+     warn(err, ': ', command)
     end
   end
 

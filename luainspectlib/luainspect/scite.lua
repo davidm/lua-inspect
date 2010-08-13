@@ -1115,6 +1115,7 @@ end
 function M.force_reinspect()
   if buffer.ast then
     LI.uninspect(buffer.ast)
+    LI.clear_cache()
     collectgarbage() -- note package.loaded was given weak keys.
     LI.inspect(buffer.ast, buffer.tokenlist)
   end

@@ -130,6 +130,10 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100813
+  core: inspect required modules too
+          (e.g. enables use of imported function signatures)
+
 20100811
   SciTE: autocomplete functions arguments when cursor after '('
   core: fix signatures for os/debug libraries
