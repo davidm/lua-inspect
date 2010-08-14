@@ -163,6 +163,7 @@ local INDICATOR_MASKED = 5
 local INDICATOR_WARNING = 6
 
 
+-- Display annotations.
 -- Used for ANNOTATE_ALL_LOCALS feature.
 -- CATEGORY: SciTE GUI + AST
 local function annotate_all_locals()
@@ -172,16 +173,16 @@ local function annotate_all_locals()
     local token = buffer.tokenlist[i]
     if token.ast.localdefinition == token.ast then
       local info = LI.get_value_details(token.ast, buffer.tokenlist, buffer.text)
-      local linenum = editor:LineFromPosition(token.lpos-1)
-      annotations[linenum] = (annotations[linenum] or "") .. "detail: " .. info
+      local linenum0 = editor:LineFromPosition(token.lpos-1)
+      annotations[linenum0] = (annotations[linenum0] or "") .. "detail: " .. info
     end
   end
   -- Apply annotations.
   editor.AnnotationVisible = ANNOTATION_BOXED
-  for linenum=0,table.maxn(annotations) do
-    if annotations[linenum] then
-      editor.AnnotationStyle[linenum] = S_DEFAULT
-      editor:AnnotationSetText(linenum, annotations[linenum])
+  for linenum0=0,table.maxn(annotations) do
+    if annotations[linenum0] then
+      editor.AnnotationStyle[linenum0] = S_DEFAULT
+      editor:AnnotationSetText(linenum0, annotations[linenum0])
     end
   end
 end
@@ -273,9 +274,9 @@ local function update_ast()
           LI.inspect(buffer.ast, buffer.tokenlist) --IMPROVE: don't do full inspection
         end
       else --full
-            -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newtext`, then
-      --   `LI.inspect` may attach its previous value into the newly created
-      --   `buffer.tokenlist`, eventually leading to memory overflow.
+        -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newtext`, then
+        --   `LI.inspect` may attach its previous value into the newly created
+        --   `buffer.tokenlist`, eventually leading to memory overflow.
       
         buffer.tokenlist = tokenlist
         buffer.ast = ast
@@ -407,7 +408,7 @@ end
 -- Mark in margin range of 0-indexed lines.
 -- CATEGORY: SciTE GUI
 local function scope_lines(firstline0, lastline0)
-  if firstline0 ~= lastline0 then
+  if firstline0 ~= lastline0 then -- multiline
     --TODO: not rendering exactly as desired.  TCORNERCURVE should
     -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
     editor:MarkerDefine(MARKER_SCOPEBEGIN, SC_MARK_TCORNERCURVE)
@@ -422,7 +423,7 @@ local function scope_lines(firstline0, lastline0)
       editor:MarkerAdd(n, MARKER_SCOPEMIDDLE)
     end
     editor:MarkerAdd(lastline0, MARKER_SCOPEEND)
-  else
+  else -- single line
     editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
     editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
     editor:MarkerAdd(firstline0, MARKER_SCOPEMIDDLE)
@@ -845,7 +846,7 @@ end
 -- Attempts even if AST is not up-to-date.
 -- warning: very rough, only recognizes simplest cases.  A better solution is
 -- probably to have the parser return an incomplete AST on failure and use that.
--- CATEGORY: helper
+-- CATEGORY: helper, SciTE buffer
 local function get_prefixexp(pos0)
   local ids = {}
   repeat
