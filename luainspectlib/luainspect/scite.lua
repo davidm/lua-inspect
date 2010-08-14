@@ -46,7 +46,7 @@ local M = {}
 
 -- variables stored in `buffer`:
 -- ast -- last successfully compiled AST
--- text  -- text corresponding to `ast`
+-- src  -- source text corresponding to `ast`
 -- lasttext  -- last attempted `text` (might not be successfully compiled)
 -- tokenlist  -- tokenlist corresponding to `ast`
 -- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
@@ -171,7 +171,7 @@ local function annotate_all_locals()
   for i=1,#buffer.tokenlist do
     local token = buffer.tokenlist[i]
     if token.ast.localdefinition == token.ast then
-      local info = LI.get_value_details(token.ast, buffer.tokenlist, buffer.text)
+      local info = LI.get_value_details(token.ast, buffer.tokenlist, buffer.src)
       local linenum0 = editor:LineFromPosition(token.lpos-1)
       annotations[linenum0] = (annotations[linenum0] or "") .. "detail: " .. info
     end
@@ -202,7 +202,7 @@ local function update_ast()
   
   -- Update AST.
   local errfpos0, errlpos0
-  if newtext == buffer.text then -- returned to previous good version
+  if newtext == buffer.src then -- returned to previous good version
     -- note: nothing to do besides display
   else  
    -- note: loadstring and metalua don't parse shebang
@@ -220,7 +220,7 @@ local function update_ast()
     local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compiletext
     if isincremental then
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.text), newtextm)
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newtextm)
       compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
       DEBUG('inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
       DEBUG('inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
@@ -246,7 +246,7 @@ local function update_ast()
       --LA.dump_tokenlist(tokenlist)
       
    
-      buffer.text = newtext
+      buffer.src = newtext
       if isincremental and old_type ~= 'full' then
         -- Adjust line numbers.
         local delta = pos2l - pos1l
@@ -291,7 +291,7 @@ local function update_ast()
      -- Locate position range causing error.
      if buffer.ast then
        local pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.text), newtextm, true)
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newtextm, true)
        errfpos0, errlpos0 = pos2f-1, pos2l-1
      end
    end
@@ -387,7 +387,7 @@ end
 -- Gets token assocated with currently selected variable (if any).
 -- CATEGORY: SciTE GUI + AST
 local function getselectedvariable()
-  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
+  if buffer.src ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectedtoken
   local id
   local pos = editor.Anchor+1
@@ -477,7 +477,7 @@ scite_OnUpdateUI(function()
     end
   end
 
-  if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
+  if buffer.src ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
   local selectedtoken, id = getselectedvariable()
@@ -547,11 +547,11 @@ scite_OnUpdateUI(function()
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
     fpos, lpos = fpos + 1, lpos + 1 - 1
     local match1_ast, match1_comment, iswhitespace =
-      LA.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.text, fpos, lpos)
+      LA.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.src, fpos, lpos)
     -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.
-    local keywords; keywords, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.tokenlist, buffer.text)
+    local keywords; keywords, match1_ast = LI.related_keywords(match1_ast, buffer.ast, buffer.tokenlist, buffer.src)
     if keywords then
       for i=1,#keywords do
         local fpos, lpos = keywords[i].fpos, keywords[i].lpos
@@ -631,7 +631,7 @@ local function OnStyle(styler)
   end
 
   --DEBUG('OnStyle', editor:LineFromPosition(styler.startPos), editor:LineFromPosition(styler.startPos+styler.lengthDoc), styler.initStyle)
-  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
+  if buffer.src ~= editor:GetText() then return end  -- skip if AST not up-to-date
   -- WARNING: SciTE will repeatedly call OnStyle until StartStyling is performed.
   -- However, StartStyling/Forward/EndStyling clears styles in the given range,
   -- but we prefer to leave the styles as is.
@@ -794,12 +794,12 @@ end
 
 -- CATEGORY: SciTE ExtMan event handler
 scite_OnDoubleClick(function()
-  if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
+  if buffer.src ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
   local token = getselectedvariable()
   if token and token.ast then
-    local info  = LI.get_value_details(token.ast, buffer.tokenlist, buffer.text)
+    local info  = LI.get_value_details(token.ast, buffer.tokenlist, buffer.src)
     editor:CallTipShow(token.fpos-1, info)
   end
 end)
@@ -1158,7 +1158,7 @@ end
 function M.list_warnings()
   if not buffer.ast then return end
   
-  local warnings = LI.list_warnings(buffer.tokenlist, buffer.text)
+  local warnings = LI.list_warnings(buffer.tokenlist, buffer.src)
 
   if #warnings > 0 then
     for i,err in ipairs(warnings) do
@@ -1174,7 +1174,7 @@ end
 -- Executing multiple times selects larger statements containing current statement.
 -- CATEGORY: SciTE command
 function M.select_statementblockcomment()
-  if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date  
+  if buffer.src ~= editor:GetText() then return end  -- skip if AST not up-to-date  
 
   -- Get selected position range.
   -- caution: SciTE appears to have an odd behavior where if SetSel
