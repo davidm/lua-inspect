@@ -1133,6 +1133,7 @@ function M.list_warnings()
     for i,err in ipairs(warnings) do
       print(err)
     end
+    print("To loop through warnings, press F4.")
     --scite_UserListShow(errors)
   end
 end
