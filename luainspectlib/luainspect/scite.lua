@@ -34,6 +34,8 @@ local AUTOCOMPLETE_SYNTAX = scite_GetProp('luainspect.autocomplete.syntax', '0')
 local PATH_APPEND = scite_GetProp('luainspect.path.append', '')
 local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
+-- Base color scheme.
+-- sciteGetProp('style.script_lua.scheme')   'dark' or 'light' (same as '')
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
@@ -72,8 +74,8 @@ local clockend = PERFORMANCE_TESTS and function(name)
 end or nilfunc
 
 
--- Debug utility function:
 -- Shorten string by replacing any long middle section with "..."
+-- CATEGORY: dump
 local _pat
 local function debug_shorten(s)
   local keep_pat = ("."):rep(100)
@@ -81,6 +83,7 @@ local function debug_shorten(s)
   return s:gsub(_pat, "%1\n<...>\n%2")
 end
 
+-- CATEGORY: debug
 local function DEBUG(...)
   if LUAINSPECT_DEBUG then
     print('DEBUG:', ...)
@@ -161,6 +164,7 @@ local INDICATOR_WARNING = 6
 
 
 -- Used for ANNOTATE_ALL_LOCALS feature.
+-- CATEGORY: SciTE GUI + AST
 local function annotate_all_locals()
   -- Build list of annotations.
   local annotations = {}
@@ -184,6 +188,7 @@ end
 
 
 -- Attempt to update AST from editor text and apply decorations.
+-- CATEGORY: SciTE GUI + AST
 local function update_ast()
   -- Skip update if text unchanged.
   local newtext = editor:GetText()
@@ -380,6 +385,7 @@ end
 
 
 -- Gets token assocated with currently selected variable (if any).
+-- CATEGORY: SciTE GUI + AST
 local function getselectedvariable()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date
   local selectedtoken
@@ -399,6 +405,7 @@ end
 
 
 -- Mark in margin range of 0-indexed lines.
+-- CATEGORY: SciTE GUI
 local function scope_lines(firstline0, lastline0)
   if firstline0 ~= lastline0 then
     --TODO: not rendering exactly as desired.  TCORNERCURVE should
@@ -424,12 +431,14 @@ end
 
 
 -- Mark in margin range of 0-indexed positions.
+-- CATEGORY: SciTE GUI
 local function scope_positions(fpos0, lpos0)
   local firstline0 = editor:LineFromPosition(fpos0)
   local lastline0 = editor:LineFromPosition(lpos0)
   scope_lines(firstline0, lastline0)
 end
 
+-- CATEGORY: SciTE GUI
 local function init_indicator_styles()
   local indic_style = props["style.script_lua.indic_style"]
   editor.IndicStyle[INDICATOR_SCOPE] =
@@ -445,6 +454,7 @@ end
 
 
 -- Respond to UI updates.  This includes moving the cursor.
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnUpdateUI(function()
   -- FIX: how do we make this event only occur for Lua buffers?
   -- Hack below probably won't work with multiple Lua-based lexers.
@@ -573,6 +583,7 @@ end)
 -- Respond to requests for restyling.
 -- Note: if StartStyling is not applied over the entire requested range, than this function is quickly recalled
 --   (which possibly can be useful for incremental updates)
+-- CATEGORY: SciTE event handler
 local style_delay_count = 0
 local isblock = {Function=true}
 local function OnStyle(styler)
@@ -778,6 +789,7 @@ local function OnStyle(styler)
 end
 
 
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnDoubleClick(function()
   if buffer.text ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
@@ -792,6 +804,7 @@ end)
 
 --TODO:ExtMan: add to extman?  Currently extman includes scite_UserListShow wrapping UserListShow
 --CAREFUL: must be properly sorted (toupper if AutoCIgnoreCase)
+-- CATEGORY: utility, GUI
 local function mycshow(list, len)
   editor.AutoCSeparator = 1
   editor.AutoCIgnoreCase = true
@@ -800,7 +813,7 @@ end
 
 
 -- Convert object to string (no nesting).
--- utility function
+-- CATEGORY: utility function, string
 local function dump_shallow(o)
   return type(o) == 'string' and string.format('%q', o) or tostring(o)
 end
@@ -819,7 +832,7 @@ local function dump_key_shallow(o)
 end
 
 -- Find index i such that t[i] == e, else returns nil
--- utility function
+-- CATEGORY: utility function, tables
 local function tfind(t, e)
   for i=1,#t do
     if t[i] == e then return i end
@@ -832,6 +845,7 @@ end
 -- Attempts even if AST is not up-to-date.
 -- warning: very rough, only recognizes simplest cases.  A better solution is
 -- probably to have the parser return an incomplete AST on failure and use that.
+-- CATEGORY: helper
 local function get_prefixexp(pos0)
   local ids = {}
   repeat
@@ -846,6 +860,7 @@ end
 
 
 -- Command to autocomplete current variable or function arguments.
+-- CATEGORY: SciTE command and (dual use) helper
 function M.autocomplete_variable(_, minchars)
   local lpos0 = editor.CurrentPos
   local c = string.char(editor.CharAt[lpos0-1])
@@ -879,6 +894,7 @@ function M.autocomplete_variable(_, minchars)
 end
 
 
+-- CATEGORY: SciTE ExtMan event handler
 if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
   scite_OnChar(function(c)
     -- FIX: how do we make this event only occur for Lua buffers?
@@ -918,6 +934,7 @@ local KEY_RIGHT = 39
 local KEY_ENTER = 13
 
 
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnKey(function(key)
   -- Adjusting styling delays due to user typing.
   if key == KEY_UP or key == KEY_DOWN or
@@ -930,17 +947,20 @@ scite_OnKey(function(key)
   --print('DEBUG:key', key)
 end)
 
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnOpen(function()
   -- Trigger styling immediately on new file open
   -- Note: only happens in current buffer; therefore, also do this in OnSwitchFile.
   style_delay_count = 0
 end)
 
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnBeforeSave(function()
   -- Trigger styling immediately before save.
   style_delay_count = 0
 end)
 
+-- CATEGORY: SciTE ExtMan event handler
 scite_OnSwitchFile(function()
   -- Trigger styling immediately on switch buffer so that styling immediately displays.
   style_delay_count = 0
@@ -948,6 +968,7 @@ end)
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
+-- CATEGORY: SciTE command
 function M.rename_selected_variable(newname)
   local selectedtoken = getselectedvariable()
   
@@ -976,6 +997,7 @@ end
 
 -- jump to 0-indexed line in file path.
 -- Preferrably jump to exact position if given, else 0-indexed line.
+-- CATEGORY: SciTE helper, navigation
 local function goto_file_line_pos(path, line0, pos0)
   scite.Open(path)
   if pos0 then
@@ -988,6 +1010,7 @@ end
 
 -- Command for going to definition of selected variable.
 -- TODO: currently only works for locals in the same file.
+-- CATEGORY: SciTE command
 function M.goto_definition()
   local selectedtoken = getselectedvariable()
   if selectedtoken then
@@ -1007,6 +1030,7 @@ local inspect_queued
 
 -- Displays value in drop-down list for user inspection of contents.
 -- User can navigate in and out of tables, in a stack-like manner.
+-- CATEGORY: GUI inspection helper
 local function inspect_value(o, prevmenu)
   if type(o) == 'table' then
     local data = {}
@@ -1063,6 +1087,7 @@ local function inspect_value(o, prevmenu)
 end
 
 -- Command for inspecting fields of selected table variable.
+-- CATEGORY: SciTE command
 function M.inspect_variable_contents()
   if inspect_queued then
     local f = inspect_queued; inspect_queued = nil; f()
@@ -1083,6 +1108,7 @@ function M.inspect_variable_contents()
 end
 
 -- Command to show all uses of selected variable
+-- CATEGORY: SciTE command
 function M.show_all_variable_uses()
   local stoken = getselectedvariable()
   if not stoken or not stoken.ast then return end
@@ -1112,6 +1138,7 @@ end
 
 
 -- Command for forcing redoing of inspection.  Note: reloads modules imported via require.
+-- CATEGORY: SciTE command
 function M.force_reinspect()
   if buffer.ast then
     LI.uninspect(buffer.ast)
@@ -1124,6 +1151,7 @@ end
 
 
 -- Command to list erorrs and warnings.
+-- CATEGORY: SciTE command
 function M.list_warnings()
   if not buffer.ast then return end
   
@@ -1141,6 +1169,7 @@ end
 
 -- Command to select smallest statement (or comment) containing selection.
 -- Executing multiple times selects larger statements containing current statement.
+-- CATEGORY: SciTE command
 function M.select_statementblockcomment()
   if buffer.text ~= editor:GetText() then return end  -- skip if AST not up-to-date  
 
@@ -1160,6 +1189,7 @@ end
 
 
 -- Command to jump to beginning or end of previous statement (whichever is closer).
+-- CATEGORY: SciTE command
 function M.goto_previous_statement()
   local pos1 = editor.CurrentPos+1
   if pos1 == 1 then return end
@@ -1175,6 +1205,7 @@ end
 
 -- Lua module searcher function that attemps to retrieve module from
 -- same file path as current file.
+-- CATEGORY: SciTE + file loading
 local function mysearcher(name)
   local tries = ""
   local dir = props.FileDir
@@ -1192,6 +1223,9 @@ local function mysearcher(name)
   return tries
 end
 
+
+-- Installs plugin into SciTE.
+-- CATEGORY: initialization
 function M.install()
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
