@@ -956,7 +956,7 @@ function M.list_warnings(tokenlist, src)
     if token.ast then
       local ast = token.ast
       if ast.localmasking then
-        local pos = LA.ast_pos_range(ast.localmasking, tokenlist) print(pos)
+        local pos = LA.ast_pos_range(ast.localmasking, tokenlist)
         local linenum = pos and LA.pos_to_linecol(pos, src)
         warn("local " .. ast[1] .. " masks another local" .. (pos and " on line " .. linenum or ""))
       end
