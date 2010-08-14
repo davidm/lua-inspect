@@ -191,49 +191,49 @@ end
 -- CATEGORY: SciTE GUI + AST
 local function update_ast()
   -- Skip update if text unchanged.
-  local newtext = editor:GetText()
-  if newtext == buffer.lastsrc then
+  local newsrc = editor:GetText()
+  if newsrc == buffer.lastsrc then
     return false
   end
-  buffer.lastsrc = newtext
+  buffer.lastsrc = newsrc
   clockbegin 't1'
 
   local err, linenum, colnum, linenum2
   
   -- Update AST.
   local errfpos0, errlpos0
-  if newtext == buffer.src then -- returned to previous good version
+  if newsrc == buffer.src then -- returned to previous good version
     -- note: nothing to do besides display
   else  
    -- note: loadstring and metalua don't parse shebang
-   local newtextm = LA.remove_shebang(newtext)
+   local newmsrc = LA.remove_shebang(newsrc)
 
    -- Quick syntax check.   
    -- loadstring is much faster than Metalua, so try that first.
    -- Furthermore, Metalua accepts a superset of the Lua grammar.
-   local f; f, err, linenum, colnum, linenum2 = LA.loadstring(newtextm)
+   local f; f, err, linenum, colnum, linenum2 = LA.loadstring(newmsrc)
 
    -- Analyze code using LuaInspect, and apply decorations
    if f then
     -- Select code to compile.
     local isincremental = INCREMENTAL_COMPILATION and buffer.ast
-    local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compiletext
+    local pos1f, pos1l, pos2f, pos2l, old_ast, old_type, compilesrc
     if isincremental then
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newtextm)
-      compiletext = old_type == 'full' and newtextm or newtextm:sub(pos2f,pos2l)
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newmsrc)
+      compilesrc = old_type == 'full' and newmsrc or newmsrc:sub(pos2f,pos2l)
       DEBUG('inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
-      DEBUG('inc-compile:[' .. debug_shorten(compiletext)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
+      DEBUG('inc-compile:[' .. debug_shorten(compilesrc)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
-      compiletext = newtextm
+      compilesrc = newmsrc
     end
     clock 't2'
 
     -- Generate AST.
     local ast
     if old_type ~= 'whitespace' then
-      --currently not needed: compiletext = compiletext .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
-      ast, err, linenum, colnum, linenum2 = LA.ast_from_string(compiletext, props.FilePath)
+      --currently not needed: compilesrc = compilesrc .. '\n' --FIX:Workaround:Metalua:comments not postfixed by '\n' ignored.
+      ast, err, linenum, colnum, linenum2 = LA.ast_from_string(compilesrc, props.FilePath)
       --DEBUG(table.tostring(ast, 20))
     end
     clock 't3'
@@ -241,12 +241,12 @@ local function update_ast()
     if err then
       print "warning: metalua failed to compile code that compiles with loadstring.  error in metalua?"
     else
-      local tokenlist = ast and LA.ast_to_tokenlist(ast, compiletext)
+      local tokenlist = ast and LA.ast_to_tokenlist(ast, compilesrc)
         -- note: ast nil if whitespace
       --LA.dump_tokenlist(tokenlist)
       
    
-      buffer.src = newtext
+      buffer.src = newsrc
       if isincremental and old_type ~= 'full' then
         -- Adjust line numbers.
         local delta = pos2l - pos1l
@@ -273,7 +273,7 @@ local function update_ast()
           LI.inspect(buffer.ast, buffer.tokenlist) --IMPROVE: don't do full inspection
         end
       else --full
-        -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newtext`, then
+        -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newsrc`, then
         --   `LI.inspect` may attach its previous value into the newly created
         --   `buffer.tokenlist`, eventually leading to memory overflow.
       
@@ -291,7 +291,7 @@ local function update_ast()
      -- Locate position range causing error.
      if buffer.ast then
        local pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
-          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newtextm, true)
+          LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newmsrc, true)
        errfpos0, errlpos0 = pos2f-1, pos2l-1
      end
    end
@@ -358,24 +358,24 @@ local function update_ast()
     editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
     editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
     --DEBUG(buffer.lastsrc)
-    local text = buffer.lastsrc:sub(errfpos0+1, errlpos0+1)
+    local ssrc = buffer.lastsrc:sub(errfpos0+1, errlpos0+1)
 
-    if text == "if " then
+    if ssrc == "if " then
       local more = " then end"
       editor:InsertText(errlpos0+1, more)
       editor:IndicatorFillRange(errlpos0+1, #more)
     end
-    if text:match'^[^"]*"[^"]*$' then
+    if ssrc:match'^[^"]*"[^"]*$' then
       local more = '"'
       editor:InsertText(errlpos0+1, more)
       editor:IndicatorFillRange(errlpos0+1, #more)
     end
-    if text:match'%{[^%}]*$' then
+    if ssrc:match'%{[^%}]*$' then
       more = '}'
       editor:InsertText(errlpos0+1, more)
       editor:IndicatorFillRange(errlpos0+1, #more)
     end 
-    if text:match'%([^%)]*$' then
+    if ssrc:match'%([^%)]*$' then
       more = ')'
       editor:InsertText(errlpos0+1, more)
       editor:IndicatorFillRange(errlpos0+1, #more)

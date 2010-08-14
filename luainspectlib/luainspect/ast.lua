@@ -243,9 +243,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
       return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
     end
     -- If new text is not a single comment, then invalidate containing statementblock instead.
-    local m2text = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
-    DEBUG('inc-compile-comment[' .. m2text .. ']')
-    if quick_parse_comment(m2text) then  -- comment replaced with comment
+    local m2src = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
+    DEBUG('inc-compile-comment[' .. m2src .. ']')
+    if quick_parse_comment(m2src) then  -- comment replaced with comment
       return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
     end -- else continue
   else -- statementblock modified
@@ -255,9 +255,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
     if preserve then
       return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
     end
-    local m2text = bsrc:sub(bsrcm_fpos, bsrc_lpos)
-    DEBUG('inc-compile-statblock:', match_ast and match_ast.tag, '[' .. m2text .. ']')
-    if loadstring(m2text) then -- statementblock replaced with statementblock 
+    local m2src = bsrc:sub(bsrcm_fpos, bsrc_lpos)
+    DEBUG('inc-compile-statblock:', match_ast and match_ast.tag, '[' .. m2src .. ']')
+    if loadstring(m2src) then -- statementblock replaced with statementblock 
       return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
     end -- else continue
   end
@@ -384,8 +384,8 @@ function M.ast_to_tokenlist(top_ast, src)
       local keywordposlist = M.get_keywords(ast, src)
       for i=1,#keywordposlist,2 do
         local fpos, lpos = keywordposlist[i], keywordposlist[i+1]
-        local toktext = src:sub(fpos, lpos)
-        local token = {tag='Keyword', fpos=fpos, lpos=lpos, ast=ast, toktext}
+        local toksrc = src:sub(fpos, lpos)
+        local token = {tag='Keyword', fpos=fpos, lpos=lpos, ast=ast, toksrc}
         table.insert(tokens, token)
       end
     end
