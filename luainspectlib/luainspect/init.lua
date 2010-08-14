@@ -888,7 +888,7 @@ function M.get_value_details(ast, tokenlist, src)
       info = info .. "masking "
       local fpos = LA.ast_pos_range(ast.localmasking, tokenlist)
       if fpos then
-        local linenum = LA.pos_to_linecol(fpos)
+        local linenum = LA.pos_to_linecol(fpos, src)
         info = info .. "definition at line " .. linenum .. " "
       end
     end
