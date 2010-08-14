@@ -743,7 +743,10 @@ local function OnStyle(styler)
       editor:IndicatorFillRange(token.fpos-1, token.lpos - token.fpos + 1)
     end
     if ast and (ast.seevalue or ast).note then
-      local fpos, lpos = LA.ast_pos_range(ast.seevalue or ast, buffer.tokenlist)
+      local hast = ast.seevalue or ast
+      if hast.tag == 'Call' then hast = hast[1] elseif hast.tag == 'Invoke' then hast = hast[2] end
+        -- note: for calls only highlight function name
+      local fpos, lpos = LA.ast_pos_range(hast, buffer.tokenlist)
       editor.IndicatorCurrent = INDICATOR_WARNING
       editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
     end

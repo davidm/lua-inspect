@@ -974,6 +974,7 @@ function M.list_warnings(tokenlist, src)
       if note and not isseen[vast.parent] then
         isseen[vast.parent] = true
         local etext = LA.ast_to_text(vast.parent, tokenlist, src)
+           -- IMPROVE: large items like `f(function() ... end)` should be shortened.
         warn(note .. (etext and "for " .. etext or ""))
       end
     end
