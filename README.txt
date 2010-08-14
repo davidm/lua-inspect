@@ -3,39 +3,47 @@ It includes an extensive plugin for the SciTE [1] text editor,
 there is also a plugin for the VIM editor [2], and it includes
 an export to DHTML as well.
 
-WARNING: This code is not yet stable.  It is usable though
-you may need to fix things yourself.  Many additional features
-could be added too.
+== Project Page ==
 
 For further details, see http://lua-users.org/wiki/LuaInspect .
 
+== Status ==
+
+WARNING: This code is not yet stable.  It is usable but you
+may need to sometimes fix things yourself.  Many additional
+features could be added too.
+
 == Features ==
 
-    * cross-references local variables with their definitions and uses (pink highlight)
-    * shows all keywords in selected block (underline)
-    * identifies global (red) and local variables (blue)
-    * identifies function arguments (dark blue)
-    * identifies global variables that are probably undefined (white-on-red)
-    * identifies local variables that have non-constant binding (local x = 1; x = 2) (italic)
-    * identifies unused variables: e.g. do local x=1 end
-    * identifies local variables making other locals (same name): e.g. local x=1; local x=2 (strikethrough)
-    * displays signatures of known global functions
-    * identifies range of lines/scope where the local is defined (currently SciTE only) 
-    * identifies fields and methods as interrogatable variables (e.g. a.b or a:b)
-    * infers values of variables (e.g. `local sum = math.pi + 2` is 5.14.
-       and defined-ness of members of imported modules:
-       `local mt = require "math"; math.sqrtt(2) -- undefined`
-    * jump (goto) definition of selected variable (currently locals only in SciTE)
-    * list all uses of selected variable (currently locals only in SciTE)
-    * select statement or comment containing current cursor selection (SciTE only)
-    * command to rename all occurrences of selected variable (SciTE only)
-    * inspect members of selected table.
-    * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
-      (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
-    * Evaluate special comments (prefixed by '!') to inject semantic information into analysis
-       (similar to luaanalyze).
-    * Auto-complete typing support (SciTE only) (experimental)
-    * checks number of function arguments (SciTE only)
+    * analysis:
+        * identifies global (red) and local variables (blue), including locals that are
+	   function arguments (dark blue) and upvalues (light blue)
+        * identifies unused local variables: e.g. `do local x=1 end` (white-on-blue)
+        * identifies local variables masking other locals (same name): e.g. `local x=1; local x=2`
+	   (strikethrough and squiggle line)
+        * identifies local variables that have non-constant binding (`local x = 1; x = 2`) (italic)
+        * identifies unknown global variables (white-on-red) and table fields (red), inferred by
+	   static and dynamic evaluation.
+        * infers values of variables (e.g. `local sum = math.pi + 2` is 5.14.
+           and defined-ness of members of imported modules
+          (`local mt = require "math"; math.sqrtt(2) -- undefined`)
+        * infers signatures of functions (including local, global, and module functions)
+        * checks number of function arguments against signatures (SciTE only)
+        * cross-references variables (locals and module fields) with their definitions and uses
+	  (pink highlight), identifies range of lines/scope where the local is defined
+	   (currently SciTE only), and supports jump-to-definition and jump-to-uses (SciTE only)
+        * identifies all keywords in selected block (underline)
+        * evaluate special comments (prefixed by '!') to inject semantic information into analysis
+           (similar to luaanalyze / lint).
+    * refactoring:
+        * command to rename all occurrences of selected variable (SciTE only)
+    * browsing:
+        * inspect members of selected table.
+        * select statement or comment containing current cursor selection (SciTE only)
+        * display real-time annotations of all local variables, like an Excel/Mathcad worksheet
+          (experimental feature via ANNOTATE_ALL_LOCALS) (currently SciTE only)
+    * auto-complete typing support (SciTE only) (experimental)
+    * interfaces: SciTE plugin, VIM plugin, and HTML output.
 
 == Files in this directory ==
 
@@ -88,6 +96,7 @@ SciTE property files:
   luainspect.autocomplete.syntax (0 or 1, default 0)
   luainspect.path.append (string, default '')
   luainspect.cpath.append (string, default '')
+  style.script_lua.scheme (string, '' or 'dark', default '')
 
 For details, see scite.lua.
 
@@ -118,7 +127,7 @@ See LICENSE file.
 == Credits ==
 
 David Manura, original author.
-Steve Donovan for discussions on design and SciTE.
+Steve Donovan for discussions on design, SciTE and ExtMan.
 Fabien Fleutot for Metalua and discussions.
 SciTE suggestions/fixes by Tymur Gubayev.
 Peter Odding for VIM editor support [2]
