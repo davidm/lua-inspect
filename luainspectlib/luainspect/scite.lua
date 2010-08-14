@@ -39,7 +39,6 @@ local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
-local LS = require "luainspect.signatures"
 
 local M = {}
 
