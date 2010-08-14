@@ -1123,6 +1123,21 @@ end
 --IMPROVE? possibly should reparse AST as well in case AST got corrupted.
 
 
+-- Command to list erorrs and warnings.
+function M.list_warnings()
+  if not buffer.ast then return end
+  
+  local warnings = LI.list_warnings(buffer.tokenlist, buffer.text)
+
+  if #warnings > 0 then
+    for i,err in ipairs(warnings) do
+      print(err)
+    end
+    --scite_UserListShow(errors)
+  end
+end
+
+
 -- Command to select smallest statement (or comment) containing selection.
 -- Executing multiple times selects larger statements containing current statement.
 function M.select_statementblockcomment()
@@ -1185,6 +1200,7 @@ function M.install()
   scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
   scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
   scite_Command("Autocomplete variable|luainspect_autocomplete_variable|*.lua|Ctrl+Alt+C")
+  scite_Command("List all errors/warnings|luainspect_list_warnings|*.lua|Ctrl+Alt+W")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.OnStyle = OnStyle
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
@@ -1195,6 +1211,7 @@ function M.install()
   _G.luainspect_force_reinspect = M.force_reinspect
   _G.luainspect_goto_previous_statement = M.goto_previous_statement
   _G.luainspect_autocomplete_variable = M.autocomplete_variable
+  _G.luainspect_list_warnings = M.list_warnings
 
   -- apply styles if not overridden in properties file.
   local light_styles = [[

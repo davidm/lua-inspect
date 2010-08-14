@@ -493,6 +493,19 @@ function M.ast_pos_range(ast, tokenlist) -- IMPROVE:style: ast_idx_range_in_toke
 end
 
 
+-- Gets string representation of AST node.  nil if none.
+-- CATEGORY: AST/tokenlist query
+function M.ast_to_text(ast, tokenlist, src) -- IMPROVE:style: ast_idx_range_in_tokenlist has params reversed
+  local fpos, lpos = M.ast_pos_range(ast, tokenlist)
+  if fpos then
+    return src:sub(fpos, lpos)
+  else
+    return nil
+  end
+end
+
+
+
 -- Gets smallest AST node inside top_ast/tokenlist/src
 -- completely containing position range [pos1, pos2].
 -- careful: "function" is not part of the `Function node.

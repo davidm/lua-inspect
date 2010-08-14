@@ -940,4 +940,46 @@ function M.get_value_details(ast, tokenlist, src)
   return info
 end
 
+
+-- Gets list of all warnings, as strings.
+-- In HTML Tidy format (which supports column numbers in SciTE, although is
+-- slightly verbose and lacks filename).
+function M.list_warnings(tokenlist, src)
+  local warnings = {}
+  local ttoken
+  local function warn(msg)
+    local linenum, colnum = LA.pos_to_linecol(ttoken.fpos, src)
+    warnings[#warnings+1] = "line " .. linenum .. " column " .. colnum .. " - " .. msg
+  end
+  local isseen = {}
+  for i,token in ipairs(tokenlist) do ttoken = token
+    if token.ast then
+      local ast = token.ast
+      if ast.localmasking then
+        local pos = LA.ast_pos_range(ast.localmasking, tokenlist) print(pos)
+        local linenum = pos and LA.pos_to_linecol(pos, src)
+        warn("local " .. ast[1] .. " masks another local" .. (pos and " on line " .. linenum or ""))
+      end
+      if ast.localdefinition == ast and not ast.isused then
+        warn("unused local " .. ast[1])
+      end
+      if ast.isfield and not(ast.seevalue.valueknown and ast.seevalue.value ~= nil) then
+        warn("unknown field " .. ast[1])
+      elseif ast.tag == 'Id' and not ast.localdefinition and not ast.definedglobal then
+        warn("unknown global " .. ast[1])
+      end
+      local vast = ast.seevalue or ast
+      local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
+                    and vast.parent.note
+      if note and not isseen[vast.parent] then
+        isseen[vast.parent] = true
+        local etext = LA.ast_to_text(vast.parent, tokenlist, src)
+        warn(note .. (etext and "for " .. etext or ""))
+      end
+    end
+  end
+  return warnings
+end
+
+
 return M
