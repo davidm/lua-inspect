@@ -854,6 +854,9 @@ return M
 
 --FIX:Q: does this handle Unicode ok?
 
+--FIX?:Metalua: fails on string with escape sequence '\/'.  The Reference Manual
+-- doesn't say this sequence is valid though.
+
 --FIX:Metalua: In `local --[[x]] function --[[y]] f() end`,
 --   'x' comment omitted from AST.
 
