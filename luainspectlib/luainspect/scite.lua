@@ -47,7 +47,7 @@ local M = {}
 -- variables stored in `buffer`:
 -- ast -- last successfully compiled AST
 -- src  -- source text corresponding to `ast`
--- lasttext  -- last attempted `text` (might not be successfully compiled)
+-- lastsrc  -- last attempted `src` (might not be successfully compiled)
 -- tokenlist  -- tokenlist corresponding to `ast`
 -- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
 
@@ -192,10 +192,10 @@ end
 local function update_ast()
   -- Skip update if text unchanged.
   local newtext = editor:GetText()
-  if newtext == buffer.lasttext then
+  if newtext == buffer.lastsrc then
     return false
   end
-  buffer.lasttext = newtext
+  buffer.lastsrc = newtext
   clockbegin 't1'
 
   local err, linenum, colnum, linenum2
@@ -357,8 +357,8 @@ local function update_ast()
     editor.IndicStyle[INDICATOR_AUTOCOMPLETE] = INDIC_BOX
     editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
     editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
-    --DEBUG(buffer.lasttext)
-    local text = buffer.lasttext:sub(errfpos0+1, errlpos0+1)
+    --DEBUG(buffer.lastsrc)
+    local text = buffer.lastsrc:sub(errfpos0+1, errlpos0+1)
 
     if text == "if " then
       local more = " then end"
@@ -593,7 +593,7 @@ local function OnStyle(styler)
   --print('DEBUG:style-count', style_delay_count)
   if style_delay_count > 0 then
     -- Dislpay wait marker if not displayed and new text parsing not yet attempted.
-    if not buffer.wait_marker_line and editor:GetText() ~= buffer.lasttext then
+    if not buffer.wait_marker_line and editor:GetText() ~= buffer.lastsrc then
       buffer.wait_marker_line = editor:LineFromPosition(editor.CurrentPos)
       editor:MarkerDefine(MARKER_WAIT, SC_MARK_CHARACTER+43) -- '+'
       editor:MarkerSetFore(MARKER_WAIT, 0xffffff)
@@ -624,7 +624,7 @@ local function OnStyle(styler)
   -- update AST if needed
   if UPDATE_ALWAYS then
     update_ast()
-  elseif not buffer.lasttext then
+  elseif not buffer.lastsrc then
     -- this ensures that AST compiling is attempted when file is first loaded since OnUpdateUI
     -- is not called on load.
     update_ast()
