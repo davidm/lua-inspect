@@ -1,5 +1,7 @@
 local M = {}
 
+local T = require "luainspect.types"
+
 -- signatures of known globals
 M.global_signatures = {
   assert = "assert (v [, message])",
@@ -371,6 +373,60 @@ M.safe_function = {
   [string.upper] = true,
   [table.maxn] = true,
 }
+
+M.mock_functions = {}
+
+-- TODO:IMPROVE
+local function mockfunction(func, ...)
+  local inputs = {}
+  local outputs = {}
+  local isoutputs
+  for i=1,select('#', ...) do
+    local v = select(i, ...)
+    if type(v) == 'table' then v = v[1] end
+    if v == 'N' or v == 'I' then v = T.number end
+    if v == '->' then
+      isoutputs = true
+    elseif isoutputs then
+      outputs[#outputs+1] = v
+    else
+      inputs[#inputs+1] = v
+    end
+  end
+  M.mock_functions[func] = {inputs=inputs, outputs=outputs}
+end
+
+
+mockfunction(math.abs, 'N', '->', {'N',0,math.huge})
+mockfunction(math.acos, {'N',-1,1}, '->', {'N',0,math.pi/2})
+mockfunction(math.asin, {'N',-1,1}, '->', {'N',-math.pi/2,math.pi/2})
+mockfunction(math.atan, {'N',-math.huge,math.huge}, '->',
+                      {'N',-math.pi/2,math.pi/2})
+--FIX atan2
+mockfunction(math.ceil, 'N','->','I')
+mockfunction(math.cos, 'N','->',{'N',-1,1})
+mockfunction(math.cosh, 'N','->',{'N',1,math.huge})
+mockfunction(math.deg, 'N','->','N')
+mockfunction(math.exp, 'N','->',{'N',0,math.huge})
+mockfunction(math.floor, 'N','->','I')
+mockfunction(math.fmod, 'N','N','->','N')
+mockfunction(math.frexp, 'N','->',{'N',-1,1},'->','I')
+mockfunction(math.ldexp, {'N','I'},'->','N')
+mockfunction(math.log, {'N',0,math.huge},'->','N')
+mockfunction(math.log10, {'N',0,math.huge},'->','N')
+-- function max(...) print 'NOT IMPL'end
+-- function min(...) print 'NOT IMPL'end
+mockfunction(math.modf, 'N','->','I',{'N',-1,1})
+
+mockfunction(math.pow, 'N','N','->','N') -- improve?
+mockfunction(math.rad, 'N','->','N')
+-- random = function() print 'NOT IMPL' end
+mockfunction(math.randomseed, 'N')
+mockfunction(math.sin, 'N','->',{'N',-1,1})
+mockfunction(math.sinh, 'N','->','N')
+mockfunction(math.sqrt, {'N',0,math.huge},'->',{'N',0,math.huge})
+mockfunction(math.tan, 'N','->','N') -- improve?
+mockfunction(math.tanh, 'N','->',{'N',-1,1})
 
 
 return M

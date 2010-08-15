@@ -17,42 +17,8 @@ local LS = require "luainspect.signatures"
 
 --! require 'luainspect.typecheck' (context)
 
--- istype[o] iff o represents a type (i.e. set of values)
-local istype = {}
 
-local T = {} -- types
-
--- Number type
-T.number = {}
-setmetatable(T.number, T.number)
-function T.number.__tostring(self)
-  return 'number'
-end
-istype[T.number] = true
-
--- String type
-T.string = {}
-setmetatable(T.string, T.string)
-function T.string.__tostring(self)
-  return 'string'
-end
-istype[T.string] = true
-
--- Boolean type
-T.boolean = {}
-setmetatable(T.boolean, T.boolean)
-function T.boolean.__tostring(self)
-  return 'boolean'
-end
-istype[T.boolean] = true
-
--- Error type
-local CError = {}; CError.__index = CError
-function CError.__tostring(self) return "error:" .. tostring(self.value) end
-function T.error(val)
-  return setmetatable({value=val}, CError)
-end
-istype[T.error] = true
+local T = require "luainspect.types"
 
 
 -- Functional forms of Lua operators.
@@ -107,7 +73,7 @@ local function dobinop(opid, a, b)
     else
       error('invalid operation on booleans: ' .. opid, 0)
     end
-  elseif istype[a] or istype[b] then
+  elseif T.istype[a] or T.istype[b] then
     return nil, 'unknown'
   else
     return ops[opid](a, b)
@@ -118,7 +84,7 @@ end
 -- Perform unary operation.  Supports types.
 local function dounop(opid, a)
   if opid == 'not' then
-    if istype[a] then
+    if T.istype[a] then
       return T.boolean
     else
       return ops[opid](a)
@@ -133,7 +99,7 @@ local function dounop(opid, a)
     return T.number
   elseif a == T.boolean then
     error('invalid operation on boolean: ' .. opid, 0)
-  elseif istype[a] then
+  elseif T.istype[a] then
     return nil, 'unknown'
   else
     return ops[opid](a)
@@ -541,6 +507,13 @@ function M.infer_values(top_ast, tokenlist)
           --TODO: handle multiple return values
         end
       end
+      if not ast.valueknown then
+        local mf = LS.mock_functions[ast[1].value]
+        if mf then
+          local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
+          ast.valueknown, ast.value = true, o1
+        end
+      end
     elseif ast.tag == 'Invoke' then
       local t_ast, k_ast = ast[1], ast[2]
       if t_ast.valueknown and k_ast.valueknown then
@@ -556,6 +529,13 @@ function M.infer_values(top_ast, tokenlist)
           local values = {}; for i=1,#ast-2 do values[i] = ast[i+2].value end
           ast.valueknown, ast.value = pcall(func, t_ast.value, unpack(values,1,#ast-2))
           --TODO: handle multiple return values
+        end
+      end
+      if not ast.valueknown then
+        local mf = LS.mock_functions[ast.idxvalue]
+        if mf then
+          local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
+          ast.valueknown, ast.value = true, o1
         end
       end
     elseif ast.tag == 'String' or ast.tag == 'Number' then

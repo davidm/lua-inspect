@@ -119,4 +119,6 @@ do
   local e2,ey2 = -b1, -true   -- error
   local e3,ey3 = #b1, #true  -- error
   local xd1 = n1+n2^2 * n2 or 4 -- number
+  local xe1 = math.sqrt(n1) -- number
+  local xe2 = math:sqrt() -- number (although nonsensical)
 end
