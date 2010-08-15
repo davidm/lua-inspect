@@ -17,6 +17,129 @@ local LS = require "luainspect.signatures"
 
 --! require 'luainspect.typecheck' (context)
 
+-- istype[o] iff o represents a type (i.e. set of values)
+local istype = {}
+
+local T = {} -- types
+
+-- Number type
+T.number = {}
+setmetatable(T.number, T.number)
+function T.number.__tostring(self)
+  return 'number'
+end
+istype[T.number] = true
+
+-- String type
+T.string = {}
+setmetatable(T.string, T.string)
+function T.string.__tostring(self)
+  return 'string'
+end
+istype[T.string] = true
+
+-- Boolean type
+T.boolean = {}
+setmetatable(T.boolean, T.boolean)
+function T.boolean.__tostring(self)
+  return 'boolean'
+end
+istype[T.boolean] = true
+
+-- Error type
+local CError = {}; CError.__index = CError
+function CError.__tostring(self) return "error:" .. tostring(self.value) end
+function T.error(val)
+  return setmetatable({value=val}, CError)
+end
+istype[T.error] = true
+
+
+-- Functional forms of Lua operators.
+local ops = {}
+ops["add"] = function(a,b) return a+b end
+ops["sub"] = function(a,b) return a-b end
+ops["mul"] = function(a,b) return a*b end
+ops["div"] = function(a,b) return a/b end
+ops["mod"] = function(a,b) return a%b end
+ops["pow"] = function(a,b) return a^b end
+ops["concat"] = function(a,b) return a..b end
+ops["eq"] = function(a,b) return a==b end
+ops["lt"] = function(a,b) return a<b end
+ops["le"] = function(a,b) return a<=b end
+ops["and"] = function(a,b) return a and b end
+ops["or"] = function(a,b) return a or b end
+ops["not"] = function(a) return not a end
+ops["len"] = function(a) return #a end
+ops["unm"] = function(a) return -a end
+
+
+-- Perform binary operation.  Supports types.
+local function dobinop(opid, a, b)
+  if (a == T.number or b == T.number) and
+     (a == T.number or type(a) == 'number' ) and
+     (b == T.number or type(b) == 'number' )
+  then
+    if opid == 'eq' or opid == 'lt' or opid == 'le' then
+      return T.boolean
+    elseif opid == 'concat' then
+      return T.string
+    else
+      return T.number
+    end
+  elseif (a == T.string or b == T.string) and
+           (a == T.string or type(a) == 'string' ) and
+           (b == T.string or type(b) == 'string' )
+  then
+    if opid == 'concat' or opid == 'and' or opid == 'or' then
+      return T.string
+    elseif opid == 'eq' or opid == 'lt' or opid == 'le' then
+      return T.boolean
+    else
+      return T.number
+    end
+  elseif (a == T.boolean or b == T.boolean) and
+           (a == T.boolean or type(a) == 'boolean' ) and
+           (b == T.boolean or type(b) == 'boolean' )
+  then
+    if opid == 'eq' or opid == 'and' or opid == 'or' then
+      return T.boolean
+    else
+      error('invalid operation on booleans: ' .. opid, 0)
+    end
+  elseif istype[a] or istype[b] then
+    return nil, 'unknown'
+  else
+    return ops[opid](a, b)
+  end
+end
+
+
+-- Perform unary operation.  Supports types.
+local function dounop(opid, a)
+  if opid == 'not' then
+    if istype[a] then
+      return T.boolean
+    else
+      return ops[opid](a)
+    end
+  elseif a == T.number then
+    if opid == 'unm' then
+      return T.number
+    else -- 'len'
+      error('invalid operation on number: ' .. opid, 0)
+    end
+  elseif a == T.string then
+    return T.number
+  elseif a == T.boolean then
+    error('invalid operation on boolean: ' .. opid, 0)
+  elseif istype[a] then
+    return nil, 'unknown'
+  else
+    return ops[opid](a)
+  end
+end
+
 -- Like info in debug.getinfo but inferred by static analysis.
 -- object -> {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
 -- Careful: value may reference key (affects pre-5.2 which lacks emphemerons).
@@ -225,25 +348,6 @@ end
 local function tindex(t, k) return t[k] end
 
 local unescape = {['d'] = '.'}
-
-
--- Functional forms of Lua operators.
-local ops = {}
-ops["add"] = function(a,b) return a+b end
-ops["sub"] = function(a,b) return a-b end
-ops["mul"] = function(a,b) return a*b end
-ops["div"] = function(a,b) return a/b end
-ops["mod"] = function(a,b) return a%b end
-ops["pow"] = function(a,b) return a^b end
-ops["concat"] = function(a,b) return a..b end
-ops["eq"] = function(a,b) return a==b end
-ops["lt"] = function(a,b) return a<b end
-ops["le"] = function(a,b) return a<=b end
-ops["and"] = function(a,b) return a and b end
-ops["or"] = function(a,b) return a or b end
-ops["not"] = function(a) return not a end
-ops["len"] = function(a) return #a end
-ops["unm"] = function(a) return -a end
 
 
 
@@ -495,11 +599,17 @@ function M.infer_values(top_ast, tokenlist)
     elseif ast.tag == 'Op' then
       local opid, aast, bast = ast[1], ast[2], ast[3]
       if aast.valueknown and (not bast or bast.valueknown) then
-        local ok, val = pcall(ops[opid], aast.value, bast and bast.value)
-        if ok then
+        local ok, val, unknown
+        if bast then
+          ok, val, unknown = pcall(dobinop, opid, aast.value, bast.value)
+        else
+          ok, val, unknown = pcall(dounop, opid, aast.value)
+        end
+        if unknown then -- nothing
+        elseif ok then
           ast.value = val; ast.valueknown = true
         else
-          ast.value = val; ast.valueknown = false
+          ast.value = T.error(val); ast.valueknown = true
         end
       end
     end
@@ -559,6 +669,11 @@ end
 -- Environment in which to execute special comments (see below).
 local env = setmetatable({}, {__index=_G})
 env.context = env
+
+env.number = T.number
+env.string = T.string
+env.boolean = T.boolean
+env.error = T.error
 
 
 -- Apply value to all identifiers with name matching pattern.

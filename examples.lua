@@ -100,4 +100,23 @@ tt:zero() tt:zero(1)
 tt:one() tt:one(1)
 tt.more:one() tt.more:one(1)
 
-
+-- type inferences
+do
+  local n1, n2 --! context.apply_value('^n.*', number)
+  local s1, s2 --! context.apply_value('^s.*', string)
+  local b1, b2 --! context.apply_value('^b.*', boolean)
+  local x1,y1 = n1+n2, n1+2 -- number
+  local x2,y2 = n1 or n2, n1 or 2  -- number
+  local x3,y3 = n1 > n2, n1 > 2 -- boolean
+  local x4,y4 = -n1, -2 -- number, -2
+  local x5,y5 = not n1, not 2 -- boolean, false
+  local xb1,yb1 = s1+s2, s1+"z" -- number
+  local xb2,yb2 = s1 or s2, s1 or "z" --  string
+  local xb3,yb3 = s1 .. s2, s1 .. "z"  -- string
+  local xb4,yb4 = s1 > s2, s1 > "z"  -- boolean
+  local xc1,yc1 = b1 and b2, b1 and true  -- boolean
+  local e1,ey1 = #n1, #2  -- error
+  local e2,ey2 = -b1, -true   -- error
+  local e3,ey3 = #b1, #true  -- error
+  local xd1 = n1+n2^2 * n2 or 4 -- number
+end
