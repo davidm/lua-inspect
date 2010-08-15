@@ -35,7 +35,7 @@ features could be added too.
         * identifies all keywords in selected block (underline)
         * evaluate special comments (prefixed by '!') to inject semantic information into analysis
            (similar to luaanalyze / lint).
-        * basic type interences (e.g. number + number -> number)
+        * basic type inferences (e.g. number + number -> number)
     * refactoring:
         * command to rename all occurrences of selected variable (SciTE only)
     * browsing:
@@ -141,7 +141,7 @@ Peter Odding for VIM editor support [2]
 == Changes ==
 
 20100814
-  core: add basic type interences (e.g. number+number -> number)
+  core: add basic type inferences (e.g. number+number -> number)
 
 20100813
   core: inspect required modules too
