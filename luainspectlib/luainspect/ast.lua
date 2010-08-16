@@ -841,7 +841,7 @@ function M.dump_tokenlist(tokenlist)
   local ts = {}
   for i,token in ipairs(tokenlist) do
     ts[#ts+1] = 'tok.' .. i .. ': [' .. token.fpos .. ',' .. token.lpos .. '] '
-       .. tostring(token[1]) .. tostring(token.ast.tag)
+       .. tostring(token[1]) .. ' ' .. tostring(token.ast.tag)
   end
   return table.concat(ts, '\n')
 end
