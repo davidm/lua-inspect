@@ -141,12 +141,20 @@ local function readfile(path)
   return nil, err
 end
 
+-- Similar to string.gsub but with plain replacement (similar to option in string.match)
+-- http://lua-users.org/lists/lua-l/2002-04/msg00118.html
+-- CATEGORY: utility/string
+local function plain_gsub(s, pattern, repl)
+  repl = repl:gsub('(%W)', '%%%1')
+  return s:gsub(pattern, repl)
+end
+
 -- Loads source code of given module name.
 -- Returns code followed by path.
 -- CATEGORY: utility/package
 local function load_module_source(name)
   for spec in package.path:gmatch'[^;]+' do
-    local testpath = spec:gsub('%?', name:gsub('%.', '/'))
+    local testpath = plain_gsub(spec, '%?', (name:gsub('%.', '/')))
     local src, err_ = readfile(testpath)
     if src then return src, testpath end
   end
