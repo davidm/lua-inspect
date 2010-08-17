@@ -144,6 +144,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100817
+  core: fix keyword token recognition problems
+
 20100816
   core: make reporting optional
   metalua: patches to metalua lineinfo

@@ -342,6 +342,7 @@ function M.get_keywords(ast, src)
       if not mfpos then
         mfpos, tok, mlppos = src:match("^%s*()(%p+)()", spos)
       end
+      if mlppos and mlppos > lpos+1 then mlppos = lpos + 1 end
       --DEBUG('look', ast.tag, #ast,i,j,'*', mfpos, tok, mlppos, fpos, lpos, src:sub(fpos, fpos+5))
       if mfpos and mlppos-1 <= lpos then
         list[#list+1] = mfpos
