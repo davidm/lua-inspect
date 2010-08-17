@@ -378,46 +378,38 @@ end
 
 
 -- Reports warning. List of strings.
-local function warn(...)
-   if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
-     print('warning:', ...) -- IMPROVE? eliminate editor-specific code
-   else
-     io.stderr:write('warning:', ...); io.stderr:write'\n'
-   end
+local function warn(report, ...)
+  report('warning: ' .. table.concat({...}, ' '))
 end
 
 -- Reports status messages. List of strings.
-local function status(...)
-   if _G.scite and _G.scite.SendEditor then -- operating inside SciTE
-     print('status:', ...) -- IMPROVE? eliminate editor-specific code
-   else
-     io.stderr:write('status:', ...); io.stderr:write'\n'
-   end
+local function status(report, ...)
+  report('status: ' .. table.concat({...}, ' '))
 end
 
 
 
 -- Version of require that does source analysis (inspect) on module.
-function M.require_inspect(name)
+function M.require_inspect(name, report)
   local ast = M.package_loaded[name]
   if ast then return ast end
-  status('loading:' .. name)
+  status(report, 'loading:' .. name)
   local msrc, mpath = load_module_source(name)
   local vinfo
   if msrc then
     local mast, err = LA.ast_from_string(msrc, mpath)
     if mast then
       local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
-      M.inspect(mast, mtokenlist)
+      M.inspect(mast, mtokenlist, report)
       vinfo = mast[#mast] and mast[#mast].tag == 'Return' and mast[#mast][1]
         or {valueknown=true, value=nil}
       -- IMPROVE: return might not be last statement.
     else
       vinfo = {valueknown='error', value=err}
-      warn(err, " ", mpath) --Q:error printing good?
+      warn(report, err, " ", mpath) --Q:error printing good?
     end
   else
-    warn('module not found: ' .. name)
+    warn(report, 'module not found: ' .. name)
     vinfo = {valueknown='error', value='module not found'} --IMPROVE: include search paths?
   end
   M.package_loaded[name] = vinfo
@@ -429,7 +421,7 @@ end
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 -- CATEGORY: code interpretation
 local nil_value_ast = {}
-function M.infer_values(top_ast, tokenlist)
+function M.infer_values(top_ast, tokenlist, messages)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
 
   -- infer values
@@ -495,7 +487,7 @@ function M.infer_values(top_ast, tokenlist)
         local func = ast[1].value
         local found
         if func == require and ast[2].valueknown then
-          local rast = M.require_inspect(ast[2].value)
+          local rast = M.require_inspect(ast[2].value, messages)
           if rast and rast.valueknown then
             ast.valueknown, ast.value = rast.valueknown, rast.value
             found = true
@@ -684,17 +676,17 @@ setfenv(env.apply_value, env)
 -- Evaluate all special comments (i.e. comments prefixed by '!') in code.
 -- This is similar to luaanalyze.
 -- CATEGORY: code interpretation / special comments
-function M.eval_comments(ast, tokenlist)
+function M.eval_comments(ast, tokenlist, report)
   local function eval(command, ast)
     --DEBUG('!', command:gsub('%s+$', ''), ast.tag)
     local f, err = loadstring(command)
     if f then
       setfenv(f, env); env.ast = ast
       local ok, err = pcall(f, ast)
-      if not ok then warn(err, ': ', command) end
+      if not ok then warn(report, err, ': ', command) end
       env.ast = nil
    else
-     warn(err, ': ', command)
+     warn(report, err, ': ', command)
     end
   end
 
@@ -757,19 +749,22 @@ function M.uninspect(top_ast)
 end
 
 
--- Main inspection routine.
+-- Main inspection routine.  Inspects top_ast/tokenlist.
+-- Error/status messages are sent to function `report`.
 -- CATEGORY: code interpretation
-function M.inspect(top_ast, tokenlist)
+function M.inspect(top_ast, tokenlist, report)
   --DEBUG: local t0 = os.clock()
-
-  local globals = LG.globals(top_ast)
   
+  report = report or function() end
+  
+  local globals = LG.globals(top_ast)
+ 
   M.mark_identifiers(top_ast)
 
-  M.eval_comments(top_ast, tokenlist)
+  M.eval_comments(top_ast, tokenlist, report)
   
-  M.infer_values(top_ast, tokenlist)
-  M.infer_values(top_ast, tokenlist) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
+  M.infer_values(top_ast, tokenlist, report)
+  M.infer_values(top_ast, tokenlist, report) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
   
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display

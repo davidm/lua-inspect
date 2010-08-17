@@ -19,6 +19,10 @@ local function loadfile(filename)
 end
 
 
+-- Warning/status reporting function.
+-- CATEGORY: reporting + AST
+local function report(s) io.stderr(s, "\n") end
+
 local path = ...
 if not path then
   io.stderr:write("inspect.lua <path.lua>")
@@ -31,7 +35,7 @@ local ast, err, linenum, colnum, linenum2 = LA.ast_from_string(src, path)
 --require "metalua.table2"; table.print(ast, 'hash', 50)
 if ast then
   local tokenlist = LA.ast_to_tokenlist(ast, src)
-  LI.inspect(ast, tokenlist)
+  LI.inspect(ast, tokenlist, report)
   LI.mark_related_keywords(ast, tokenlist, src)
 
   local ast = LH.ast_to_html(ast, src, tokenlist)

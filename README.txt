@@ -140,6 +140,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100816
+  core: make reporting optional
+
 20100814
   core: add basic type inferences (e.g. number+number -> number)
 
