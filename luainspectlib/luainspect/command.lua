@@ -21,7 +21,7 @@ end
 
 -- Warning/status reporting function.
 -- CATEGORY: reporting + AST
-local function report(s) io.stderr(s, "\n") end
+local function report(s) io.stderr:write(s, "\n") end
 
 local path = ...
 if not path then
