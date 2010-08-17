@@ -395,13 +395,15 @@ local function status(report, ...)
   report('status: ' .. table.concat({...}, ' '))
 end
 
-
+-- unique value used to detect require loops (A require B require A)
+local REQUIRE_SENTINEL = function() end
 
 -- Version of require that does source analysis (inspect) on module.
 function M.require_inspect(name, report)
   local ast = M.package_loaded[name]
   if ast then return ast end
   status(report, 'loading:' .. name)
+  M.package_loaded[name] = REQUIRE_SENTINEL -- avoid recursion on require loops
   local msrc, mpath = load_module_source(name)
   local vinfo
   if msrc then
@@ -429,7 +431,7 @@ end
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 -- CATEGORY: code interpretation
 local nil_value_ast = {}
-function M.infer_values(top_ast, tokenlist, messages)
+function M.infer_values(top_ast, tokenlist, report)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
 
   -- infer values
@@ -495,8 +497,10 @@ function M.infer_values(top_ast, tokenlist, messages)
         local func = ast[1].value
         local found
         if func == require and ast[2].valueknown then
-          local rast = M.require_inspect(ast[2].value, messages)
-          if rast and rast.valueknown then
+          local rast = M.require_inspect(ast[2].value, report)
+          if rast == REQUIRE_SENTINEL then
+            warn(report, "loop in require when loading " .. ast[2].value)
+          elseif rast and rast.valueknown then
             ast.valueknown, ast.value = rast.valueknown, rast.value
             found = true
           end
