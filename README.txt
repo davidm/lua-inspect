@@ -52,6 +52,10 @@ metalualib/* - Copy of Metalua libraries under here
 luainspectlib/* - LuaInspect libraries under here
 htmllib/* - HTML resources under here
 
+Note: the metalualib contains this version of metalua:
+  http://github.com/fab13n/metalua/tree/fcee97b8d0091ceb471902ee457dbccaab98234e
+with a few bug fixes (search for "PATCHED:LuaInspect" in the source)
+
 == Command-line Usage (HTML output) ==
 
 Example:
@@ -142,6 +146,8 @@ Peter Odding for VIM editor support [2]
 
 20100816
   core: make reporting optional
+  metalua: patches to metalua lineinfo
+    (was corrupting HTML output and SciTE highlighting)
 
 20100814
   core: add basic type inferences (e.g. number+number -> number)

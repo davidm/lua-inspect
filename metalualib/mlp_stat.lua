@@ -94,6 +94,8 @@ function for_header (lx)
          var_list = gg.list{ 
             primary = id, separators = ",", terminators = "in" } (lx)
          _G.table.insert (var_list, 1, var) -- put back the first variable
+	 var_list.lineinfo.first = var.lineinfo.first
+	   --PATCHED:LuaInspect:correct lineinfo, e.g. `for a,b in f do end`
          lx:next() -- skip "in"
       end
       local e = expr_list (lx)
@@ -106,7 +108,9 @@ end
 --------------------------------------------------------------------------------
 local function fn_builder (list)
    local r = list[1]
-   for i = 2, #list do r = { tag="Index", r, id2string(list[i]) } end
+   for i = 2, #list do r = { tag="Index", r, id2string(list[i]),
+     lineinfo={first=list[1].lineinfo.first, last=list[i].lineinfo.last} } end
+     --PATCHED:LuaInspect:added lineinfo to above line. e.g. `function a.b.c() end`
    return r
 end
 local func_name = gg.list{ id, separators = ".", builder = fn_builder }

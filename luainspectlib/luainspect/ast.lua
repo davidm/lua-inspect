@@ -870,6 +870,8 @@ return M
 --FIX:Metalua: `while 1 do --[[x]] --[[y]] end` returns first > last
 --   lineinfo for contained block
 
+--FIX:Metalua: search for "PATCHED:LuaInspect" in the metalualib folder.
+
 --FIX?:Metalua: loadstring parses "--x" but metalua omits the comment in the AST
 
 --FIX?:Metalua: `local x` is generating `Local{{`Id{x}}, {}}`, which
