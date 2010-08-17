@@ -401,6 +401,10 @@ local REQUIRE_SENTINEL = function() end
 -- Version of require that does source analysis (inspect) on module.
 function M.require_inspect(name, report)
   local ast = M.package_loaded[name]
+  if ast == REQUIRE_SENTINEL then
+     warn(report, "loop in require when loading " .. name)
+     return nil
+  end
   if ast then return ast end
   status(report, 'loading:' .. name)
   M.package_loaded[name] = REQUIRE_SENTINEL -- avoid recursion on require loops
@@ -498,9 +502,7 @@ function M.infer_values(top_ast, tokenlist, report)
         local found
         if func == require and ast[2].valueknown then
           local rast = M.require_inspect(ast[2].value, report)
-          if rast == REQUIRE_SENTINEL then
-            warn(report, "loop in require when loading " .. ast[2].value)
-          elseif rast and rast.valueknown then
+          if rast and rast.valueknown then
             ast.valueknown, ast.value = rast.valueknown, rast.value
             found = true
           end
