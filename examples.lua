@@ -100,6 +100,25 @@ tt:zero() tt:zero(1)
 tt:one() tt:one(1)
 tt.more:one() tt.more:one(1)
 
+-- return values (instructions: inspect `fa`)
+local function fa() end -- no returns
+local function fa() return nil end -- returns nil
+local function fa() return 2 end -- return 2
+local function fa(x,y) return 2,x>y end -- return 2, 'boolean' (FIX:returns 2,'unknown')
+local function fa(x) if x then return 1,2,3 else return 1,3,'z',nil end return 'z' end
+  -- returns 1, number, unknown, unknown (note deadcode)
+local function fa(x) if x then return 2 end end -- returns unknown (due to implicit return)
+local function fa(x) do return 2 end return 3 end -- returns 2 (note deadcode)
+local function fa(x) return (function() return 2 end)()+1 end -- returns 3
+local function fa(x) return x end -- return unknown
+local x1 = fa(5) -- unknown
+  -- note: "infer 5" is not implemented (i.e. return values specific
+  -- to function call arguments)  It could infer, however,
+  -- that fa is a "safe function" to execute.
+local function fa(...) return ... end --FIX
+local function fa(f) return 2,f() end --FIX
+  --TODO: multiple returns not inferred
+
 -- type inferences
 do
   local n1, n2 --! context.apply_value('^n.*', number)

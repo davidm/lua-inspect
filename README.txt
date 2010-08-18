@@ -36,6 +36,8 @@ features could be added too.
         * evaluate special comments (prefixed by '!') to inject semantic information into analysis
            (similar to luaanalyze / lint).
         * basic type inferences (e.g. number + number -> number)
+	* infer function return values (e.g. `function f(x) if x then return 1,2,3 else return 1,3,'z' end end`
+	   returns 1, number, unknown).
     * refactoring:
         * command to rename all occurrences of selected variable (SciTE only)
     * browsing:
@@ -145,8 +147,9 @@ Peter Odding for VIM editor support [2]
 == Changes ==
 
 20100817
-  core: fix keyword token recognition problems
-  core: skip inspection on require loops
+  [!] core: fix keyword token recognition problems
+  [!] core: skip inspection on require loops
+  [+] core: infer function return values
 
 20100816
   core: make reporting optional

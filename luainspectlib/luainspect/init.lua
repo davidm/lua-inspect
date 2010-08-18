@@ -430,6 +430,104 @@ function M.require_inspect(name, report)
   return vinfo
 end
 
+
+-- Gets list of `Return statement ASTs in `Function f_ast, not including
+-- return's in nested functions.  Also returns boolean `has_implicit` indicating
+-- whether function may return by exiting the function without a return statement.
+-- Returns that are never exected are omitted (e.g. last return is omitted in
+-- `function f() if x then return 1 else return 2 end return 3 end`).
+local function get_func_returns(f_ast)
+  assert(f_ast.tag == 'Function')
+  local isalwaysreturn = {}
+  local returns = {}
+  local function f(ast, isdead)
+    for _,cast in ipairs(ast) do if type(cast) == 'table' then
+      if cast.tag ~= 'Function' and not isdead then -- skip nested functions
+        f(cast, isdead) -- depth-first traverse
+      end
+      if ast.tag ~= 'If' and isalwaysreturn[cast] then isdead = true end
+        -- subsequent statements in block never executed
+    end end
+    
+    -- Code on walking up AST: propagate children to parents
+    if ast.tag == 'Return' then
+      returns[#returns+1] = ast
+      isalwaysreturn[ast] = true
+    elseif ast.tag == 'If' then
+      if #ast%2 ~= 0 then -- has 'else' block
+        local isreturn = true
+        for i=2,#ast do
+          if (i%2==0 or i==#ast) and not isalwaysreturn[ast[i]] then isreturn = nil; break end
+        end
+        isalwaysreturn[ast] = isreturn
+      end
+    else -- note: iterates not just blocks, but should be ok
+      for i=1,#ast do
+        if isalwaysreturn[ast[i]] then
+          isalwaysreturn[ast] = true; break
+        end
+      end
+    end
+  end
+  f(f_ast, false)
+  local block_ast = f_ast[2]
+  local has_implicit = not isalwaysreturn[block_ast]
+  return returns, has_implicit
+end
+
+
+-- Given value node (i.e. table containing `valueknown` and `value` fields),
+-- return so-called "normalized" value.
+-- Perhaps this is a temporary hack until `valueknown` fields are eliminated.
+local function valnode_normalize(valnode)
+  if valnode then
+    return not valnode.valueknown and T.universal or valnode.value
+  else
+    return T.none
+  end
+end
+
+
+-- Gets return value at given return argument index, given list of `Return statements.
+-- Return value is a superset of corresponding types in list of statements.
+-- Example: {`Return{1,2,3}, `Return{1,3,'z'}} would return
+-- 1, T.number, and T.universal for retidx 1, 2 and 3 respectively.
+local function get_return_value(returns, retidx)
+  if #returns == 0 then return T.none
+  elseif #returns == 1 then
+    return valnode_normalize(returns[1][retidx])
+  else
+    local combined_value = valnode_normalize(returns[1][retidx])
+    for i=2,#returns do
+      local cur_value = valnode_normalize(returns[i][retidx])
+      combined_value = T.superset_types(combined_value, cur_value)
+      if combined_value == T.universal then -- can't expand set further
+          return combined_value
+      end
+    end
+    return combined_value
+    --TODO: handle values with possibly any number of return values, like f()
+  end
+end
+
+
+-- Gets return values (or types) on `Function represented by given AST.
+local function get_func_return_values(f_ast)
+  local returns, has_implicit = get_func_returns(f_ast)
+  if has_implicit then returns[#returns+1] = {tag='Return'} end
+
+  local returnvals = {}
+  for retidx=1,math.huge do
+    local value = get_return_value(returns, retidx)
+    if value == T.none then break end
+    returnvals[#returnvals+1] = value
+  end
+  return returnvals
+end
+-- Example: AST of `function(x) if x then return 1,2,3 else return 1,3,"z" end end`
+-- returns {1, T.number, T.universal}.
+
+
 -- Infer values of variables.
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
@@ -494,11 +592,14 @@ function M.infer_values(top_ast, tokenlist, report)
       if t_ast.valueknown and k_ast.valueknown then
         ast.valueknown, ast.value = pcall(tindex, t_ast.value, k_ast.value)
       end
-    elseif ast.tag == 'Call' then   
+    elseif ast.tag == 'Call' then
+      local func_ast = ast[1]
       local args_known = true
       for i=2,#ast do if ast[i].valueknown ~= true then args_known = false; break end end
-      if ast[1].valueknown and args_known then
-        local func = ast[1].value
+      if func_ast.valueknown and args_known then
+        local values_concrete = true
+        for i=1,#ast do if T.istype[ast[i].value] then values_concrete = false; break end end
+        local func = func_ast.value
         local found
         if func == require and ast[2].valueknown then
           local rast = M.require_inspect(ast[2].value, report)
@@ -514,10 +615,17 @@ function M.infer_values(top_ast, tokenlist, report)
         end
       end
       if not ast.valueknown then
-        local mf = LS.mock_functions[ast[1].value]
+        local mf = LS.mock_functions[func_ast.value]
         if mf then
           local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
           ast.valueknown, ast.value = true, o1
+        else
+          local info = M.debuginfo[func_ast.value]
+          local retvals = info and info.retvals
+          if retvals then
+            ast.valueknown, ast.value = true, retvals[1]
+          end
+          --TODO:handle multiple return values
         end
       end
     elseif ast.tag == 'Invoke' then
@@ -554,7 +662,8 @@ function M.infer_values(top_ast, tokenlist, report)
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
-        local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist}
+        local retvals= get_func_return_values(ast)
+        local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist, retvals=retvals}
         M.debuginfo[val] = info
         ast.value = val
         ast.nocollect = info -- prevents garbage collection while ast exists
@@ -915,6 +1024,18 @@ function M.get_signature_of_value(value)
       end
     end
     local sig = 'function(' .. table.concat(ts, ' ') .. ')'
+    if info.retvals then
+      local vals = info.retvals
+      local ts = {}
+      if #vals == 0 then
+        sig = sig .. " no returns"
+      else
+        for i=1,#vals do local val = vals[i]
+          ts[#ts+1] = T.istype[val] and tostring(val) or LA.dumpstring(val) --Q:dumpstring too verbose?
+        end
+        sig = sig .. " returns " .. table.concat(ts, ", ")
+      end
+    end
     return sig
   end
   local sig = LS.value_signatures[value] -- else try this
@@ -1023,7 +1144,7 @@ function M.get_value_details(ast, tokenlist, src)
     local kind = sig:find '%w%s*%b()$'  and 'signature' or 'description'
     info = info .. "\n" .. kind .. ": " .. sig .. " "
   end
-
+  
   local fpos, fline, path = M.ast_to_definition_position(ast, tokenlist)
   if fpos or fline then
     local fcol
