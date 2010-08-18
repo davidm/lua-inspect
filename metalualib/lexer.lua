@@ -132,7 +132,9 @@ function lexer:extract ()
 
       -- update self.line and first_line. i := indexes of '\n' chars
       while true do
-         i = self.src :find ("\n", i+1, true)
+         i = self.src:match ("\n()", i, true)
+           --PATCHED:LuaInspect: above line was not counting line numbers
+           --  correctly when first character of file was a \n.
          if not i or i>self.i then break end -- no more '\n' until end of token
          previous_line_length = i - self.column_offset
          if loc and i <= loc then -- '\n' before beginning of token
