@@ -118,6 +118,21 @@ local x1 = fa(5) -- unknown
 local function fa(...) return ... end --FIX
 local function fa(f) return 2,f() end --FIX
   --TODO: multiple returns not inferred
+  
+-- deadcode detection
+local deadcode
+local function f(x)
+  if false then deadcode()
+  elseif 0==1 then deadcode() deadcode()
+  elseif 1==1 then print 'ok'
+    while 0==1 do deadcode() end
+    do return end
+    deadcode() if x then end while 1 do end
+  else
+    deadcode()
+  end
+end
+--test: do return end deadcode()
 
 -- type inferences
 do

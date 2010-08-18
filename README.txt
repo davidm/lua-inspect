@@ -38,6 +38,7 @@ features could be added too.
         * basic type inferences (e.g. number + number -> number)
 	* infer function return values (e.g. `function f(x) if x then return 1,2,3 else return 1,3,'z' end end`
 	   returns 1, number, unknown).
+	* detect dead-code (e.g. `do return end dead()`) (SciTE only) (diagonal hatching)
     * refactoring:
         * command to rename all occurrences of selected variable (SciTE only)
     * browsing:
@@ -150,6 +151,7 @@ Peter Odding for VIM editor support [2]
   [!] core: fix keyword token recognition problems
   [!] core: skip inspection on require loops
   [+] core: infer function return values
+  [+] core: detect dead-code
 
 20100816
   core: make reporting optional

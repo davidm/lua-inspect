@@ -415,9 +415,8 @@ function M.require_inspect(name, report)
     if mast then
       local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
       M.inspect(mast, mtokenlist, report)
-      vinfo = mast[#mast] and mast[#mast].tag == 'Return' and mast[#mast][1]
-        or {valueknown=true, value=nil}
-      -- IMPROVE: return might not be last statement.
+      --print('req', mast.valueknown, mast.value)
+      vinfo = mast
     else
       vinfo = {valueknown='error', value=err}
       warn(report, err, " ", mpath) --Q:error printing good?
@@ -431,17 +430,23 @@ function M.require_inspect(name, report)
 end
 
 
--- Gets list of `Return statement ASTs in `Function f_ast, not including
+-- Mark AST node and all children as dead (ast.isdead).
+local function mark_dead(ast)
+  LA.walk(ast, function(bast) bast.isdead = true end)
+end
+
+-- Gets list of `Return statement ASTs in `Function (or chunk) f_ast, not including
 -- return's in nested functions.  Also returns boolean `has_implicit` indicating
 -- whether function may return by exiting the function without a return statement.
 -- Returns that are never exected are omitted (e.g. last return is omitted in
 -- `function f() if x then return 1 else return 2 end return 3 end`).
+-- Also marks AST nodes with ast.isdead (dead-code).
 local function get_func_returns(f_ast)
-  assert(f_ast.tag == 'Function')
   local isalwaysreturn = {}
   local returns = {}
   local function f(ast, isdead)
     for _,cast in ipairs(ast) do if type(cast) == 'table' then
+      if isdead then mark_dead(cast) end
       if cast.tag ~= 'Function' and not isdead then -- skip nested functions
         f(cast, isdead) -- depth-first traverse
       end
@@ -511,7 +516,7 @@ local function get_return_value(returns, retidx)
 end
 
 
--- Gets return values (or types) on `Function represented by given AST.
+-- Gets return values (or types) on `Function (or chunk) represented by given AST.
 local function get_func_return_values(f_ast)
   local returns, has_implicit = get_func_returns(f_ast)
   if has_implicit then returns[#returns+1] = {tag='Return'} end
@@ -528,16 +533,17 @@ end
 -- returns {1, T.number, T.universal}.
 
 
--- Infer values of variables.
+-- Infer values of variables. Also marks dead code (ast.isdead).
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueknown, ast.idxvalue, ast.idxvalueknown
 -- CATEGORY: code interpretation
 local nil_value_ast = {}
 function M.infer_values(top_ast, tokenlist, report)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
+  
 
   -- infer values
-  LA.walk(top_ast, nil, function(ast)
+  LA.walk(top_ast, nil, function(ast) -- walk up
     -- process `require` statements.
     if ast.tag == 'Local' or ast.tag == 'Localrec' then
       local vars_ast, values_ast = ast[1], ast[2]
@@ -656,13 +662,13 @@ function M.infer_values(top_ast, tokenlist, report)
       ast.value = ast[1]; ast.valueknown = true
     elseif ast.tag == 'True' or ast.tag == 'False' then
       ast.value = (ast.tag == 'True'); ast.valueknown = true
-    elseif ast.tag == 'Function' then
+    elseif ast.tag == 'Function' or ast == top_ast then -- includes chunk
       if not ast.valueknown then -- avoid redefinition
         local x
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
-        local retvals= get_func_return_values(ast)
+        local retvals= get_func_return_values(ast) --Q:move outside of containing conditional?
         local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist, retvals=retvals}
         M.debuginfo[val] = info
         ast.value = val
@@ -706,6 +712,28 @@ function M.infer_values(top_ast, tokenlist, report)
         else
           ast.value = T.error(val); ast.valueknown = true
         end
+      end
+    elseif ast.tag == 'If' then
+      -- detect dead-code
+      for i=2,#ast,2 do local valnode = ast[i-1]
+        if valnode.valueknown then
+          local bval = T.boolean_cast(valnode.value)
+          if bval == false then -- certainly false
+            mark_dead(ast[i])
+          elseif bval == true then -- certainly true
+            for ii=i+1,#ast do if ii%2 == 0 or ii==#ast then -- following blocks are dead
+              mark_dead(ast[ii])
+            end end
+            break
+          end
+        end
+      end
+      -- IMPROVE? `if true return end; f()` - f could be marked as deadcode
+    elseif ast.tag == 'While' then
+      -- detect dead-code
+      local expr_ast, body_ast = ast[1], ast[2]
+      if expr_ast.valueknown and T.boolean_cast(expr_ast.value) == false then
+        mark_dead(body_ast)
       end
     end
   end)
@@ -854,6 +882,7 @@ function M.uninspect(top_ast)
     ast.valueknown = nil
     ast.idxvalue = nil
     ast.idxvalueknown = nil
+    ast.isdead = nil   -- via get_func_returns
     
     -- undo walk setting ast.seevalue
     ast.seevalue = nil

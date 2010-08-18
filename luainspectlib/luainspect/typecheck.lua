@@ -8,7 +8,7 @@ return function(context)
     tag = '?', lineinfo={first={comments={{'?',1,1}},1,1,1,'?'},last={comments={{'?',1,1}},1,1,1,'?'}},
     isfield=true, tag2='', value=1, valueknown=true, idxvalue=1, idxvalueknown=true,
     resolvedname='', definedglobal=true, id=1, isparam=true, isset=true, isused=true,
-    functionlevel=1, localmasked=true, note='?', nocollect={}}
+    functionlevel=1, localmasked=true, note='?', nocollect={}, isdead=false}
   ast.localdefinition=ast; ast.localmasking = ast
   ast.previous = ast; ast.parent = ast
   ast.seevalue = ast; ast.seenote=ast

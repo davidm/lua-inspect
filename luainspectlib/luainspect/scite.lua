@@ -160,7 +160,8 @@ local INDICATOR_AUTOCOMPLETE = 4
 local INDICATOR_MASKED = 5
 -- Indicator for warnings.
 local INDICATOR_WARNING = 6
-
+-- Indicator for dead-code
+local INDICATOR_DEADCODE = 7
 
 -- Display annotations.
 -- Used for ANNOTATE_ALL_LOCALS feature.
@@ -735,9 +736,13 @@ local function OnStyle(styler)
   editor.IndicFore[INDICATOR_MASKING] = 0x0000ff
   editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
   editor.IndicFore[INDICATOR_WARNING] = 0x008080
+  editor.IndicStyle[INDICATOR_DEADCODE] = INDIC_DIAGONAL  -- IMPROVE: combine with above?
+  editor.IndicFore[INDICATOR_DEADCODE] = 0x808080
   editor.IndicatorCurrent = INDICATOR_MASKING
   editor:IndicatorClearRange(0, editor.Length)
   editor.IndicatorCurrent = INDICATOR_WARNING
+  editor:IndicatorClearRange(0, editor.Length)
+  editor.IndicatorCurrent = INDICATOR_DEADCODE
   editor:IndicatorClearRange(0, editor.Length)
   local tokenlist = buffer.tokenlist
   for idx=1,#tokenlist do
@@ -753,6 +758,11 @@ local function OnStyle(styler)
         -- note: for calls only highlight function name
       local fpos, lpos = LA.ast_pos_range(hast, buffer.tokenlist)
       editor.IndicatorCurrent = INDICATOR_WARNING
+      editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
+    end
+    if ast and ast.isdead then
+      local fpos, lpos = LA.ast_pos_range(ast, buffer.tokenlist)
+      editor.IndicatorCurrent = INDICATOR_DEADCODE
       editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
     end
   end
