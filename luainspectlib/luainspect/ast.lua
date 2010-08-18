@@ -822,7 +822,7 @@ function M.dumpstring(o, isseen, indent, key)
     for _,k in ipairs(ks) do
       if not used[k] then
         if not done then s = s .. '\n'; done = true end
-        s = s .. newindent .. dumpstring_key_(k) .. '=' .. M.dumpstring(o[k], isseen, newindent, k) .. ',\n'
+        s = s .. newindent .. dumpstring_key_(k, isseen) .. '=' .. M.dumpstring(o[k], isseen, newindent, k) .. ',\n'
       end
     end
     s = s:gsub(',(%s*)$', '%1')
