@@ -24,7 +24,7 @@ local function annotate_source(src, ast, tokenlist, emit)
     table.insert(fmt_srcs, emit(src:sub(fchar, lchar), token))
     start = lchar + 1
   end
-  if start < #src then
+  if start <= #src then
     table.insert(fmt_srcs, emit(src:sub(start)))
   end
   return table.concat(fmt_srcs)
@@ -121,7 +121,8 @@ function M.ast_to_html(ast, src, tokenlist)
  local function add_linenums(src_html)
   local out_htmls = {}
   local linenum = 1
-  for line in src_html:gmatch(".-\n") do
+  for line in src_html:gmatch("[^\n]*\n?") do
+    if line == "" then break end
     table.insert(out_htmls, string.format("%5d: ", linenum) .. line)
     linenum = linenum + 1
   end

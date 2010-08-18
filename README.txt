@@ -147,6 +147,9 @@ Peter Odding for VIM editor support [2]
 
 == Changes ==
 
+20100818
+  [!] HTML: fix missing chars at end-of-file
+
 20100817
   [!] core: fix keyword token recognition problems
   [!] core: skip inspection on require loops
