@@ -250,7 +250,7 @@ local function update_ast()
     else
       local tokenlist = ast and LA.ast_to_tokenlist(ast, compilesrc)
         -- note: ast nil if whitespace
-      --LA.dump_tokenlist(tokenlist)
+      --print(LA.dump_tokenlist(tokenlist))
       
    
       buffer.src = newsrc
