@@ -329,7 +329,9 @@ local unescape = {['d'] = '.'}
 -- Set known value on ast to that on src_ast.
 -- CATEGORY: utility function for infer_values.
 local function set_value(ast, src_ast)
-  ast.value = src_ast.value
+  if not ast.isvaluepegged then
+    ast.value = src_ast.value
+  end
 end
 
 
@@ -611,11 +613,11 @@ function M.infer_values(top_ast, tokenlist, report)
       local func_ast = ast[1]
       local args_known = true
       for i=2,#ast do if unknown(ast[i].value) then args_known = false; break end end
+      local found
       if known(func_ast.value) and args_known then
         local values_concrete = true
         for i=1,#ast do if unknown(ast[i].value) then values_concrete = false; break end end
         local func = func_ast.value
-        local found
         if func == require and known(ast[2].value) then
           local rast = M.require_inspect(ast[2].value, report)
           if rast and known(rast.value) then
@@ -628,9 +630,10 @@ function M.infer_values(top_ast, tokenlist, report)
           local ok; ok, ast.value = pcall(func, unpack(values,1,#ast-1))
           if not ok then ast.value = T.error(ast.value) end
           --TODO: handle multiple return values
+          found = true
         end
       end
-      if unknown(ast.value) then
+      if not found then
         local mf = LS.mock_functions[func_ast.value]
         if mf then
           local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
@@ -713,15 +716,13 @@ function M.infer_values(top_ast, tokenlist, report)
       ast.value = ast[1].value
     elseif ast.tag == 'Op' then
       local opid, aast, bast = ast[1], ast[2], ast[3]
-      if known(aast.value) and (not bast or known(bast.value)) then
-        local ok
-        if bast then
-          ok, ast.value = pcall(dobinop, opid, aast.value, bast.value)
-        else
-          ok, ast.value = pcall(dounop, opid, aast.value)
-        end
-        if not ok then ast.value = T.error(ast.value) end
+      local ok
+      if bast then
+        ok, ast.value = pcall(dobinop, opid, aast.value, bast.value)
+      else
+        ok, ast.value = pcall(dounop, opid, aast.value)
       end
+      if not ok then ast.value = T.error(ast.value) end
     elseif ast.tag == 'If' then
       -- detect dead-code
       if DETECT_DEADCODE then
@@ -816,7 +817,7 @@ env.error = T.error
 function env.apply_value(pattern, val)
   local function f(ast)
     if ast.tag == 'Id' and ast[1]:match(pattern) then
-      ast.value = val
+      ast.value = val; ast.isvaluepegged = true
     end
     for _,bast in ipairs(ast) do
       if type(bast) == 'table' then
@@ -891,6 +892,7 @@ function M.uninspect(top_ast)
     ast.value = nil
     ast.idxvalue = nil
     ast.isdead = nil   -- via get_func_returns
+    ast.isvaluepegged = nil
     
     -- undo walk setting ast.seevalue
     ast.seevalue = nil
