@@ -62,6 +62,7 @@ function T.error(val)
   local self = setmetatable({value=val}, CError)
   T.istype[self] = true
   T.iserror[self] = true
+  return self
 end
 
 
@@ -100,5 +101,20 @@ assert(T.superset_types(2, T.number) == T.number)
 assert(T.superset_types(T.number, T.string) == T.universal)
 print 'DONE'
 --]]
+
+-- Determines whether type `o` certainly evaluates to true (true),
+-- certainly evaluates to false (false) or could evaluate to either
+-- true of false ('?').
+function T.boolean_cast(o)
+  if T.iserror[o] then -- special case
+    return '?'
+  elseif o == nil or o == false or o == T['nil'] then -- all subsets of {nil, false}
+    return false
+  elseif o == T.universal or o == T.boolean then -- all supersets of boolean
+    return '?'
+  else -- all subsets of  universal - {nil, false}
+    return true
+  end
+end
 
 return T
