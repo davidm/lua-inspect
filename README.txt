@@ -152,6 +152,7 @@ Peter Odding for VIM editor support [2]
   [!] core: skip inspection on require loops
   [+] core: infer function return values
   [+] core: detect dead-code
+  [*] core: internal refactoring (ast.valueknown)
 
 20100816
   core: make reporting optional

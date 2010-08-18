@@ -39,6 +39,7 @@ local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
 local LI = require "luainspect.init"
 local LA = require "luainspect.ast"
+local T = require "luainspect.types"
 
 local M = {}
 
@@ -706,7 +707,7 @@ local function OnStyle(styler)
           end
         end
       elseif ast.isfield then -- implies token.tag == 'String'
-        if ast.definedglobal or ast.seevalue.valueknown and ast.seevalue.value ~= nil then
+        if ast.definedglobal or not T.istype[ast.seevalue.value] and ast.seevalue.value ~= nil then
           styler:SetState(S_FIELD_RECOGNIZED)
         else
           styler:SetState(S_FIELD)
@@ -1117,8 +1118,8 @@ function M.inspect_variable_contents()
 
   local iast = ast.seevalue or ast
 
-  if not iast.valueknown then
-    scite_UserListShow({"value unknown"})
+  if T.istype[iast.value] then
+    scite_UserListShow({"value " .. tostring(iast.value)})
   else
     inspect_value(iast.value)
   end
