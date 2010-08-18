@@ -328,12 +328,8 @@ local unescape = {['d'] = '.'}
 -- Set known value on ast to that on src_ast.
 -- CATEGORY: utility function for infer_values.
 local function set_value(ast, src_ast)
-  if not src_ast.valueknown or ast.valueknown and ast.value ~= src_ast.value then -- unknown if multiple values
-    ast.valueknown = 'multiple'
-  else
-    ast.valueknown = src_ast.valueknown
-    ast.value = src_ast.value
-  end
+  ast.valueknown = src_ast.valueknown
+  ast.value = src_ast.value
 end
 
 
@@ -342,10 +338,10 @@ local function tastnewindex(t_ast, k_ast, v_ast)
   if t_ast.valueknown and k_ast.valueknown and v_ast.valueknown then
     local t, k, v = t_ast.value, k_ast.value, v_ast.value
     if t[k] ~= nil and v ~= t[k] then -- multiple values
-      return v, 'multiple'
+      return T.universal
     else
       t[k] = v
-      return v, nil
+      return v
     end
   end
 end
@@ -560,8 +556,8 @@ function M.infer_values(top_ast, tokenlist, report)
         value_ast = value_ast or nil_value_ast
         if var_ast.tag == 'Index' then
           if var_ast[1].valueknown and var_ast[2].valueknown and value_ast.valueknown then
-            var_ast.valueknown, var_ast.value, multiple = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
-            if multiple then var_ast.valueknown = 'multiple' end
+            local ok;  ok, var_ast.value = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
+            if not ok then var_ast.value = T.error(var_ast.value) end
             --FIX: propagate to localdefinition?
           end
         else
@@ -1159,9 +1155,7 @@ function M.get_value_details(ast, tokenlist, src)
     info = info .. "? "
   end
 
-  if vast.valueknown == 'multiple' then
-    info = info .. "\nmultiple values including: " .. tostring(vast.value) .. " "
-  elseif vast.valueknown then
+  if vast.valueknown then
     info = info .. "\nvalue: " .. tostring(vast.value) .. " "
   elseif vast.value then
     info = info .. "\nerror value: " .. tostring(vast.value) .. " "
