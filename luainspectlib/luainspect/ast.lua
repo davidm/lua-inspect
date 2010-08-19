@@ -219,7 +219,7 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   -- Find smallest AST node in ast containing src range above,
   -- optionally contained comment or whitespace
   local match_ast, match_comment, iswhitespace =
-      M.smallest_ast_in_range(top_ast, tokenlist, src, src_fpos, src_lpos)
+      M.smallest_ast_containing_range(top_ast, tokenlist, src, src_fpos, src_lpos)
 
   DEBUG('invalidate-smallest:', match_ast and (match_ast.tag or 'notag'), match_comment, iswhitespace)
 
@@ -528,7 +528,7 @@ end
 
 
 
--- Gets smallest AST node inside top_ast/tokenlist/src
+-- Gets smallest AST node in top_ast/tokenlist/src
 -- completely containing position range [pos1, pos2].
 -- careful: "function" is not part of the `Function node.
 -- If range is inside comment, returns comment also.
@@ -536,7 +536,7 @@ end
 -- and range is inside whitespace, then returns true in third return value.
 --FIX: maybe src no longer needs to be passed
 -- CATEGORY: AST/tokenlist query
-function M.smallest_ast_in_range(top_ast, tokenlist, src, pos1, pos2)
+function M.smallest_ast_containing_range(top_ast, tokenlist, src, pos1, pos2)
   local f0idx, l0idx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos1, pos2)
   
   -- Find enclosing AST.
@@ -754,7 +754,7 @@ end
 -- CATEGORY: AST query
 function M.select_statementblockcomment(ast, tokenlist, fpos, lpos, allowexpand)
 --IMPROVE: rename ast to top_ast
-  local match_ast, comment_ast = M.smallest_ast_in_range(ast, tokenlist, nil, fpos, lpos)
+  local match_ast, comment_ast = M.smallest_ast_containing_range(ast, tokenlist, nil, fpos, lpos)
   local select_ast = comment_ast or M.get_containing_statementblock(match_ast, ast)
   local nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
   --DEBUG('s', nfpos, nlpos, fpos, lpos, match_ast.tag, select_ast.tag)

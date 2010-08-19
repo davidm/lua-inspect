@@ -554,7 +554,7 @@ scite_OnUpdateUI(function()
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
     fpos, lpos = fpos + 1, lpos + 1 - 1
     local match1_ast, match1_comment, iswhitespace =
-      LA.smallest_ast_in_range(buffer.ast, buffer.tokenlist, buffer.src, fpos, lpos)
+      LA.smallest_ast_containing_range(buffer.ast, buffer.tokenlist, buffer.src, fpos, lpos)
     -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.
