@@ -953,7 +953,7 @@ if scite_GetProp('PLAT_GTK') then
   KEY_LEFT = 65361
   KEY_RIGHT = 65363
   KEY_ENTER = 65293
-else
+else -- Windows
   KEY_UP = 38
   KEY_DOWN = 40
   KEY_LEFT = 37
