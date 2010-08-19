@@ -784,7 +784,7 @@ end
 -- Renders Metalua table tag fields specially {tag=X, ...} --> "`X{...}".
 -- On first call, only pass parameter o.
 -- CATEGORY: AST debug
-local ignore_keys_ = {lineinfo=true, tag=true}
+local ignore_keys_ = {lineinfo=true}
 local norecurse_keys_ = {parent=true, ast=true}
 local function dumpstring_key_(k, isseen, newindent)
   local ks = type(k) == 'string' and k:match'^[%a_][%w_]*$' and k or
@@ -813,8 +813,13 @@ function M.dumpstring(o, isseen, indent, key)
       return (type(o.tag) == 'string' and '`' .. o.tag .. ':' or '') .. tostring(o)
     else isseen[o] = true end -- avoid recursion
 
+    local used = {}
+    
     local tag = o.tag
-    local s = (tag and '`' .. tag or '') .. '{'
+    local s = '{'
+    if type(o.tag) == 'string' then
+      s = '`' .. tag .. s; used['tag'] = true
+    end
     local newindent = indent .. '  '
 
     local ks = {}; for k in pairs(o) do ks[#ks+1] = k end
@@ -827,9 +832,9 @@ function M.dumpstring(o, isseen, indent, key)
     end
 
     -- inline elements
-    local used = {}
     for _,k in ipairs(ks) do
-      if ignore_keys_[k] then used[k] = true
+      if used[k] then -- skip
+      elseif ignore_keys_[k] then used[k] = true
       elseif (type(k) ~= 'number' or not forcenummultiline) and
               type(k) ~= 'table' and (type(o[k]) ~= 'table' or norecurse_keys_[k])
       then
