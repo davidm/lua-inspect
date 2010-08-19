@@ -342,24 +342,32 @@ function M.get_keywords(ast, src)
   if not ast.lineinfo then return list end
   -- examine space between each pair of children i and j.
   -- special cases: 0 is before first child and #ast+1 is after last child
+
+  -- Put children in lexical order.
+  -- Some binary operations have arguments reversed from lexical order.
+  -- For example, `a > b` becomes `Op{'lt', `Id 'b', `Id 'a'}
+  local oast = 
+    (ast.tag == 'Op' and #ast == 3 and ast[2].lineinfo.first[3] > ast[3].lineinfo.first[3])
+    and {ast[1], ast[3], ast[2]} or ast
+  
   local i = 0
   while i <= #ast do
     -- j is node following i that has lineinfo
-    local j = i+1; while j < #ast+1 and not ast[j].lineinfo do j=j+1 end
+    local j = i+1; while j < #ast+1 and not oast[j].lineinfo do j=j+1 end
 
     -- Get position range [fpos,lpos] between subsequent children.
     local fpos
     if i == 0 then  -- before first child
       fpos = ast.lineinfo.first[3]
     else
-      local last = ast[i].lineinfo.last; local c = last.comments
+      local last = oast[i].lineinfo.last; local c = last.comments
       fpos = (c and #c > 0 and c[#c][3] or last[3]) + 1
     end
     local lpos
     if j == #ast+1 then  -- after last child
       lpos = ast.lineinfo.last[3]
     else
-      local first = ast[j].lineinfo.first; local c = first.comments
+      local first = oast[j].lineinfo.first; local c = first.comments
       --DEBUG('first', ast.tag, first[3], src:sub(first[3], first[3]+3))
       lpos = (c and #c > 0 and c[1][2] or first[3]) - 1
     end

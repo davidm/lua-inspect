@@ -154,6 +154,9 @@ if you prefer neither, append to the wiki page
 
 == Changes ==
 
+20100819
+  [!] core: fix tokenlist when opcode operands reversed lexically
+
 20100818
   [!] HTML: fix missing chars at end-of-file
   [!] Metalua: fix lexer line number count off-by-one error
