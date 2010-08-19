@@ -945,13 +945,21 @@ if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
 end
 
 
--- key codes (IMPROVE? may be Windows specific)
-local KEY_UP = 38
-local KEY_DOWN = 40
-local KEY_LEFT = 37
-local KEY_RIGHT = 39
-local KEY_ENTER = 13
-
+-- key codes
+local KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER
+if scite_GetProp('PLAT_GTK') then
+  KEY_UP = 65365
+  KEY_DOWN = 65364
+  KEY_LEFT = 65361
+  KEY_RIGHT = 65363
+  KEY_ENTER = 65293
+else
+  KEY_UP = 38
+  KEY_DOWN = 40
+  KEY_LEFT = 37
+  KEY_RIGHT = 39
+  KEY_ENTER = 13
+end
 
 -- CATEGORY: SciTE ExtMan event handler
 scite_OnKey(function(key)
