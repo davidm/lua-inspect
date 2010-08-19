@@ -727,7 +727,7 @@ local function OnStyle(styler)
       styler:SetState(S_DEFAULT)
     end
     styler:Forward()
-    i = i + 1
+    i = i + #styler:Current()  -- support Unicode
   end
   styler:EndStyling()  
 

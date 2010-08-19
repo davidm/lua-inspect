@@ -132,8 +132,11 @@ function M.ast_to_html(ast, src, tokenlist)
  src_html = add_linenums(src_html)
 
  src_html = [[
+ <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title></title>
   <script src="jquery-1.4.2.min.js" type="text/javascript"></script>
   <script src="luainspect.js" type="text/javascript"></script>

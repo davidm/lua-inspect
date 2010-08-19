@@ -150,6 +150,7 @@ Peter Odding for VIM editor support [2]
 20100818
   [!] HTML: fix missing chars at end-of-file
   [!] Metalua: fix lexer line number count off-by-one error
+  [!] SciTE: fix Unicode/UTF-8 encoding breaking formatting
 
 20100817
   [!] core: fix keyword token recognition problems

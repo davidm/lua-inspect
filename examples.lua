@@ -1,6 +1,9 @@
--- some examples/tests
+-- some examples/tests.   -*- coding: utf-8 -*-
 
 local mt = require "math"
+
+-- unicode test (this should not break highlighting)
+do print("Δ™«»∂≈") end -- Δ™«»∂≈
 
 -- Basic variable scope and usage tests
 local unused_local = 1
