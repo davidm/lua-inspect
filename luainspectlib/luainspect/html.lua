@@ -93,9 +93,7 @@ function M.ast_to_html(ast, src, tokenlist)
         end
       end
       
-      local id_html = ''
       if ast.id then
-        id_html = " id='id" .. ast.id .. "'"
         class = class .. " id" .. ast.id
       elseif ast.id then
         class = class .. " id" .. ast.localdefinition.id
@@ -105,7 +103,7 @@ function M.ast_to_html(ast, src, tokenlist)
         local name = ast.resolvedname
         desc_html = desc_html .. "<br>" .. escape_html(LS.global_signatures[name])
       end
-      return "<span class='" .. class .. "'" .. id_html .. ">" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
+      return "<span class='" .. class .. "'>" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
     elseif token.tag == 'Comment' then
       return "<span class='comment'>" .. snip_html .. "</span>"
     elseif token.tag == 'String' then -- note: excludes ast.isfield
