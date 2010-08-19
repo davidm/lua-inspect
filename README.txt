@@ -156,6 +156,7 @@ if you prefer neither, append to the wiki page
 
 20100819
   [!] core: fix tokenlist when opcode operands reversed lexically
+  [*] metalua/performance - avoid overriding builtin pairs/ipairs
 
 20100818
   [!] HTML: fix missing chars at end-of-file
