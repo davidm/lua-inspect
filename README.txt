@@ -140,6 +140,13 @@ Fabien Fleutot for Metalua and discussions.
 SciTE suggestions/fixes by Tymur Gubayev.
 Peter Odding for VIM editor support [2]
 
+== Bugs ==
+
+Please report bugs via github <http://github.com/davidm/lua-inspect/issues>
+or just "dee em dot el you ae at em ae tee ayche two dot ow ar gee", or
+if you prefer neither, append to the wiki page
+<http://lua-users.org/wiki/LuaInspect>.
+
 == References ==
 
 [1] http://www.scintilla.org/SciTE.html
