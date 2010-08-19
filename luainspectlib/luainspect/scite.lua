@@ -871,7 +871,7 @@ local function get_prefixexp(pos0)
     local fpos0 = editor:WordStartPosition(pos0, true)
     local word = editor:textrange(fpos0,pos0)
     table.insert(ids, 1, word)
-    local c = string.char(editor.CharAt[fpos0-1])
+    local c = editor:textrange(fpos0-1, fpos0)
     pos0 = fpos0-1
   until c ~= '.' and c ~= ':'
   return ids
@@ -882,7 +882,7 @@ end
 -- CATEGORY: SciTE command and (dual use) helper
 function M.autocomplete_variable(_, minchars)
   local lpos0 = editor.CurrentPos
-  local c = string.char(editor.CharAt[lpos0-1])
+  local c = editor:textrange(lpos0-1, lpos0)
   if c == '(' then -- function arguments
     local ids = get_prefixexp(lpos0-1)
     if ids[1] ~= '' then
