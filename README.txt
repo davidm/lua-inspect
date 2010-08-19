@@ -159,6 +159,7 @@ if you prefer neither, append to the wiki page
   [!] Metalua: fix lexer line number count off-by-one error
   [!] SciTE: fix Unicode/UTF-8 encoding breaking formatting
   [!] core: fix performance problem with tinsertlist function
+  [!] core/performance: cleanup invalidated_code function
 
 20100817
   [!] core: fix keyword token recognition problems

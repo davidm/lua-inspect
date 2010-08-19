@@ -194,8 +194,9 @@ end  -- differs from longest_prefix only on line [*]
 
 
 -- Determines AST node that must be re-evaluated upon changing code string from
--- `src` to `bsrc`, given previous AST `top_ast` and tokenlist `tokenlist` corresponding to `src`.
--- note: decorates ast1 as side-effect
+-- `src` to `bsrc`, given previous top_ast/tokenlist/src.
+-- Note: decorates top_ast as side-effect.
+-- If preserve is true, then does not expand AST match even if replacement is invalid.
 -- CATEGORY: AST/tokenlist manipulation
 function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   -- Converts posiiton range in src to position range in bsrc.
@@ -207,64 +208,74 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   end
 
   if src == bsrc then return end -- up-to-date
-  
+
+  -- Find range of positions in src that differences correspond to.
+  -- Note: for zero byte range, src_pos2 = src_pos1 - 1.
   local npre = longest_prefix(src, bsrc)
   local npost = math.min(#src-npre, longest_postfix(src, bsrc))
-    -- note: min to avoid overlap ambiguity
-    
-  -- Find range of positions in src that differences correspond to.
-  -- note: for zero byte range, src_pos2 = src_pos1 - 1.
+      -- note: min avoids overlap ambiguity
   local src_fpos, src_lpos = 1 + npre, #src - npost
   
-  -- Find smallest AST node in ast containing src range above,
-  -- optionally contained comment or whitespace
+  -- Find smallest AST node containing src range above.  May also
+  -- be contained in (smaller) comment or whitespace.
   local match_ast, match_comment, iswhitespace =
       M.smallest_ast_containing_range(top_ast, tokenlist, src, src_fpos, src_lpos)
-
   DEBUG('invalidate-smallest:', match_ast and (match_ast.tag or 'notag'), match_comment, iswhitespace)
 
+  -- Determine which (ast, comment, or whitespace) to match, and get its pos range in src and bsrc.
+  local srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, mast, mtype
   if iswhitespace then
-    local bsrc_fpos, bsrc_lpos = range_transform(src_fpos, src_lpos)
-    if preserve then
-      return src_fpos, src_lpos, bsrc_fpos, bsrc_lpos, nil, 'whitespace'
-    end
-    if bsrc:sub(bsrc_fpos, bsrc_lpos):match'^%s*$' then -- whitespace replaced with whitespace
-      if not bsrc:sub(bsrc_fpos-1, bsrc_lpos+1):match'%s' then
-        DEBUG('edit:white-space-eliminated')
-        -- whitespace eliminated, continue
-      else
-        return src_fpos, src_lpos, bsrc_fpos, bsrc_lpos, nil, 'whitespace'
-      end
-    end -- else continue
+    mast, mtype = nil, 'whitespace'
+    srcm_fpos, srcm_lpos = src_fpos, src_lpos
   elseif match_comment then
-    local srcm_fpos, srcm_lpos = match_comment.fpos, match_comment.lpos
-    local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
-    if preserve then
-      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
-    end
-    -- If new text is not a single comment, then invalidate containing statementblock instead.
-    local m2src = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
-    DEBUG('inc-compile-comment[' .. m2src .. ']')
-    if quick_parse_comment(m2src) then  -- comment replaced with comment
-      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_comment, 'comment'
-    end -- else continue
-  else -- statementblock modified
-    match_ast = M.get_containing_statementblock(match_ast, top_ast)
-    local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
-    local bsrcm_fpos, bsrc_lpos = range_transform(srcm_fpos, srcm_lpos)
-    if preserve then
-      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
-    end
-    local m2src = bsrc:sub(bsrcm_fpos, bsrc_lpos)
-    DEBUG('inc-compile-statblock:', match_ast and match_ast.tag, '[' .. m2src .. ']')
-    if loadstring(m2src) then -- statementblock replaced with statementblock 
-      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrc_lpos, match_ast, 'statblock'
-    end -- else continue
+    mast, mtype = match_comment, 'comment'
+    srcm_fpos, srcm_lpos = match_comment.fpos, match_comment.lpos
+  else
+    mast, mtype = match_ast, 'ast'
+    srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
+  end
+  bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
+
+  -- Never expand match if preserve specified.
+  if preserve then
+    return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, mast, mtype
   end
 
-  -- otherwise invalidate entire AST.
-  -- IMPROVE:performance: we don't always need to invalidate the entire AST here.
-  return nil, nil, nil, nil, top_ast, 'full'
+  -- Determine if replacement could break parent nodes.
+  local isreplacesafe
+  if mtype == 'whitespace' then
+    if bsrc:sub(bsrcm_fpos, bsrcm_lpos):match'^%s*$' then -- replaced with whitespace
+      if bsrc:sub(bsrcm_fpos-1, bsrcm_lpos+1):match'%s' then -- not eliminating whitespace
+        isreplacesafe = true
+      end
+    end
+  elseif mtype == 'comment' then
+    local m2src = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
+    DEBUG('invalidate-comment[' .. m2src .. ']')
+    if quick_parse_comment(m2src) then  -- replaced with comment
+      isreplacesafe = true
+    end
+  end
+  if isreplacesafe then  -- return on safe replacement
+    return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, mast, mtype
+  end
+
+  -- Find smallest containing statement block that will compile.
+  while 1 do
+    match_ast = M.get_containing_statementblock(match_ast, top_ast)
+    local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
+    local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
+    local msrc = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
+    DEBUG('invalidate-statblock:', match_ast and match_ast.tag, '[' .. msrc .. ']')
+    if loadstring(msrc) then -- compiled
+      return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, match_ast, 'statblock'
+    end
+    M.ensure_parents_marked(top_ast)
+    match_ast = match_ast.parent
+    if not match_ast then
+      return nil, nil, nil, nil, top_ast, 'full'  -- entire AST invalidated
+    end
+  end
 end
 
 
@@ -680,7 +691,7 @@ end
 
 -- Calls mark_parents(ast) if ast not marked.
 -- CATEGORY: AST query
-local function ensure_parents_marked(ast)
+function M.ensure_parents_marked(ast)
   if ast[1] and not ast[1].parent then M.mark_parents(ast) end
 end
 
@@ -741,7 +752,7 @@ function M.get_containing_statementblock(ast, top_ast)
   if ast.tag2 == 'Stat' or ast.tag2 == 'StatBlock' or ast.tag2 == 'Block' then
     return ast
   else
-    ensure_parents_marked(top_ast)
+    M.ensure_parents_marked(top_ast)
     return M.get_containing_statementblock(ast.parent, top_ast)
   end
 end
@@ -767,7 +778,7 @@ function M.select_statementblockcomment(ast, tokenlist, fpos, lpos, allowexpand)
       -- note: multiple times may be needed to expand selection.  For example, in
       --   `for x=1,2 do f() end` both the statement `f()` and block `f()` have
       --   the same position range.
-      ensure_parents_marked(ast)
+      M.ensure_parents_marked(ast)
       while select_ast.parent and fpos == nfpos and lpos == nlpos do
         select_ast = M.get_containing_statementblock(select_ast.parent, ast)
         nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
