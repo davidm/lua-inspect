@@ -13,7 +13,7 @@ if not rawpairs then
    rawpairs, rawipairs, rawtype = pairs, ipairs, type
 end
 
-function pairs(x) -- PATCHED:LuaInspect [*]
+function pairsmt(x) -- PATCHED:LuaInspect [*]
    assert(type(x)=='table', 'pairs() expects a table')
    local mt = getmetatable(x)
    if mt then
@@ -23,7 +23,7 @@ function pairs(x) -- PATCHED:LuaInspect [*]
    return rawpairs(x)
 end
 
-function ipairs(x) --PATCHED:LuaInspect [*]
+function ipairsmt(x) --PATCHED:LuaInspect [*]
    assert(type(x)=='table', 'ipairs() expects a table')
    local mt = getmetatable(x)
    if mt then
