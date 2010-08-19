@@ -297,10 +297,28 @@ end
 -- Inserts all elements in list bt at index i in list t.
 -- CATEGORY: table utility
 local function tinsertlist(t, i, bt)
-  for bi=#bt,1,-1 do
-    table.insert(t, i, bt[bi])
-  end
+  local oldtlen, delta = #t, i - 1
+  for ti = #t + 1, #t + #bt do t[ti] = false end -- preallocate (avoid holes)
+  for ti = oldtlen, i, -1 do t[ti + #bt] = t[ti] end -- shift
+  for bi = 1, #bt do t[bi + delta] = bt[bi] end -- fill
 end
+--[[TESTSUITE:
+local function _tinsertlist(t, i, bt)
+  for bi=#bt,1,-1 do table.insert(t, i, bt[bi]) end
+end -- equivalent but MUCH less efficient for large tables
+local function _tinsertlist(t, i, bt)
+  for bi=1,#bt do table.insert(t, i+bi-1, bt[bi]) end
+end -- equivalent but MUCH less efficient for large tables
+local t = {}; tinsertlist(t, 1, {}); assert(table.concat(t)=='')
+local t = {}; tinsertlist(t, 1, {2,3}); assert(table.concat(t)=='23')
+local t = {4}; tinsertlist(t, 1, {2,3}); assert(table.concat(t)=='234')
+local t = {2}; tinsertlist(t, 2, {3,4}); assert(table.concat(t)=='234')
+local t = {4,5}; tinsertlist(t, 1, {2,3}); assert(table.concat(t)=='2345')
+local t = {2,5}; tinsertlist(t, 2, {3,4}); assert(table.concat(t)=='2345')
+local t = {2,3}; tinsertlist(t, 3, {4,5}); assert(table.concat(t)=='2345')
+print 'DONE'
+--]]
+
 
 
 -- Gets list of keyword positions related to node ast in source src

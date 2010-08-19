@@ -158,6 +158,7 @@ if you prefer neither, append to the wiki page
   [!] HTML: fix missing chars at end-of-file
   [!] Metalua: fix lexer line number count off-by-one error
   [!] SciTE: fix Unicode/UTF-8 encoding breaking formatting
+  [!] core: fix performance problem with tinsertlist function
 
 20100817
   [!] core: fix keyword token recognition problems
