@@ -154,6 +154,10 @@ if you prefer neither, append to the wiki page
 
 == Changes ==
 
+20100820
+  [!] SciTE: fix folding performance problem (though folding still disabled by default
+      due to OnStyle recursion problem)
+
 20100819
   [!] core: fix tokenlist when opcode operands reversed lexically
   [*] metalua/performance - avoid overriding builtin pairs/ipairs
