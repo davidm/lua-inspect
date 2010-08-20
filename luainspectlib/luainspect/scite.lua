@@ -314,9 +314,6 @@ local function update_ast()
      editor.IndicatorCurrent = INDICATOR_ERROR
      editor:IndicatorClearRange(0, editor.Length)
      editor:IndicatorFillRange(pos, 1) --IMPROVE:mark entire token?
-     editor:MarkerDefine(MARKER_ERRORLINE, SC_MARK_CHARACTER+33) -- '!'
-     editor:MarkerSetFore(MARKER_ERRORLINE, 0xffffff)
-     editor:MarkerSetBack(MARKER_ERRORLINE, 0x0000ff)
      editor:MarkerDeleteAll(MARKER_ERRORLINE)
      editor:MarkerAdd(linenum-1, MARKER_ERRORLINE)
      editor:AnnotationClearAll()
@@ -335,12 +332,7 @@ local function update_ast()
      if errfpos0 then
        --unused: editor.IndicatorCurrent = INDICATOR_INVALIDATED
        --  editor:IndicatorClearRange(INDICATOR_INVALIDATED, editor.Length)
-       --  editor.IndicStyle[INDICATOR_INVALIDATED] = INDIC_SQUIGGLE
-       --  editor.IndicFore[INDICATOR_INVALIDATED] = 0x0000ff
        --  editor:IndicatorFillRange(errfpos0, errlpos0-errfpos0+1)
-       editor:MarkerDefine(MARKER_ERROR, SC_MARK_FULLRECT)
-       editor:MarkerSetBack(MARKER_ERROR, 0x000080)
-       editor:MarkerSetAlpha(MARKER_ERROR, 10)
        for line0=editor:LineFromPosition(errfpos0), editor:LineFromPosition(errlpos0) do
          editor:MarkerAdd(line0, MARKER_ERROR)
        end
@@ -362,8 +354,6 @@ local function update_ast()
   -- Do auto-completion.
   -- WARNING:FIX:the implementations here are currently rough.
   if AUTOCOMPLETE_SYNTAX and errfpos0 then
-    editor.IndicStyle[INDICATOR_AUTOCOMPLETE] = INDIC_BOX
-    editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
     editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
     --DEBUG(buffer.lastsrc)
     local ssrc = buffer.lastsrc:sub(errfpos0+1, errlpos0+1)
@@ -418,21 +408,12 @@ local function scope_lines(firstline0, lastline0)
   if firstline0 ~= lastline0 then -- multiline
     --TODO: not rendering exactly as desired.  TCORNERCURVE should
     -- preferrably be an upside-down LCORNERCURVE; plus the color on TCORNERCURVE is off.
-    editor:MarkerDefine(MARKER_SCOPEBEGIN, SC_MARK_TCORNERCURVE)
-    editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
-    editor:MarkerDefine(MARKER_SCOPEEND, SC_MARK_LCORNERCURVE)
-    editor:MarkerSetFore(MARKER_SCOPEBEGIN, 0x0000ff)
-    editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
-    editor:MarkerSetFore(MARKER_SCOPEEND, 0x0000ff)
-
     editor:MarkerAdd(firstline0, MARKER_SCOPEBEGIN)
     for n=firstline0+1,lastline0-1 do
       editor:MarkerAdd(n, MARKER_SCOPEMIDDLE)
     end
     editor:MarkerAdd(lastline0, MARKER_SCOPEEND)
   else -- single line
-    editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
-    editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
     editor:MarkerAdd(firstline0, MARKER_SCOPEMIDDLE)
   end
 end
@@ -444,20 +425,6 @@ local function scope_positions(fpos0, lpos0)
   local firstline0 = editor:LineFromPosition(fpos0)
   local lastline0 = editor:LineFromPosition(lpos0)
   scope_lines(firstline0, lastline0)
-end
-
--- CATEGORY: SciTE GUI
-local function init_indicator_styles()
-  local indic_style = props["style.script_lua.indic_style"]
-  editor.IndicStyle[INDICATOR_SCOPE] =
-      indic_style == '' and INDIC_ROUNDBOX or indic_style
-  editor.IndicStyle[INDICATOR_KEYWORD] = INDIC_PLAIN
-  local indic_fore = props["style.script_lua.indic_fore"]
-  if indic_fore ~= '' then
-    local color = tonumber(indic_fore:sub(2), 16)
-    editor.IndicFore[INDICATOR_SCOPE] = color
-    editor.IndicFore[INDICATOR_KEYWORD] = color
-  end
 end
 
 
@@ -503,7 +470,6 @@ function M.OnUpdateUI()
   editor.IndicatorCurrent = INDICATOR_MASKED
   editor:IndicatorClearRange(0, editor.Length)
   if id then
-    init_indicator_styles() --Q: how often need this be called?
 
     -- Indicate uses of variable.
     editor.IndicatorCurrent = INDICATOR_SCOPE
@@ -525,17 +491,9 @@ function M.OnUpdateUI()
       if fpos then
         local maskedlinenum0 = editor:LineFromPosition(fpos-1)
         local maskinglinenum0 = editor:LineFromPosition(selectedtoken.fpos-1)
-        editor:MarkerDefine(MARKER_MASKED, SC_MARK_CHARACTER+77) -- 'M'
-        editor:MarkerSetFore(MARKER_MASKED, 0xffffff)
-        editor:MarkerSetBack(MARKER_MASKED, 0x000080)
         editor:MarkerAdd(maskedlinenum0, MARKER_MASKED)
-        editor:MarkerDefine(MARKER_MASKING, SC_MARK_CHARACTER+77) -- 'M'
-        editor:MarkerSetFore(MARKER_MASKING, 0xffffff)
-        editor:MarkerSetBack(MARKER_MASKING, 0x0000ff)
         editor:MarkerAdd(maskinglinenum0, MARKER_MASKING)
         editor.IndicatorCurrent = INDICATOR_MASKED
-        editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
-        editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
         editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
       end
     end
@@ -598,9 +556,6 @@ function M.OnStyle(styler)
     -- Dislpay wait marker if not displayed and new text parsing not yet attempted.
     if not buffer.wait_marker_line and editor:GetText() ~= buffer.lastsrc then
       buffer.wait_marker_line = editor:LineFromPosition(editor.CurrentPos)
-      editor:MarkerDefine(MARKER_WAIT, SC_MARK_CHARACTER+43) -- '+'
-      editor:MarkerSetFore(MARKER_WAIT, 0xffffff)
-      editor:MarkerSetBack(MARKER_WAIT, 0xff0000)
       editor:MarkerDeleteAll(MARKER_WAIT)
       editor:MarkerAdd(buffer.wait_marker_line, MARKER_WAIT)
       style_delay_count = style_delay_count + 1
@@ -729,12 +684,6 @@ function M.OnStyle(styler)
 
   -- Apply indicators in token list.
   -- Mark masking local variables and warnings.
-  editor.IndicStyle[INDICATOR_MASKING] = INDIC_SQUIGGLE
-  editor.IndicFore[INDICATOR_MASKING] = 0x0000ff
-  editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
-  editor.IndicFore[INDICATOR_WARNING] = 0x008080
-  editor.IndicStyle[INDICATOR_DEADCODE] = INDIC_DIAGONAL  -- IMPROVE: combine with above?
-  editor.IndicFore[INDICATOR_DEADCODE] = 0x808080
   editor.IndicatorCurrent = INDICATOR_MASKING
   editor:IndicatorClearRange(0, editor.Length)
   editor.IndicatorCurrent = INDICATOR_WARNING
@@ -1468,6 +1417,53 @@ without ``) to your SciTE Lua startup script (i.e. the file identified in your
   install_handler'OnOpen'
   install_handler'OnBeforeSave'
   install_handler'OnSwitchFile'
+
+  -- Define markers and indicators.
+  editor:MarkerDefine(MARKER_ERRORLINE, SC_MARK_CHARACTER+33) -- '!'
+  editor:MarkerSetFore(MARKER_ERRORLINE, 0xffffff)
+  editor:MarkerSetBack(MARKER_ERRORLINE, 0x0000ff)
+  editor:MarkerDefine(MARKER_ERROR, SC_MARK_FULLRECT)
+  editor:MarkerSetBack(MARKER_ERROR, 0x000080)
+  editor:MarkerSetAlpha(MARKER_ERROR, 10)
+  editor:MarkerDefine(MARKER_SCOPEBEGIN, SC_MARK_TCORNERCURVE)
+  editor:MarkerDefine(MARKER_SCOPEMIDDLE, SC_MARK_VLINE)
+  editor:MarkerDefine(MARKER_SCOPEEND, SC_MARK_LCORNERCURVE)
+  editor:MarkerSetFore(MARKER_SCOPEBEGIN, 0x0000ff)
+  editor:MarkerSetFore(MARKER_SCOPEMIDDLE, 0x0000ff)
+  editor:MarkerSetFore(MARKER_SCOPEEND, 0x0000ff)
+  editor:MarkerDefine(MARKER_MASKED, SC_MARK_CHARACTER+77) -- 'M'
+  editor:MarkerSetFore(MARKER_MASKED, 0xffffff)
+  editor:MarkerSetBack(MARKER_MASKED, 0x000080)
+  editor:MarkerDefine(MARKER_MASKING, SC_MARK_CHARACTER+77) -- 'M'
+  editor:MarkerSetFore(MARKER_MASKING, 0xffffff)
+  editor:MarkerSetBack(MARKER_MASKING, 0x0000ff)
+  editor:MarkerDefine(MARKER_WAIT, SC_MARK_CHARACTER+43) -- '+'
+  editor:MarkerSetFore(MARKER_WAIT, 0xffffff)
+  editor:MarkerSetBack(MARKER_WAIT, 0xff0000)
+  editor.IndicStyle[INDICATOR_AUTOCOMPLETE] = INDIC_BOX
+  editor.IndicFore[INDICATOR_AUTOCOMPLETE] = 0xff0000
+  local indic_style = props["style.script_lua.indic_style"]
+  local indic_fore = props["style.script_lua.indic_fore"]
+  editor.IndicStyle[INDICATOR_SCOPE] =
+    indic_style == '' and INDIC_ROUNDBOX or indic_style
+  editor.IndicStyle[INDICATOR_KEYWORD] = INDIC_PLAIN
+  if indic_fore ~= '' then
+    local color = tonumber(indic_fore:sub(2), 16)
+    editor.IndicFore[INDICATOR_SCOPE] = color
+    editor.IndicFore[INDICATOR_KEYWORD] = color
+  end
+  editor.IndicStyle[INDICATOR_MASKED] = INDIC_STRIKE
+  editor.IndicFore[INDICATOR_MASKED] = 0x0000ff
+  editor.IndicStyle[INDICATOR_MASKING] = INDIC_SQUIGGLE
+  editor.IndicFore[INDICATOR_MASKING] = 0x0000ff
+  editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
+  editor.IndicFore[INDICATOR_WARNING] = 0x008080
+  editor.IndicStyle[INDICATOR_DEADCODE] = INDIC_DIAGONAL  -- IMPROVE: combine with above?
+  editor.IndicFore[INDICATOR_DEADCODE] = 0x808080
+  --  editor.IndicStyle[INDICATOR_INVALIDATED] = INDIC_SQUIGGLE
+  --  editor.IndicFore[INDICATOR_INVALIDATED] = 0x0000ff
+  
+      
 end
 
 
