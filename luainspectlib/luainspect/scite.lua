@@ -35,6 +35,8 @@ local AUTOCOMPLETE_SYNTAX = scite_GetProp('luainspect.autocomplete.syntax', '0')
 local PATH_APPEND = scite_GetProp('luainspect.path.append', '')
 local CPATH_APPEND = scite_GetProp('luainspect.cpath.append', '')
 
+local ENABLE_FOLDING = false -- currently disabled due to performance reasons
+
 -- Base color scheme.
 -- sciteGetProp('style.script_lua.scheme')   'dark' or 'light' (same as '')
 
@@ -549,8 +551,6 @@ local style_delay_count = 0
 local isblock = {Function=true}
 local debug_recursion = 0
 function M.OnStyle(styler)
-  debug_recursion = debug_recursion + 1
-  assert(debug_recursion == 1) -- check: folding may trigger recursion
   assert(styler.language == "script_lua")
 
   -- Optionally delay styling.
@@ -576,7 +576,7 @@ function M.OnStyle(styler)
   -- WARNING: updating marker causes another style event to be called immediately.
   -- Therefore, we take care to only update marker when marker state needs changed
   -- and correct the count when we do.
-  
+ 
   --IMPROVE: could metalua libraries parse text across multiple calls to
   --`OnStyle` to reduce long pauses with big files?  Maybe use coroutines.
 
@@ -596,7 +596,11 @@ function M.OnStyle(styler)
   -- WARNING: SciTE will repeatedly call OnStyle until StartStyling is performed.
   -- However, StartStyling/Forward/EndStyling clears styles in the given range,
   -- but we prefer to leave the styles as is.
- 
+
+  debug_recursion = debug_recursion + 1
+  if debug_recursion ~= 1 then print('warning: OnStyle recursion', debug_recursion) end
+      -- folding previously triggered recursion leading to odd effects; make sure this is gone
+  
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
@@ -717,42 +721,48 @@ function M.OnStyle(styler)
   end
   
   -- Apply folding.
-  --[[FIX:disabled due to odd problems discussed below
-  local linea0 = editor:LineFromPosition(styler.startPos)
-  local lineb0 = editor:LineFromPosition(styler.startPos+styler.lengthDoc)
-  print('DEBUG:+', linea0,lineb0) -- test for recursion
-  -- IMPROVE: This might be done only over styler.startPos, styler.lengthDoc.
-  --   Does that improve performance?
-  local level = 0
-  local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
-  LA.walk(buffer.ast, function(ast)
-    if isblock[ast.tag] then
-      local fpos1, lpos1 = LA.ast_pos_range(ast, buffer.tokenlist)
-      local fline1 = LA.pos_to_linecol(fpos1, buffer.src)
-      local lline1 = LA.pos_to_linecol(lpos1, buffer.src)
-      levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
-      level = level + 1
-      for line1=fline1+1, lline1 do levels[line1] = level end
+  --FIX:disabled due to odd problems discussed below
+  if ENABLE_FOLDING then
+    clockbegin 'f1'
+    local linea0 = editor:LineFromPosition(styler.startPos)
+    local lineb0 = editor:LineFromPosition(styler.startPos+styler.lengthDoc)
+    --print('DEBUG:+', linea0,lineb0) -- test for recursion
+    -- IMPROVE: This might be done only over styler.startPos, styler.lengthDoc.
+    --   Does that improve performance?
+    local level = 0
+    local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
+    LA.walk(buffer.ast, function(ast)
+      if isblock[ast.tag] then
+        local fpos1, lpos1 = LA.ast_pos_range(ast, buffer.tokenlist) --FIX: this is quite slow
+        local fline1 = LA.pos_to_linecol(fpos1, buffer.src)
+        local lline1 = LA.pos_to_linecol(lpos1, buffer.src)
+        levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
+        level = level + 1
+        for line1=fline1+1, lline1 do levels[line1] = level end
+      end
+    end, function(ast)
+      if isblock[ast.tag] then level = level - 1 end
+    end)
+    for line1=#levels,1,-1 do -- [*1]
+      --  if line1-1 >= linea0 and line1-1 <= lineb0 then [*2]
+      styler:SetLevelAt(line1-1, levels[line1])
     end
-  end, function(ast)
-    if isblock[ast.tag] then level = level - 1 end
-  end)
-  for line1=#levels,1,-1 do -- [*1]
-    --  if line1-1 >= linea0 and line1-1 <= lineb0 then [*2]
-    styler:SetLevelAt(line1-1, levels[line1])
+    -- caution: If StartStyling is performed over a range larger than suggested by startPos/lengthDoc,
+    --   then we cannot rely on it for folding.
+    -- Note: previously folding triggered OnStyle recursion, leading to odd problems.  This seems
+    --   like it might be gone now following various changes.  The following old comments are left
+    --   here until this is confirmed:
+    -- #  Changing a flag on a line more than once
+    -- #  like this causes OnStyle sometimes causing stack overflow from recursion:
+    -- #     styler:SetLevelAt(0,1)
+    -- #     styler:SetLevelAt(0,1 + SC_FOLDLEVELHEADERFLAG)
+    -- #  Setting levels only on lines being styled [*2] improves this to little or no recusion but worsens
+    -- #     styling problems (which exist whenever folding is used here).
+    -- #  Iterating in reverse [*1] reduces recursion to little or none.
+    -- #  Disabling folding completely eliminates recursion.  
+    --print'DEBUG:-'  -- test for recursion
+    clockend 'f2'
   end
-  print'DEBUG:-'  -- test for recursion
-  -- caution: If StartStyling is performed over a range larger than suggested by startPos/lengthDoc,
-  --   then we cannot rely on it for folding.
-  -- QUESTION: this function is prone to recursion.  Changing a flag on a line more than once
-  --   like this causes OnStyle sometimes causing stack overflow from recursion:
-  --     styler:SetLevelAt(0,1)
-  --     styler:SetLevelAt(0,1 + SC_FOLDLEVELHEADERFLAG)
-  --   Setting levels only on lines being styled [*2] improves this to little or no recusion but worsens
-  --     styling problems (which exist whenever folding is used here).
-  --   Iterating in reverse [*1] reduces recursion to little or none.
-  --   Disabling folding completely eliminates recursion.  
-  --]]
 
   debug_recursion = debug_recursion - 1
 end
