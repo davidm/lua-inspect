@@ -2,6 +2,7 @@
 --
 -- (c) 2010 David Manura, MIT License.
 
+
 -- Whether to update the AST on every edit (true) or only when the selection
 -- is moved to a different line (false).  false can be more efficient for large files.
 local UPDATE_ALWAYS = scite_GetProp('luainspect.update.always', '1') == '1'
@@ -50,7 +51,7 @@ local M = {}
 -- src  -- source text corresponding to `ast`
 -- lastsrc  -- last attempted `src` (might not be successfully compiled)
 -- tokenlist  -- tokenlist corresponding to `ast`
--- lastline - number of last line in scite_OnUpdateUI (only if not UPDATE_ALWAYS)
+-- lastline - number of last line in OnUpdateUI (only if not UPDATE_ALWAYS)
 
 
 -- Performance test utilities.  Enabled only for PERFORMANCE_TESTS.
@@ -461,12 +462,8 @@ end
 
 
 -- Respond to UI updates.  This includes moving the cursor.
--- CATEGORY: SciTE ExtMan event handler
-scite_OnUpdateUI(function()
-  -- FIX: how do we make this event only occur for Lua buffers?
-  -- Hack below probably won't work with multiple Lua-based lexers.
-  if editor.Lexer ~= 0 then return end
-
+-- CATEGORY: SciTE event handler
+function M.OnUpdateUI()
   -- Disable any autocomplete indicators if cursor moved away.
   if AUTOCOMPLETE_SYNTAX then
     if editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) ~= 1 then
@@ -583,8 +580,7 @@ scite_OnUpdateUI(function()
     --editor:CallTipCancel()
   end
   ]]
-end)
-
+end
 
 
 -- Respond to requests for restyling.
@@ -593,8 +589,8 @@ end)
 -- CATEGORY: SciTE event handler
 local style_delay_count = 0
 local isblock = {Function=true}
-local function OnStyle(styler)
-  if styler.language ~= "script_lua" then return end -- avoid conflict with other stylers
+function M.OnStyle(styler)
+  assert(styler.language == "script_lua")
 
   -- Optionally delay styling.
   --print('DEBUG:style-count', style_delay_count)
@@ -808,8 +804,8 @@ local function OnStyle(styler)
 end
 
 
--- CATEGORY: SciTE ExtMan event handler
-scite_OnDoubleClick(function()
+-- CATEGORY: SciTE event handler
+function M.OnDoubleClick()
   if buffer.src ~= editor:GetText() then return end -- skip if AST is not up-to-date
   
   -- check if selection if currently on identifier
@@ -818,7 +814,7 @@ scite_OnDoubleClick(function()
     local info  = LI.get_value_details(token.ast, buffer.tokenlist, buffer.src)
     editor:CallTipShow(token.fpos-1, info)
   end
-end)
+end
 
 
 --TODO:ExtMan: add to extman?  Currently extman includes scite_UserListShow wrapping UserListShow
@@ -913,35 +909,33 @@ function M.autocomplete_variable(_, minchars)
 end
 
 
--- CATEGORY: SciTE ExtMan event handler
-if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
-  scite_OnChar(function(c)
-    -- FIX: how do we make this event only occur for Lua buffers?
-    -- Hack below probably won't work with multiple Lua-based lexers.
-    if editor.Lexer ~= 0 then return end    
+-- CATEGORY: SciTE event handler
+function M.OnChar(c)
+  -- FIX: how do we make this event only occur for Lua buffers?
+  -- Hack below probably won't work with multiple Lua-based lexers.
+  if editor.Lexer ~= 0 then return end    
 
-    -- Auto-complete variable names.
-    -- note: test ./: not effective
-    if AUTOCOMPLETE_VARS and
-        buffer.ast and (not editor:AutoCActive() or c == '.' or c == ':'  or c == '(')
-    then
-      M.autocomplete_variable(nil, 1)
-    end
+  -- Auto-complete variable names.
+  -- note: test ./: not effective
+  if AUTOCOMPLETE_VARS and
+    buffer.ast and (not editor:AutoCActive() or c == '.' or c == ':'  or c == '(')
+  then
+    M.autocomplete_variable(nil, 1)
+  end
   
-    -- Ignore character typed over autocompleted text.
-    -- Q: is this the best way to ignore/delete current char?
-    if AUTOCOMPLETE_SYNTAX and editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
-      if editor.CharAt[editor.CurrentPos] == editor.CharAt[editor.CurrentPos-1] then
-        editor.TargetStart = editor.CurrentPos
-        editor.TargetEnd = editor.CurrentPos+1
-        editor:ReplaceTarget("")
-      else
-        -- chars typed should not be have autocomplete indicators on them.
-        editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
-        editor:IndicatorClearRange(editor.CurrentPos-1,1)
-      end
+  -- Ignore character typed over autocompleted text.
+  -- Q: is this the best way to ignore/delete current char?
+  if AUTOCOMPLETE_SYNTAX and editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
+    if editor.CharAt[editor.CurrentPos] == editor.CharAt[editor.CurrentPos-1] then
+      editor.TargetStart = editor.CurrentPos
+      editor.TargetEnd = editor.CurrentPos+1
+      editor:ReplaceTarget("")
+    else
+      -- chars typed should not be have autocomplete indicators on them.
+      editor.IndicatorCurrent = INDICATOR_AUTOCOMPLETE
+      editor:IndicatorClearRange(editor.CurrentPos-1,1)
     end
-  end)
+  end
 end
 
 
@@ -961,8 +955,9 @@ else -- Windows
   KEY_ENTER = 13
 end
 
--- CATEGORY: SciTE ExtMan event handler
-scite_OnKey(function(key)
+
+-- CATEGORY: SciTE event handler
+function M.OnKey(key)
   -- Adjusting styling delays due to user typing.
   if key == KEY_UP or key == KEY_DOWN or
      key == KEY_LEFT or key == KEY_RIGHT or key == KEY_ENTER
@@ -972,26 +967,30 @@ scite_OnKey(function(key)
     style_delay_count = UPDATE_DELAY
   end
   --print('DEBUG:key', key)
-end)
+end
 
--- CATEGORY: SciTE ExtMan event handler
-scite_OnOpen(function()
+
+-- CATEGORY: SciTE event handler
+function M.OnOpen()
   -- Trigger styling immediately on new file open
   -- Note: only happens in current buffer; therefore, also do this in OnSwitchFile.
   style_delay_count = 0
-end)
+end
 
--- CATEGORY: SciTE ExtMan event handler
-scite_OnBeforeSave(function()
+
+-- CATEGORY: SciTE event handler
+function M.OnBeforeSave()
   -- Trigger styling immediately before save.
   style_delay_count = 0
-end)
+end
 
--- CATEGORY: SciTE ExtMan event handler
-scite_OnSwitchFile(function()
+
+-- CATEGORY: SciTE event handler
+function M.OnSwitchFile()
   -- Trigger styling immediately on switch buffer so that styling immediately displays.
   style_delay_count = 0
-end)
+end
+
 
 -- Command for replacing all occurances of selected variable (if any) with given text `newname`
 -- Usage in SciTE properties file:
@@ -1112,6 +1111,7 @@ local function inspect_value(o, prevmenu)
     scite_UserListShow({dump_shallow(o)})
   end
 end
+
 
 -- Command for inspecting fields of selected table variable.
 -- CATEGORY: SciTE command
@@ -1251,31 +1251,36 @@ local function mysearcher(name)
 end
 
 
--- Installs plugin into SciTE.
+-- Installs properties and other global changes during startup.
+-- This function should be called via something like
+--
+--   local LUAINSPECT_PATH = "c:/lua-inspect"
+--   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
+--   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
+--   require "luainspect.scite".install()
+--
+-- from the SciTE Lua startup script, i.e. the file identified in the
+-- `ext.lua.startup.script` property.
+-- If the Lua startup script is ExtMan, you may optionally instead call
+-- this from an ExtMan script (i.e. Lua file inside the ExtMan "scite_lua" folder.
+-- This function does not work correctly if called from a Lua extension script,
+-- i.e. the file identified in the `extension.*.lua` property, because by the
+-- time the extension script has been loaded SciTE has already applied
+-- styles from the properties so customizations here will be ignored until a
+-- buffer switch.
+--
 -- CATEGORY: initialization
 function M.install()
-  scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
-  scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
-  scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
-  scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+B")
-  scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
-  scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
-  scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
-  scite_Command("Autocomplete variable|luainspect_autocomplete_variable|*.lua|Ctrl+Alt+C")
-  scite_Command("List all errors/warnings|luainspect_list_warnings|*.lua|Ctrl+Alt+W")
-  --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
-  _G.OnStyle = OnStyle
-  _G.luainspect_rename_selected_variable = M.rename_selected_variable
-  _G.luainspect_goto_definition = M.goto_definition
-  _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
-  _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
-  _G.luainspect_select_statementblockcomment = M.select_statementblockcomment
-  _G.luainspect_force_reinspect = M.force_reinspect
-  _G.luainspect_goto_previous_statement = M.goto_previous_statement
-  _G.luainspect_autocomplete_variable = M.autocomplete_variable
-  _G.luainspect_list_warnings = M.list_warnings
 
   -- apply styles if not overridden in properties file.
+
+  if props['extension.*.lua'] == '' then
+    local thisfilepath = assert(assert(debug.getinfo(1).source):gsub('^@', ''))
+    print(thisfilepath)
+    props['extension.*.lua'] = thisfilepath
+      -- Q: is there a cleaner way?
+  end
+
   local light_styles = [[
 # This can be customized in your properties file.
 lexer.*.lua=script_lua
@@ -1363,15 +1368,38 @@ style.script_lua.selection.back=#808080
         props[realname] = value
     end
   end
-  -- DESIGN:SciTE: The above technique does not work ideally.  A property like 'selection.back'
+  -- DESIGN:SciTE: The above technique does not work ideally.  A property like `selection.back`
   -- may be pre-defined by SciTE, and then we'd want this script to override that default, and
   -- finally we'd want to allow the user to override that in property files.  However, this script
   -- is run after property files are applied and doesn't know whether a property
   -- has been re-defined in a property file unless the property was left blank by SciTE and the
   -- user property file changed it to a non-blank value.  This is the reason why the above
   -- dark_styles uses style.script_lua.selection.back (which is undefined by SciTE) rather
-  -- than selection.back (which SciTE may predefine to a non-blank value).
+  -- than selection.back (which SciTE may predefine to a non-blank value).  It would be
+  -- preferrable if SciTE would allow this script to define default properties before properties
+  -- are read from property files.
+  
+  scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
+  scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
+  scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
+  scite_Command("Inspect table contents|luainspect_inspect_variable_contents|*.lua|Ctrl+Alt+B")
+  scite_Command("Select current statement, block or comment|luainspect_select_statementblockcomment|*.lua|Ctrl+Alt+S")
+  scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
+  scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
+  scite_Command("Autocomplete variable|luainspect_autocomplete_variable|*.lua|Ctrl+Alt+C")
+  scite_Command("List all errors/warnings|luainspect_list_warnings|*.lua|Ctrl+Alt+W")
+  --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
+  _G.luainspect_rename_selected_variable = M.rename_selected_variable
+  _G.luainspect_goto_definition = M.goto_definition
+  _G.luainspect_inspect_variable_contents = M.inspect_variable_contents
+  _G.luainspect_show_all_variable_uses = M.show_all_variable_uses
+  _G.luainspect_select_statementblockcomment = M.select_statementblockcomment
+  _G.luainspect_force_reinspect = M.force_reinspect
+  _G.luainspect_goto_previous_statement = M.goto_previous_statement
+  _G.luainspect_autocomplete_variable = M.autocomplete_variable
+  _G.luainspect_list_warnings = M.list_warnings
 
+  
   -- Allow finding modules.
   table.insert(package.loaders, mysearcher)
   if PATH_APPEND ~= '' then
@@ -1387,10 +1415,73 @@ style.script_lua.selection.back=#808080
   local oldmt = getmetatable(package.loaded)
   local mt = oldmt  or {}
   if not mt.__mode then mt.__mode = 'v' end
-  if not oldmt then setmetatable(package.loaded, mt) end
+  if not oldmt then setmetatable(package.loaded, mt) end 
+  
+  _G.luainspect_installed = true
 end
 
---COMMENT:SciTE: when Lua code fails, why doesn't SciTE display a full stack traceback
--- (debug.traceback) to assist debugging?
+
+-- Install a SciTE event handler locally for the current buffer.
+-- If an existing global handler exists (this includes ExtMan handlers),
+-- ensure that is still called also.
+-- CATEGORY: initialization.
+local function install_handler(name)
+  local local_handler = M[name]
+  local global_handler = _G[name]
+  _G[name] = function(...)
+    local_handler(...)
+    if global_handler then global_handler(...) end
+  end
+end
+
+
+-- Installs extension interface.
+-- This function should be called via
+--
+--    require "luainspect.scite".install_extension()
+--
+-- from your Lua extension script
+-- (the file identified in your `extension.*.lua` property) or by
+-- setting your `extension.*.lua` property to this file
+-- (NOTE: the `install` function automatically does
+-- this for you).  Do not call this from your SciTE Lua startup script
+-- (the file identified in your `ext.lua.startup.script` property) because
+-- that would activate these events for non-Lua files as well.
+--
+-- CATEGORY: initialization
+function M.install_extension()
+  if not _G.luainspect_installed then
+    error([[
+ERROR: Please add `require "luainspect.scite".setup_install()` (but
+without ``) to your SciTE Lua startup script (i.e. the file identified in your
+`ext.lua.startup.script` property (i.e. ]] .. props['ext.lua.startup.script'] ..').', 0)
+  end
+
+  -- Install event handlers for this buffer.
+  install_handler'OnStyle'
+  install_handler'OnUpdateUI'
+  install_handler'OnDoubleClick'
+  if AUTOCOMPLETE_VARS or AUTOCOMPLETE_SYNTAX then
+    install_handler'OnChar'
+  end
+  install_handler'OnKey'
+  install_handler'OnOpen'
+  install_handler'OnBeforeSave'
+  install_handler'OnSwitchFile'
+end
+
+
+-- If this module was not loaded via require, then assume it is being loaded
+-- as a SciTE Lua extension script, i.e. `extension.*.lua` property.
+if ... == nil then
+  M.install_extension()
+end
+
+
+--COMMENT:SciTE: when Lua code fails, SciTE by default doesn't display a
+--  full stack traceback (debug.traceback) to assist debugging.
+--  Presumably the undocumented ext.lua.debug.traceback=1 enables this,
+--  but it didn't seem to work for me.
+
 
 return M
