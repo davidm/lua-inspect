@@ -547,7 +547,10 @@ end
 -- CATEGORY: SciTE event handler
 local style_delay_count = 0
 local isblock = {Function=true}
+local debug_recursion = 0
 function M.OnStyle(styler)
+  debug_recursion = debug_recursion + 1
+  assert(debug_recursion == 1) -- check: folding may trigger recursion
   assert(styler.language == "script_lua")
 
   -- Optionally delay styling.
@@ -717,19 +720,19 @@ function M.OnStyle(styler)
   --[[FIX:disabled due to odd problems discussed below
   local linea0 = editor:LineFromPosition(styler.startPos)
   local lineb0 = editor:LineFromPosition(styler.startPos+styler.lengthDoc)
-  DEBUG('+', linea0,lineb0) -- test for recursion
+  print('DEBUG:+', linea0,lineb0) -- test for recursion
   -- IMPROVE: This might be done only over styler.startPos, styler.lengthDoc.
   --   Does that improve performance?
   local level = 0
   local levels = {}; for line1=1,editor.LineCount do levels[line1] = level end
   LA.walk(buffer.ast, function(ast)
     if isblock[ast.tag] then
-      local fline1, lline1 =  LA.ast_pos_range(ast, buffer.tokenlist)
+      local fpos1, lpos1 = LA.ast_pos_range(ast, buffer.tokenlist)
+      local fline1 = LA.pos_to_linecol(fpos1, buffer.src)
+      local lline1 = LA.pos_to_linecol(lpos1, buffer.src)
       levels[fline1] = level + (lline1>fline1 and SC_FOLDLEVELHEADERFLAG or 0)
-      level = level + 1      
-      for line1=fline1+1, lline1 do
-        levels[line1] = level
-      end
+      level = level + 1
+      for line1=fline1+1, lline1 do levels[line1] = level end
     end
   end, function(ast)
     if isblock[ast.tag] then level = level - 1 end
@@ -738,6 +741,7 @@ function M.OnStyle(styler)
     --  if line1-1 >= linea0 and line1-1 <= lineb0 then [*2]
     styler:SetLevelAt(line1-1, levels[line1])
   end
+  print'DEBUG:-'  -- test for recursion
   -- caution: If StartStyling is performed over a range larger than suggested by startPos/lengthDoc,
   --   then we cannot rely on it for folding.
   -- QUESTION: this function is prone to recursion.  Changing a flag on a line more than once
@@ -747,9 +751,10 @@ function M.OnStyle(styler)
   --   Setting levels only on lines being styled [*2] improves this to little or no recusion but worsens
   --     styling problems (which exist whenever folding is used here).
   --   Iterating in reverse [*1] reduces recursion to little or none.
-  --   Disabling folding completely eliminates recursion.
-  print'DEBUG:-'  -- test for recursion
-  ]]
+  --   Disabling folding completely eliminates recursion.  
+  --]]
+
+  debug_recursion = debug_recursion - 1
 end
 
 
