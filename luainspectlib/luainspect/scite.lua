@@ -721,7 +721,6 @@ function M.OnStyle(styler)
   end
   
   -- Apply folding.
-  --FIX:disabled due to odd problems discussed below
   if ENABLE_FOLDING then
     clockbegin 'f1'
     local linea0 = editor:LineFromPosition(styler.startPos)
