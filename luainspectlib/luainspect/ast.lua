@@ -263,6 +263,9 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   -- Find smallest containing statement block that will compile.
   while 1 do
     match_ast = M.get_containing_statementblock(match_ast, top_ast)
+    if match_ast == top_ast then
+      return nil, nil, nil, nil, top_ast, 'full'  -- entire AST invalidated
+    end
     local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
     local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
     local msrc = bsrc:sub(bsrcm_fpos, bsrcm_lpos)
@@ -272,9 +275,6 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
     end
     M.ensure_parents_marked(top_ast)
     match_ast = match_ast.parent
-    if not match_ast then
-      return nil, nil, nil, nil, top_ast, 'full'  -- entire AST invalidated
-    end
   end
 end
 
