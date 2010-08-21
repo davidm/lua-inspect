@@ -18,8 +18,8 @@ local T = require "luainspect.types"
 
 --! require 'luainspect.typecheck' (context)
  
-local ENABLE_RETURN_ANALYSIS = false
-local DETECT_DEADCODE = false
+local ENABLE_RETURN_ANALYSIS = true
+local DETECT_DEADCODE = false -- may require more validation
 
 
 -- Functional forms of Lua operators.
@@ -114,8 +114,9 @@ end
 M.debuginfo = setmetatable({}, {__mode='v'})
 
 -- Modules loaded via require_inspect.
--- module name string -> AST node
--- note: no weak refs
+-- module name string -> {return value, AST node}
+-- note: AST node is maintained to prevent nocollect fields in ast being collected.
+-- note: not a weak table.
 M.package_loaded = {}
 
 -- Stringifies interpreted value for debugging.
@@ -406,41 +407,54 @@ end
 -- unique value used to detect require loops (A require B require A)
 local REQUIRE_SENTINEL = function() end
 
--- Version of require that does source analysis (inspect) on module.
-function M.require_inspect(name, report)
-  local ast = M.package_loaded[name]
-  if ast == REQUIRE_SENTINEL then
-     warn(report, "loop in require when loading " .. name)
-     return nil
-  end
-  if ast then return ast end
-  status(report, 'loading:' .. name)
-  M.package_loaded[name] = REQUIRE_SENTINEL -- avoid recursion on require loops
-  local msrc, mpath = load_module_source(name)
+-- Gets single return value of chunk ast.  Assumes ast is inspected.
+local function chunk_return_value(ast)
   local vinfo
-  if msrc then
-    local mast, err = LA.ast_from_string(msrc, mpath)
-    if mast then
-      local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
-      M.inspect(mast, mtokenlist, report)
       if ENABLE_RETURN_ANALYSIS then
-        vinfo = mast
+        local info = M.debuginfo[ast.value]
+        local retvals = info and info.retvals
+        if retvals then
+          vinfo = retvals[1]
+        else
+          vinfo = T.universal
+        end
       else
-        if mast[#mast] and mast[#mast].tag == 'Return' and mast[#mast][1] then
-          vinfo = mast[#mast][1]
+        if ast[#ast] and ast[#ast].tag == 'Return' and ast[#ast][1] then
+          vinfo = ast[#ast][1]
         else
           vinfo = T.universal
         end
       end
+  return vinfo
+end
+      
+-- Version of require that does source analysis (inspect) on module.
+function M.require_inspect(name, report)
+  local plinfo = M.package_loaded[name]
+  if plinfo == REQUIRE_SENTINEL then
+     warn(report, "loop in require when loading " .. name)
+     return nil
+  end
+  if plinfo then return plinfo[1] end
+  status(report, 'loading:' .. name)
+  M.package_loaded[name] = REQUIRE_SENTINEL -- avoid recursion on require loops
+  local msrc, mpath = load_module_source(name)
+  local vinfo, mast
+  if msrc then
+    local err; mast, err = LA.ast_from_string(msrc, mpath)
+    if mast then
+      local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
+      M.inspect(mast, mtokenlist, report)
+      vinfo = chunk_return_value(mast)
     else
-      vinfo = {value=T.error(err)}
+      vinfo = T.error(err)
       warn(report, err, " ", mpath) --Q:error printing good?
     end
   else
     warn(report, 'module not found: ' .. name)
-    vinfo = {value=T.error'module not found'} --IMPROVE: include search paths?
+    vinfo = T.error'module not found' --IMPROVE: include search paths?
   end
-  M.package_loaded[name] = vinfo
+  M.package_loaded[name] = {vinfo, mast}
   return vinfo
 end
 
@@ -461,7 +475,7 @@ local function get_func_returns(f_ast)
   local returns = {}
   local function f(ast, isdead)
     for _,cast in ipairs(ast) do if type(cast) == 'table' then
-      if isdead then mark_dead(cast) end
+      if isdead then mark_dead(cast) end -- even if DETECT_DEADCODE disabled
       if cast.tag ~= 'Function' and not isdead then -- skip nested functions
         f(cast, isdead) -- depth-first traverse
       end
@@ -490,7 +504,7 @@ local function get_func_returns(f_ast)
     end
   end
   f(f_ast, false)
-  local block_ast = f_ast[2]
+  local block_ast = f_ast.tag == 'Function' and f_ast[2] or f_ast
   local has_implicit = not isalwaysreturn[block_ast]
   return returns, has_implicit
 end
@@ -532,7 +546,6 @@ end
 local function get_func_return_values(f_ast)
   local returns, has_implicit = get_func_returns(f_ast)
   if has_implicit then returns[#returns+1] = {tag='Return'} end
-
   local returnvals = {}
   for retidx=1,math.huge do
     local value = get_return_value(returns, retidx)
@@ -619,9 +632,9 @@ function M.infer_values(top_ast, tokenlist, report)
         for i=1,#ast do if unknown(ast[i].value) then values_concrete = false; break end end
         local func = func_ast.value
         if func == require and known(ast[2].value) then
-          local rast = M.require_inspect(ast[2].value, report)
-          if rast and known(rast.value) then
-            ast.value = rast.value
+          local val = M.require_inspect(ast[2].value, report)
+          if known(val) then
+            ast.value = val
             found = true
           end
         end

@@ -154,6 +154,9 @@ if you prefer neither, append to the wiki page
 
 == Changes ==
 
+20100821
+  [+!] core: return analysis enabled following fixes
+
 20100820
   [!] SciTE: fix folding performance problem (though folding still disabled by default
       due to OnStyle recursion problem)
