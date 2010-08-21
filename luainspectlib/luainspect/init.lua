@@ -633,10 +633,10 @@ function M.infer_values(top_ast, tokenlist, report)
         local func = func_ast.value
         if func == require and known(ast[2].value) then
           local val = M.require_inspect(ast[2].value, report)
-          if known(val) then
+          if known(val) and val ~= nil then
             ast.value = val
             found = true
-          end
+          end -- note: on nil value, assumes analysis failed (not found). This is a heuristic only.
         end
         if not found and LS.safe_function[func] then
           local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
