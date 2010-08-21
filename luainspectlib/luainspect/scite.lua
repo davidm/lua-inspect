@@ -1505,10 +1505,12 @@ if ... == nil then
 end
 
 
---COMMENT:SciTE: when Lua code fails, SciTE by default doesn't display a
---  full stack traceback (debug.traceback) to assist debugging.
---  Presumably the undocumented ext.lua.debug.traceback=1 enables this,
---  but it didn't seem to work for me.
+-- COMMENT:SciTE: when Lua code fails, SciTE by default doesn't display a
+--   full stack traceback (debug.traceback) to assist debugging.
+--   Presumably the undocumented ext.lua.debug.traceback=1 enables this,
+--   but it works oddly, installing `print` rather than `debug.traceback` as
+--   the error handling function.  Although one can set print to debug.traceback,
+--   that breaks print.
 
 
 return M
