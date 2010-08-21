@@ -700,7 +700,11 @@ function M.infer_values(top_ast, tokenlist, report)
           if east.tag == 'Pair' then
             local kast, vast = east[1], east[2]
             if known(kast.value) and known(vast.value) then
-              value[kast.value] = vast.value
+              if kast.value == nil then
+                -- IMPROVE? warn in some way?
+              else
+                value[kast.value] = vast.value
+              end
             end
           else
             if known(east.value) then
