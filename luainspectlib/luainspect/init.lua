@@ -631,14 +631,14 @@ function M.infer_values(top_ast, tokenlist, report)
         local values_concrete = true
         for i=1,#ast do if unknown(ast[i].value) then values_concrete = false; break end end
         local func = func_ast.value
-        if func == require and known(ast[2].value) then
+        if func == require and known(ast[2].value) and false then
           local val = M.require_inspect(ast[2].value, report)
           if known(val) and val ~= nil then
             ast.value = val
             found = true
           end -- note: on nil value, assumes analysis failed (not found). This is a heuristic only.
         end
-        if not found and LS.safe_function[func] then
+        if not found and (LS.safe_function[func] or func == pcall and LS.safe_function[ast[2].value]) then
           local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
           local ok; ok, ast.value = pcall(func, unpack(values,1,#ast-1))
           if not ok then ast.value = T.error(ast.value) end
