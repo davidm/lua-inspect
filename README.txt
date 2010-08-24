@@ -69,7 +69,10 @@ Example:
 
 Install SciTE version.  Version 2.12 and 2.20 work (older versions might not work).
 
-First install http://lua-users.org/wiki/SciteExtMan .
+First install http://lua-users.org/wiki/SciteExtMan .  The included version in the extman
+folder is recommended (older versions might not work properly).  Typically, just copy the
+contents of this folder into the same folder as your SciTE program.  The scite_lua
+folder is optional.
 
 Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
 
@@ -80,9 +83,12 @@ package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
 require "luainspect.scite" : install()
 =============================
 
+If you installed ExtMan from the included extman folder, just edit the scite_lua\luainspect.lua
+file.
+
 Dependencies:
   Tested with SciTE version 2.12 (older versions might not work).  
-  Requires http://lua-users.org/wiki/SciteExtMan .
+  Requires http://lua-users.org/wiki/SciteExtMan (included).
   ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
     to return to previous location following a "go to definition" or "show all variable uses").
 
@@ -158,6 +164,7 @@ if you prefer neither, append to the wiki page
   
   [*] SciTE: change Ctrl-Alt-W to Ctrl-Alt-E
   [!] SciTE: fix bookmarking (Ctrl+F2)
+  [+] SciTE: bundle copy of extman.lua
 
 20100821
   [+!] core: return analysis enabled following fixes
