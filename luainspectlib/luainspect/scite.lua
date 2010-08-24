@@ -1367,7 +1367,7 @@ style.script_lua.selection.back=#808080
   scite_Command("Force full reinspection of all code|luainspect_force_reinspect|*.lua|Ctrl+Alt+Z")
   scite_Command("Goto previous statement|luainspect_goto_previous_statement|*.lua|Ctrl+Alt+Up")
   scite_Command("Autocomplete variable|luainspect_autocomplete_variable|*.lua|Ctrl+Alt+C")
-  scite_Command("List all errors/warnings|luainspect_list_warnings|*.lua|Ctrl+Alt+W")
+  scite_Command("List all errors/warnings|luainspect_list_warnings|*.lua|Ctrl+Alt+E")
   --FIX: user.context.menu=Rename all instances of selected variable|1102 or props['user.contextmenu']
   _G.luainspect_rename_selected_variable = M.rename_selected_variable
   _G.luainspect_goto_definition = M.goto_definition
