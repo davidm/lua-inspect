@@ -138,7 +138,7 @@ STYLES.indic_style = 'indic_style'
 -- Marker for range of lines with invalidated code that doesn't parse.
 local MARKER_ERROR = 0
 -- Markers for lines of variable scope or block.
-local MARKER_SCOPEBEGIN = 1
+local MARKER_SCOPEBEGIN = 8
 local MARKER_SCOPEMIDDLE = 2
 local MARKER_SCOPEEND = 3
 -- Marker for specific line with parser error.
@@ -150,6 +150,7 @@ local MARKER_WAIT = 5
 local MARKER_MASKED = 6
 -- Marker displayed next to local definition masking another local defintion.
 local MARKER_MASKING = 7
+-- note: marker 1 used for bookmarks
 
 -- Indicator for syntax or other errors
 local INDICATOR_ERROR = 0

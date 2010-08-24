@@ -155,7 +155,9 @@ if you prefer neither, append to the wiki page
 == Changes ==
 
 20100823
-  [*] SciTE: Change Ctrl-Alt-W to Ctrl-Alt-E
+  
+  [*] SciTE: change Ctrl-Alt-W to Ctrl-Alt-E
+  [!] SciTE: fix bookmarking (Ctrl+F2)
 
 20100821
   [+!] core: return analysis enabled following fixes
