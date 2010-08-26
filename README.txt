@@ -51,13 +51,13 @@ features could be added too.
 
 == Files in this directory ==
 
-metalualib/* - Copy of Metalua libraries under here
-luainspectlib/* - LuaInspect libraries under here
-htmllib/* - HTML resources under here
-
-Note: the metalualib contains this version of metalua:
-  http://github.com/fab13n/metalua/tree/fcee97b8d0091ceb471902ee457dbccaab98234e
-with a few bug fixes (search for "PATCHED:LuaInspect" in the source)
+metalualib/* - Copy of Metalua libraries.
+  Based on http://github.com/fab13n/metalua/tree/fcee97b8d0091ceb471902ee457dbccaab98234e
+  with a few bug fixes (search for "PATCHED:LuaInspect" in the source).
+luainspectlib/* - LuaInspect libraries.
+htmllib/* - HTML resources under here.
+extman/* - SciTE extman.
+  Recent version compatible with LuaInspect.
 
 == Command-line Usage (HTML output) ==
 
@@ -67,39 +67,45 @@ Example:
 
 == Installation in SciTE ==
 
-Install SciTE version.  Version 2.12 and 2.20 work (older versions might not work).
+First install SciTE <http://www.scintilla.org/SciTE.html>.
+Version 2.12 and 2.20 work (older versions might not work).
 
-First install http://lua-users.org/wiki/SciteExtMan .  The included version in the extman
-folder is recommended (older versions might not work properly).  Typically, just copy the
-contents of this folder into the same folder as your SciTE program.  The scite_lua
-folder is optional.
+The simple way to install LuaInspect into SciTE is to just place the
+"luainspect" folder inside the same folder where your SciTE binary is
+installed and add the following line to one of your SciTE properties
+files (e.g. SciTEGlobal.properties or SciTEUser.properties -- consult
+the SciTE documentation for where these are located):
 
-Add this to your SciTE Lua startup script (but change LUAINSPECT_PATH):
+  ext.lua.startup.script=$(SciteDefaultHome)/luainspect/extman/extman.lua
 
-=============================
-local LUAINSPECT_PATH = "c:/luainspect"
-package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
-package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
-require "luainspect.scite" : install()
-=============================
+That normally is all you need to do.
 
-If you installed ExtMan from the included extman folder, just edit the scite_lua\luainspect.lua
-file.
+If you placed LuaInspect somewhere else or are using your own version
+of SciTE ExtMan (extman.lua), you will need to adjust the above to
+reference the absolute path where extman.lua is installed.  LuaInspect
+includes its own copy of SciTE ExtMan
+<http://lua-users.org/wiki/SciteExtMan>, and it's recommended to use
+the included version because older versions might not work
+properly.  The files in the scite_lua subfolder are not strictly
+necessary but are suggested.  In particularly, scite_lua/luainspect.lua
+allows ExtMan to find LuaInspect, and you will need to adjust this if
+you move LuaInspect somewhere else relative to ExtMan.
 
 Dependencies:
-  Tested with SciTE version 2.12 (older versions might not work).  
-  Requires http://lua-users.org/wiki/SciteExtMan (included).
-  ctagsdx.lua from the full SciteExtMan is optional (allows "goto mark" command
-    to return to previous location following a "go to definition" or "show all variable uses").
+  Tested with SciTE version 2.12/2.20 (older versions might not work).  
+  Requires http://lua-users.org/wiki/SciteExtMan (version included).
+    Note: ExtMan's ctagsdx.lua is recommended (allows "goto mark"
+    command to return to previous location following a "go to
+    definition" or "show all variable uses").
 
 If you want to customize styles, add the contents of the
-`light_styles` or `dark_styles` variable in the scite.lua file to your
-SciTEGlobal.properties, SciTEUser.properties, or SciTE.properties file.
+`light_styles` or `dark_styles` variable in the scite.lua file to a
+SciTE properties file.
 
 == Configuring SciTE options ==
 
 The following LuaInspect options can be configured in one of your
-SciTE property files:
+SciTE properties files:
 
   luainspect.update.always (0 or 1, default 1)
   luainspect.delay.count (integer >= 1, default 5)
@@ -144,13 +150,13 @@ David Manura, original author.
 Steve Donovan for discussions on design, SciTE and ExtMan.
 Fabien Fleutot for Metalua and discussions.
 SciTE suggestions/fixes by Tymur Gubayev.
-Peter Odding for VIM editor support [2]
+Peter Odding for VIM editor support [2].
 
 == Bugs ==
 
 Please report bugs via github <http://github.com/davidm/lua-inspect/issues>
 or just "dee em dot el you ae at em ae tee ayche two dot ow ar gee", or
-if you prefer neither, append to the wiki page
+if you prefer neither then append to the wiki page
 <http://lua-users.org/wiki/LuaInspect>.
 
 == References ==
@@ -160,8 +166,10 @@ if you prefer neither, append to the wiki page
 
 == Changes ==
 
+20100825
+  [*] SciTE: simplify install (use default path)
+
 20100823
-  
   [*] SciTE: change Ctrl-Alt-W to Ctrl-Alt-E
   [!] SciTE: fix bookmarking (Ctrl+F2)
   [+] SciTE: bundle copy of extman.lua
