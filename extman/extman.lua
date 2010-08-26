@@ -412,6 +412,7 @@ end
 
 local extman_path = path_of(props['ext.lua.startup.script'])
 local lua_path = scite_GetProp('ext.lua.directory',extman_path..dirsep..'scite_lua')
+props['ext.lua.directory'] = lua_path:gsub('[\\/]$', '')
 
 fn,err = package.loadlib(extman_path.."/gui.dll","luaopen_gui")
 if fn then fn() else
