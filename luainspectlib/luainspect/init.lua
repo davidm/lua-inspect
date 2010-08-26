@@ -656,6 +656,8 @@ function M.infer_values(top_ast, tokenlist, report)
           local retvals = info and info.retvals
           if retvals then
             ast.value = retvals[1]
+          else
+            ast.value = T.universal
           end
           --TODO:handle multiple return values
         end

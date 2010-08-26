@@ -169,6 +169,7 @@ if you prefer neither then append to the wiki page
 20100825
   [*] SciTE: simplify install (use default path)
   [!] core: fix: function params should infer to unknown values
+  [!] core: fix: infer: unknown functions return unknown values
 
 20100823
   [*] SciTE: change Ctrl-Alt-W to Ctrl-Alt-E
