@@ -127,14 +127,17 @@ local function fa(f) return 2,f() end --FIX
   --TODO: multiple returns not inferred
   
 -- expression lists from function returns
+local a1,a1 = (function() return 1,2 end)() -- 1,2
 local function zero() end
 local function one() return 'a' end
 local function two() return 'a', 'b' end
 local a1, a2 = zero() -- nil, nil
 local a1, a2 = one() -- 'a', nil
-local a1, a2, a3 = two() -- 'a', 'b', nil  FIX
-local a1, a2, a3 = two(), 'c' -- 'a', 'c', nil  FIX
-local a1, a2, a3, a4 = 'z', two()  -- 'z', 'a', 'b' FIX
+local a1, a2, a3 = two() -- 'a', 'b', nil
+local a1, a2, a3 = two(), 'c' -- 'a', 'c', nil
+local a1, a2, a3, a4 = 'z', two()  -- 'z', 'a', 'b', nil
+ga1, ga2, ga3, ga4 = 'z', two()  -- 'z', 'a', 'b', nil  (global sets)
+local tt = {}; tt.ga1, tt.ga2, tt.ga3, tt.ga4 = 'z', two()  -- 'z', 'a', 'b', nil  (index sets)
 math.atan2(function() return 2, 3 end) -- FIX: arg count ok
 math.atan2(function() return 2, 'x' end) -- FIX: arg type mismatch
 math.atan2(unknownfunc()) -- FIX: arg count could be ok

@@ -166,6 +166,10 @@ if you prefer neither then append to the wiki page
 
 == Changes ==
 
+20100827
+  [+] core: infer sets involving functions with multiple returns.
+     e.g. local a,b = (function() return 1,2 end)()
+
 20100825
   [*] SciTE: simplify install (use default path)
   [!] core: fix: function params should infer to unknown values

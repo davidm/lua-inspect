@@ -586,32 +586,41 @@ function M.infer_values(top_ast, tokenlist, report)
     -- process `require` statements.
     if ast.tag == 'Local' or ast.tag == 'Localrec' then
       local vars_ast, values_ast = ast[1], ast[2]
+      local valuelist = #values_ast > 0 and values_ast[#values_ast].valuelist
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
-        value_ast = value_ast or nil_value_ast
-        set_value(var_ast, value_ast.value)
-        --FIX: handle functions with multiple returns
+        local value
+        if value_ast then
+          value = value_ast.value
+        elseif valuelist then
+          value = valuelist[i - #values_ast + 1]
+        end
+        set_value(var_ast, value)
       end
-    elseif ast.tag == 'Set' then
+    elseif ast.tag == 'Set' then -- note: implementation similar to 'Local'
       local vars_ast, values_ast = ast[1], ast[2]
+      local valuelist = #values_ast > 0 and values_ast[#values_ast].valuelist
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
-        value_ast = value_ast or nil_value_ast
+        local value
+        if value_ast then
+          value = value_ast.value
+        elseif valuelist then
+          value = valuelist[i - #values_ast + 1]
+        end
         if var_ast.tag == 'Index' then
-          local ok;  ok, var_ast.value = pcall(tastnewindex, var_ast[1], var_ast[2], value_ast)
+          local ok;  ok, var_ast.value = pcall(tastnewindex, var_ast[1], var_ast[2], {value=value})
           if not ok then var_ast.value = T.error(var_ast.value) end
             --FIX: propagate to localdefinition?
         else
           assert(var_ast.tag == 'Id', var_ast.tag)
           if var_ast.localdefinition then
-            set_value(var_ast, value_ast.value)
+            set_value(var_ast, value)
           else -- global
-            --old:if known(value_ast.value) then
-              local name, val = var_ast[1], value_ast.value
-              top_ast.valueglobals[name] = val
-            --end
+            local name = var_ast[1]
+            top_ast.valueglobals[name] = value
           end
-        end --FIX: handle functions with multiple returns
+        end
         --FIX: propagate to definition or localdefinition?
       end
     elseif ast.tag == 'Id' then
