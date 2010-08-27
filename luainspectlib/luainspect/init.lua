@@ -631,7 +631,7 @@ function M.infer_values(top_ast, tokenlist, report)
         local values_concrete = true
         for i=1,#ast do if unknown(ast[i].value) then values_concrete = false; break end end
         local func = func_ast.value
-        if func == require and known(ast[2].value) and false then
+        if func == require and known(ast[2].value) then
           local val = M.require_inspect(ast[2].value, report)
           if known(val) and val ~= nil then
             ast.value = val
