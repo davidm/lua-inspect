@@ -378,8 +378,8 @@ M.mock_functions = {}
 
 -- TODO:IMPROVE
 local function mockfunction(func, ...)
-  local inputs = {}
-  local outputs = {}
+  local inputs = {n=0}
+  local outputs = {n=0}
   local isoutputs
   for i=1,select('#', ...) do
     local v = select(i, ...)
@@ -388,9 +388,9 @@ local function mockfunction(func, ...)
     if v == '->' then
       isoutputs = true
     elseif isoutputs then
-      outputs[#outputs+1] = v
+      outputs[#outputs+1] = v; outputs.n = outputs.n + 1
     else
-      inputs[#inputs+1] = v
+      inputs[#inputs+1] = v; inputs.n = inputs.n + 1
     end
   end
   M.mock_functions[func] = {inputs=inputs, outputs=outputs}

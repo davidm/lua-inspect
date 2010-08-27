@@ -546,16 +546,30 @@ end
 local function get_func_return_values(f_ast)
   local returns, has_implicit = get_func_returns(f_ast)
   if has_implicit then returns[#returns+1] = {tag='Return'} end
-  local returnvals = {}
+  local returnvals = {n=0}
   for retidx=1,math.huge do
     local value = get_return_value(returns, retidx)
     if value == T.none then break end
     returnvals[#returnvals+1] = value
+    returnvals.n = returnvals.n + 1
   end
   return returnvals
 end
 -- Example: AST of `function(x) if x then return 1,2,3 else return 1,3,"z" end end`
 -- returns {1, T.number, T.universal}.
+
+
+-- Given list of values, return the first nvalues values plus the rest of the values
+-- as a tuple.   Useful for things like
+--  local ok, values = valuesandtuple(1, pcall(f))
+-- CATEGORY: utility function (list)
+local function valuesandtuple(nvalues, ...)
+  if nvalues >= 1 then
+    return (...), valuesandtuple(nvalues-1, select(2, ...))
+  else
+    return {n=select('#', ...), ...}
+  end
+end
 
 
 -- Infer values of variables. Also marks dead code (ast.isdead).
@@ -622,70 +636,66 @@ function M.infer_values(top_ast, tokenlist, report)
         local ok; ok, ast.value = pcall(tindex, t_ast.value, k_ast.value)
         if not ok then ast.value = T.error(ast.value) end
       end
-    elseif ast.tag == 'Call' then
-      local func_ast = ast[1]
-      local args_known = true
-      for i=2,#ast do if unknown(ast[i].value) then args_known = false; break end end
+    elseif ast.tag == 'Call' or ast.tag == 'Invoke' then
+      -- Determine function to call (infer via index if method call).
+      local isinvoke = ast.tag == 'Invoke'
+      if isinvoke then
+        local t, k = ast[1].value, ast[2].value
+        if known(t) and known(k) then
+          local ok; ok, ast.idxvalue = pcall(tindex, t, k)
+          if not ok then ast.idxvalue = T.error(ast.idxvalue) end
+        end
+      end
+      local func; if isinvoke then func = ast.idxvalue else func = ast[1].value end
+
+      -- Handle function call.
+      local argvalues_concrete = true; do  -- true iff all arguments known precisely.
+        if #ast >= 2 then
+          local firstargvalue; if isinvoke then firstargvalue = ast.idxvalue else firstargvalue = ast[2].value end
+          if unknown(firstargvalue) then
+            argvalues_concrete = false
+          else  -- test remaining args
+            for i=3,#ast do if unknown(ast[i].value) then argvalues_concrete = false; break end end
+          end
+        end
+      end
       local found
-      if known(func_ast.value) and args_known then
-        local values_concrete = true
-        for i=1,#ast do if unknown(ast[i].value) then values_concrete = false; break end end
-        local func = func_ast.value
-        if func == require and known(ast[2].value) then
-          local val = M.require_inspect(ast[2].value, report)
+      if known(func) and argvalues_concrete then -- attempt call with concrete args
+        -- Get list of values of arguments.
+        local argvalues; do
+          argvalues = {n=#ast-1}; for i=1,argvalues.n do argvalues[i] = ast[i+1].value end
+          if isinvoke then argvalues[1] = ast.idxvalue end -- `self`
+        end
+        -- Any call to require is handled specially (source analysis).
+        if func == require then
+          local val = M.require_inspect(argvalues[1], report)
           if known(val) and val ~= nil then
             ast.value = val
             found = true
           end -- note: on nil value, assumes analysis failed (not found). This is a heuristic only.
         end
-        if not found and (LS.safe_function[func] or func == pcall and LS.safe_function[ast[2].value]) then
-          local values = {}; for i=1,#ast-1 do values[i] = ast[i+1].value end
-          local ok; ok, ast.value = pcall(func, unpack(values,1,#ast-1))
-          if not ok then ast.value = T.error(ast.value) end
-          --TODO: handle multiple return values
+        -- Attempt call if safe.
+        if not found and (LS.safe_function[func] or func == pcall and LS.safe_function[argvalues[1]]) then
+          local ok; ok, ast.valuelist = valuesandtuple(1, pcall(func, unpack(argvalues,1,argvalues.n)))
+          ast.value = ast.valuelist[1]; if not ok then ast.value = T.error(ast.value) end
           found = true
         end
       end
       if not found then
-        local mf = LS.mock_functions[func_ast.value]
+        -- Attempt mock function.  Note: supports nonconcrete args too.
+        local mf = LS.mock_functions[func]
         if mf then
-          local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
-          ast.value = o1
+          ast.valuelist = mf.outputs; ast.value = ast.valuelist[1]
         else
-          local info = M.debuginfo[func_ast.value]
+          -- Attempt infer from return statements in function source.
+          local info = M.debuginfo[func]
           local retvals = info and info.retvals
           if retvals then
-            ast.value = retvals[1]
+            ast.valuelist = retvals; ast.value = ast.valuelist[1]
           else
-            ast.value = T.universal
+            -- Could not infer.
+            ast.valuelist = {n=T.unversal}; ast.value = T.universal
           end
-          --TODO:handle multiple return values
-        end
-      end
-    elseif ast.tag == 'Invoke' then
-      local t_ast, k_ast = ast[1], ast[2]
-      if known(t_ast.value) and known(k_ast.value) then
-        local ok; ok, ast.idxvalue = pcall(tindex, t_ast.value, k_ast.value)
-        if not ok then ast.idxvalue = T.error(ast.idxvalue) end
-      end
-
-      -- note: similar to 'Call' code
-      local args_known = true
-      for i=3,#ast do if unknown(ast[i].value) then args_known = false; break end end
-      if known(ast.idxvalue) and args_known then
-        local func = ast.idxvalue
-        if LS.safe_function[func] then
-          local values = {}; for i=1,#ast-2 do values[i] = ast[i+2].value end
-          local ok; ok, ast.value = pcall(func, t_ast.value, unpack(values,1,#ast-2))
-          if not ok then ast.value = T.error(ast.value) end
-          --TODO: handle multiple return values
-        end
-      end
-      if unknown(ast.value) then
-        local mf = LS.mock_functions[ast.idxvalue]
-        if mf then
-          local o1 = mf.outputs[1] -- IMPROVE: handle multiple returns
-          ast.value = o1
         end
       end
     elseif ast.tag == 'String' or ast.tag == 'Number' then
@@ -1091,10 +1101,10 @@ function M.get_signature_of_value(value)
     if info.retvals then
       local vals = info.retvals
       local ts = {}
-      if #vals == 0 then
+      if vals.n == 0 then
         sig = sig .. " no returns"
       else
-        for i=1,#vals do local val = vals[i]
+        for i=1,vals.n do local val = vals[i]
           ts[#ts+1] = T.istype[val] and tostring(val) or LA.dumpstring(val) --Q:dumpstring too verbose?
         end
         sig = sig .. " returns " .. table.concat(ts, ", ")

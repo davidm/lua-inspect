@@ -2,11 +2,13 @@
 --
 -- (c) 2010 David Manura, MIT License.
 
+local T = require "luainspect.types"
+
 return function(context)
   -- AST type.
   local ast = {
     tag = '?', lineinfo={first={comments={{'?',1,1}},1,1,1,'?'},last={comments={{'?',1,1}},1,1,1,'?'}},
-    isfield=true, tag2='', value=1, idxvalue=1, isvaluepegged=false,
+    isfield=true, tag2='', value=1, idxvalue=1, valuelist={n=T.number}, isvaluepegged=false,
     resolvedname='', definedglobal=true, id=1, isparam=true, isset=true, isused=true,
     functionlevel=1, localmasked=true, note='?', nocollect={}, isdead=false}
   ast.localdefinition=ast; ast.localmasking = ast

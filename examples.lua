@@ -70,6 +70,10 @@ t.y = t.x, t[1].y.z, t[1].y.undef + t.undef, t.f().undef   --OK?
 ;("abc"):upper():lower()  -- dynamically defined (IMPROVE? statically defined too)
 local m = math; local mm = {sqrt=math.sqrt}; print(m.sqrt, mm.sqrt, math.sqrt) --OK?
 
+-- infer values
+local pi = math.pi -- 3.14...
+local a1 = math.fmod(12, 10) == 2 -- true (safe function)
+
 -- more value inferences
 local loc1 = 3
 loc1=4
@@ -121,6 +125,20 @@ local x1 = fa(5) -- unknown
 local function fa(...) return ... end --FIX
 local function fa(f) return 2,f() end --FIX
   --TODO: multiple returns not inferred
+  
+-- expression lists from function returns
+local function zero() end
+local function one() return 'a' end
+local function two() return 'a', 'b' end
+local a1, a2 = zero() -- nil, nil
+local a1, a2 = one() -- 'a', nil
+local a1, a2, a3 = two() -- 'a', 'b', nil  FIX
+local a1, a2, a3 = two(), 'c' -- 'a', 'c', nil  FIX
+local a1, a2, a3, a4 = 'z', two()  -- 'z', 'a', 'b' FIX
+math.atan2(function() return 2, 3 end) -- FIX: arg count ok
+math.atan2(function() return 2, 'x' end) -- FIX: arg type mismatch
+math.atan2(unknownfunc()) -- FIX: arg count could be ok
+math.atan2(1,2, unknownfunc()) -- FIX: arg count could be ok
   
 -- deadcode detection
 local deadcode
