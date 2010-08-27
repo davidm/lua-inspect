@@ -7,6 +7,7 @@
 local M = {}
 
 local LS = require "luainspect.signatures"
+local T = require "luainspect.types"
 
 -- FIX!!! improve: should be registered utility function
 local function escape_html(s)
@@ -74,7 +75,8 @@ function M.ast_to_html(ast, src, tokenlist)
       elseif ast.isfield then
         class = class .. ' field'
         desc_html = desc_html .. ' field'
-        if ast.definedglobal or ast.seevalue.value ~= nil then
+        local val = ast.seevalue.value
+        if ast.definedglobal or val ~= T.universal and not T.iserror[val] and val ~= nil then
           class = class .. ' recognized'
           desc_html = desc_html .. ' recognized'
         else
