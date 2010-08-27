@@ -576,7 +576,6 @@ end
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueself
 -- CATEGORY: code interpretation
-local nil_value_ast = {}
 function M.infer_values(top_ast, tokenlist, report)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
   
