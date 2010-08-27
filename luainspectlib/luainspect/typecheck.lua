@@ -7,10 +7,14 @@ local T = require "luainspect.types"
 return function(context)
   -- AST type.
   local ast = {
-    tag = '?', lineinfo={first={comments={{'?',1,1}},1,1,1,'?'},last={comments={{'?',1,1}},1,1,1,'?'}},
-    isfield=true, tag2='', value=1, valueself=1, valuelist={n=T.number}, isvaluepegged=false,
-    resolvedname='', definedglobal=true, id=1, isparam=true, isset=true, isused=true,
-    functionlevel=1, localmasked=true, note='?', nocollect={}, isdead=false}
+    tag = T.string,
+    lineinfo={first={comments={{T.string,T.number,T.number}},T.number,T.number,T.number,T.string},
+                 ast={comments={{T.string,T.number,T.number}},T.number,T.number,T.number,T.string}},
+    isfield=T.boolean, tag2=T.string,
+    value=T.universal, valueself=T.number, valuelist={n=T.number, isvaluepegged=T.boolean},
+    resolvedname=T.string, definedglobal=T.boolean, id=T.number, isparam=T.boolean, isset=T.boolean, isused=T.boolean,
+    functionlevel=T.number, localmasked=T.boolean, note=T.string, nocollect={}, isdead=T.boolean}
+     -- FIX: some of these are "boolean or nil" actually
   ast.localdefinition=ast; ast.localmasking = ast
   ast.previous = ast; ast.parent = ast
   ast.seevalue = ast; ast.seenote=ast
@@ -20,7 +24,7 @@ return function(context)
 
   -- Token type.
   context.apply_value('token$', {
-    tag='?', fpos=1, lpos=1, keywordid=1, ast=ast, [1]='?'
+    tag=T.string, fpos=T.number, lpos=T.number, keywordid=T.number, ast=ast, [1]=T.string
   })
   
   -- Lua source code string type.
@@ -28,5 +32,5 @@ return function(context)
 
   -- SciTE syler object type.
   local nf = function()end
-  context.apply_value('^styler$', {SetState=nf, More=nf, Current=nf, Forward=nf, StartStyling=nf, EndStyling=nf, language=''})
+  context.apply_value('^styler$', {SetState=nf, More=nf, Current=nf, Forward=nf, StartStyling=nf, EndStyling=nf, language=T.string})
 end
