@@ -574,7 +574,7 @@ end
 
 -- Infer values of variables. Also marks dead code (ast.isdead).
 --FIX/WARNING - this probably needs more work
--- Sets top_ast.valueglobals, ast.value, ast.idxvalue
+-- Sets top_ast.valueglobals, ast.value, ast.valueself
 -- CATEGORY: code interpretation
 local nil_value_ast = {}
 function M.infer_values(top_ast, tokenlist, report)
@@ -642,16 +642,16 @@ function M.infer_values(top_ast, tokenlist, report)
       if isinvoke then
         local t, k = ast[1].value, ast[2].value
         if known(t) and known(k) then
-          local ok; ok, ast.idxvalue = pcall(tindex, t, k)
-          if not ok then ast.idxvalue = T.error(ast.idxvalue) end
+          local ok; ok, ast.valueself = pcall(tindex, t, k)
+          if not ok then ast.valueself = T.error(ast.valueself) end
         end
       end
-      local func; if isinvoke then func = ast.idxvalue else func = ast[1].value end
+      local func; if isinvoke then func = ast.valueself else func = ast[1].value end
 
       -- Handle function call.
       local argvalues_concrete = true; do  -- true iff all arguments known precisely.
         if #ast >= 2 then
-          local firstargvalue; if isinvoke then firstargvalue = ast.idxvalue else firstargvalue = ast[2].value end
+          local firstargvalue; if isinvoke then firstargvalue = ast.valueself else firstargvalue = ast[2].value end
           if unknown(firstargvalue) then
             argvalues_concrete = false
           else  -- test remaining args
@@ -664,7 +664,7 @@ function M.infer_values(top_ast, tokenlist, report)
         -- Get list of values of arguments.
         local argvalues; do
           argvalues = {n=#ast-1}; for i=1,argvalues.n do argvalues[i] = ast[i+1].value end
-          if isinvoke then argvalues[1] = ast.idxvalue end -- `self`
+          if isinvoke then argvalues[1] = ast.valueself end -- `self`
         end
         -- Any call to require is handled specially (source analysis).
         if func == require then
@@ -925,7 +925,8 @@ function M.uninspect(top_ast)
     
     -- undo infer_values
     ast.value = nil
-    ast.idxvalue = nil
+    ast.valueself = nil
+    ast.valuelist = nil
     ast.isdead = nil   -- via get_func_returns
     ast.isvaluepegged = nil
     
@@ -970,7 +971,7 @@ function M.inspect(top_ast, tokenlist, report)
     if ast.tag == "Index" then
       ast[2].seevalue = ast
     elseif ast.tag == "Invoke" then
-      ast[2].seevalue = {value=ast.idxvalue, parent=ast}
+      ast[2].seevalue = {value=ast.valueself, parent=ast}
     end
   end)
 
@@ -1000,7 +1001,7 @@ function M.inspect(top_ast, tokenlist, report)
       -- FIX: _G includes modules imported by inspect.lua, which is not desired
     elseif ast.tag == 'Call' or ast.tag == 'Invoke' then
       -- Argument count check.
-      local value = ast.idxvalue or ast[1].value
+      local value = ast.valueself or ast[1].value
       local info = M.debuginfo[value]
       local fast = info and info.fast
       if fast or LS.argument_counts[value] then
