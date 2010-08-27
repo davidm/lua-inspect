@@ -667,7 +667,8 @@ function M.OnStyle(styler)
           end
         end
       elseif ast.isfield then -- implies token.tag == 'String'
-        if ast.definedglobal or not T.istype[ast.seevalue.value] and ast.seevalue.value ~= nil then
+        local val = ast.seevalue.value
+        if ast.definedglobal or val ~= T.universal and not T.iserror[val] and val ~= nil then
           styler:SetState(S_FIELD_RECOGNIZED)
         else
           styler:SetState(S_FIELD)
@@ -1039,7 +1040,7 @@ local inspect_queued
 -- User can navigate in and out of tables, in a stack-like manner.
 -- CATEGORY: GUI inspection helper
 local function inspect_value(o, prevmenu)
-  if type(o) == 'table' then
+  if type(o) == 'table' and (T.istabletype[o] or not T.istype[o]) then
     local data = {}
     local ok, err = pcall(function()
       for k,v in pairs(o) do
@@ -1107,7 +1108,7 @@ function M.inspect_variable_contents()
 
   local iast = ast.seevalue or ast
 
-  if T.istype[iast.value] then
+  if T.istype[iast.value] and not T.istabletype[iast.value] then
     scite_UserListShow({"value " .. tostring(iast.value)})
   else
     inspect_value(iast.value)

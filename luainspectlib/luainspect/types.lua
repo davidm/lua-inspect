@@ -6,6 +6,9 @@ T.istype = {}
 -- iserror[o] iff o represents an error type (created via T.error).
 T.iserror = {}
 
+-- istabletype[o] iff o represents a table type (created by T.table).
+T.istabletype = {}
+
 -- Number type
 T.number = {}
 setmetatable(T.number, T.number)
@@ -29,6 +32,13 @@ function T.boolean.__tostring(self)
   return 'boolean'
 end
 T.istype[T.boolean] = true
+
+-- Table type
+function T.table(t)
+  T.istype[t] = true
+  T.istabletype[t] = true
+  return t
+end
 
 -- Universal type.  This is a superset of all other types.
 T.universal = {}

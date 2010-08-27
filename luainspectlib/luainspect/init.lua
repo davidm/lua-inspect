@@ -610,9 +610,12 @@ function M.infer_values(top_ast, tokenlist, report)
           value = valuelist.sizeunknown and vlidx > valuelist.n and T.universal or valuelist[vlidx]
         end
         if var_ast.tag == 'Index' then
-          local ok;  ok, var_ast.value = pcall(tastnewindex, var_ast[1], var_ast[2], {value=value})
-          if not ok then var_ast.value = T.error(var_ast.value) end
-            --FIX: propagate to localdefinition?
+          local t_ast, k_ast = var_ast[1], var_ast[2]
+          if not T.istype[t_ast.value] then -- note: don't mutate types
+            local ok;  ok, var_ast.value = pcall(tastnewindex, t_ast, k_ast, {value=value})
+            if not ok then var_ast.value = T.error(var_ast.value) end
+              --FIX: propagate to localdefinition?
+          end
         else
           assert(var_ast.tag == 'Id', var_ast.tag)
           if var_ast.localdefinition then
@@ -642,7 +645,7 @@ function M.infer_values(top_ast, tokenlist, report)
       end
     elseif ast.tag == 'Index' then
       local t_ast, k_ast = ast[1], ast[2]
-      if known(t_ast.value) and known(k_ast.value) then
+      if (known(t_ast.value) or T.istabletype[t_ast.value]) and known(k_ast.value) then
         local ok; ok, ast.value = pcall(tindex, t_ast.value, k_ast.value)
         if not ok then ast.value = T.error(ast.value) end
       end

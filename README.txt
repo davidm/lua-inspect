@@ -169,6 +169,7 @@ if you prefer neither then append to the wiki page
 20100827
   [+] core: infer sets involving functions with multiple returns.
      e.g. local a,b = (function() return 1,2 end)()
+  [!] core:fix: do not infer table sets on LuaInspect types.
 
 20100825
   [*] SciTE: simplify install (use default path)
