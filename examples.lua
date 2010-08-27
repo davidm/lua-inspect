@@ -138,6 +138,7 @@ local a1, a2, a3 = two(), 'c' -- 'a', 'c', nil
 local a1, a2, a3, a4 = 'z', two()  -- 'z', 'a', 'b', nil
 ga1, ga2, ga3, ga4 = 'z', two()  -- 'z', 'a', 'b', nil  (global sets)
 local tt = {}; tt.ga1, tt.ga2, tt.ga3, tt.ga4 = 'z', two()  -- 'z', 'a', 'b', nil  (index sets)
+local a1, a2, a3 = two(), unknownfunc()  -- 'a', unknown, unknown
 math.atan2(function() return 2, 3 end) -- FIX: arg count ok
 math.atan2(function() return 2, 'x' end) -- FIX: arg type mismatch
 math.atan2(unknownfunc()) -- FIX: arg count could be ok

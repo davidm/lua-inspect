@@ -593,7 +593,8 @@ function M.infer_values(top_ast, tokenlist, report)
         if value_ast then
           value = value_ast.value
         elseif valuelist then
-          value = valuelist[i - #values_ast + 1]
+          local vlidx = i - #values_ast + 1
+          value = valuelist.sizeunknown and vlidx > valuelist.n and T.universal or valuelist[vlidx]
         end
         set_value(var_ast, value)
       end
@@ -606,7 +607,8 @@ function M.infer_values(top_ast, tokenlist, report)
         if value_ast then
           value = value_ast.value
         elseif valuelist then
-          value = valuelist[i - #values_ast + 1]
+          local vlidx = i - #values_ast + 1
+          value = valuelist.sizeunknown and vlidx > valuelist.n and T.universal or valuelist[vlidx]
         end
         if var_ast.tag == 'Index' then
           local ok;  ok, var_ast.value = pcall(tastnewindex, var_ast[1], var_ast[2], {value=value})
@@ -703,7 +705,7 @@ function M.infer_values(top_ast, tokenlist, report)
             ast.valuelist = retvals; ast.value = ast.valuelist[1]
           else
             -- Could not infer.
-            ast.valuelist = {n=T.unversal}; ast.value = T.universal
+            ast.valuelist = {n=0, sizeunknown=true}; ast.value = T.universal
           end
         end
       end
