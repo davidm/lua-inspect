@@ -327,11 +327,11 @@ local unescape = {['d'] = '.'}
 
 
 
--- Set known value on ast to that on src_ast.
+-- Set known value on ast to v if ast not pegged.
 -- CATEGORY: utility function for infer_values.
-local function set_value(ast, src_ast)
+local function set_value(ast, v)
   if not ast.isvaluepegged then
-    ast.value = src_ast.value
+    ast.value = v
   end
 end
 
@@ -589,7 +589,7 @@ function M.infer_values(top_ast, tokenlist, report)
       for i=1,#vars_ast do
         local var_ast, value_ast = vars_ast[i], values_ast[i]
         value_ast = value_ast or nil_value_ast
-        set_value(var_ast, value_ast)
+        set_value(var_ast, value_ast.value)
         --FIX: handle functions with multiple returns
       end
     elseif ast.tag == 'Set' then
@@ -604,7 +604,7 @@ function M.infer_values(top_ast, tokenlist, report)
         else
           assert(var_ast.tag == 'Id', var_ast.tag)
           if var_ast.localdefinition then
-            set_value(var_ast, value_ast)
+            set_value(var_ast, value_ast.value)
           else -- global
             --old:if known(value_ast.value) then
               local name, val = var_ast[1], value_ast.value
@@ -618,7 +618,7 @@ function M.infer_values(top_ast, tokenlist, report)
       if ast.localdefinition then
         local localdefinition = ast.localdefinition
         if not localdefinition.isset then -- IMPROVE: support non-const (isset false) too
-          set_value(ast, localdefinition)
+          set_value(ast, localdefinition.value)
         end
       else -- global
         local name = ast[1]
