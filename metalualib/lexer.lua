@@ -350,7 +350,7 @@ end
 ----------------------------------------------------------------------
 -- Return the [n]th next token, removing it as well as the 0..n-1
 -- previous tokens. [n] defaults to 1. If it goes pass the end of the
--- stream, an EOF token is returned.
+-- stream, nil is returned.
 ----------------------------------------------------------------------
 function lexer:next (n)
    n = n or 1
@@ -365,7 +365,8 @@ function lexer:next (n)
       self.lastline = a.lineinfo.last[1]
    end
    self.lineinfo_last = a.lineinfo.last
-   return a or eof_token
+   return a
+     --PATCHED:LuaInspect: eof_token was undefined (nil).
 end
 
 ----------------------------------------------------------------------
