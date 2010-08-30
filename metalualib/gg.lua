@@ -460,7 +460,8 @@ function expr (p)
          -- Check for non-associative operators, and complain if applicable. 
          -----------------------------------------
          elseif p2.assoc=="none" and p2.prec==prec then
-            parser_error (lx, "non-associative operator!")
+            parse_error (lx, "non-associative operator!")
+              --PATCHED:LuaInspect: parser_error -> parse_error
 
          -----------------------------------------
          -- No infix operator suitable at that precedence
