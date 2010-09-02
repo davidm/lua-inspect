@@ -559,7 +559,7 @@ function M.smallest_ast_containing_range(top_ast, tokenlist, src, pos1, pos2)
   local f0idx, l0idx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos1, pos2)
   
   -- Find enclosing AST.
-  if top_ast[1] and not top_ast[1].parent then M.mark_parents(top_ast) end
+  M.ensure_parents_marked(top_ast)
   local fidx, lidx = f0idx, l0idx
   while tokenlist[fidx] and not tokenlist[fidx].ast.parent do fidx = fidx - 1 end
   while tokenlist[lidx] and not tokenlist[lidx].ast.parent do lidx = lidx + 1 end
@@ -629,7 +629,7 @@ end
 -- CATEGORY: AST query
 function M.ast_parent_idx(top_ast, ast)
   if ast == top_ast then return nil, nil end
-  if not ast.parent then M.mark_parents(top_ast) end; assert(ast.parent)
+  M.ensure_parents_marked(top_ast); assert(ast.parent)
   local idx = M.ast_idx(ast.parent, ast)
   return ast.parent, idx
 end
@@ -639,7 +639,7 @@ end
 -- Must provide root top_ast too.
 -- CATEGORY: AST query
 function M.common_ast_parent(aast, bast, top_ast)
-  if top_ast[1] and not top_ast[1].parent then M.mark_parents(top_ast) end
+  M.ensure_parents_marked(top_ast)
   local isparent = {}
   local tast = bast; repeat isparent[tast] = true; tast = tast.parent until not tast
   local uast = aast; repeat if isparent[uast] then return uast end; uast = uast.parent until not uast
