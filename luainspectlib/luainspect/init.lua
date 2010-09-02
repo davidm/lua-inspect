@@ -680,7 +680,7 @@ function M.infer_values(top_ast, tokenlist, report)
           if isinvoke then argvalues[1] = ast.valueself end -- `self`
         end
         -- Any call to require is handled specially (source analysis).
-        if func == require then
+        if func == require and type(argvalues[1]) == 'string' then
           local val = M.require_inspect(argvalues[1], report)
           if known(val) and val ~= nil then
             ast.value = val
