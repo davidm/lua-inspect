@@ -306,7 +306,7 @@ function M.mark_related_keywords(top_ast, tokenlist, src)
     if token.tag == 'Keyword' and not idof[token] then
       id = id + 1
       local match_ast =
-        LA.smallest_ast_containing_range(top_ast, tokenlist, src, token.fpos, token.lpos)
+        LA.smallest_ast_containing_range(top_ast, tokenlist, token.fpos, token.lpos)
       local ktokenlist = M.related_keywords(match_ast, top_ast, tokenlist, src)
       if ktokenlist then
          for _, ktoken in ipairs(ktokenlist) do
@@ -905,7 +905,7 @@ function M.eval_comments(ast, tokenlist, report)
     if token.tag == 'Comment' then
       local command = token[1]:match'^!(.*)'
       if command then
-        local mast = LA.smallest_ast_containing_range(ast, tokenlist, nil, token.fpos, token.lpos)
+        local mast = LA.smallest_ast_containing_range(ast, tokenlist, token.fpos, token.lpos)
         eval(command, mast)
       end
     end

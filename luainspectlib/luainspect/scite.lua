@@ -233,7 +233,7 @@ local function update_ast()
     if isincremental then
       pos1f, pos1l, pos2f, pos2l, old_ast, old_type =
           LA.invalidated_code(buffer.ast, buffer.tokenlist, LA.remove_shebang(buffer.src), newmsrc)
-      compilesrc = old_type == 'full' and newmsrc or newmsrc:sub(pos2f,pos2l)
+      compilesrc = newmsrc:sub(pos2f,pos2l)
       DEBUG('inc', pos1f, pos1l, pos2f, pos2l, old_ast, old_type )
       DEBUG('inc-compile:[' .. debug_shorten(compilesrc)  .. ']', old_ast and (old_ast.tag or 'notag'), old_type, pos1f and (pos2l - pos1l), pos1l, pos2f)
     else
@@ -513,7 +513,7 @@ function M.OnUpdateUI()
     if lpos < fpos then fpos, lpos = lpos, fpos end -- swap
     fpos, lpos = fpos + 1, lpos + 1 - 1
     local match1_ast, match1_comment, iswhitespace =
-      LA.smallest_ast_containing_range(buffer.ast, buffer.tokenlist, buffer.src, fpos, lpos)
+      LA.smallest_ast_containing_range(buffer.ast, buffer.tokenlist, fpos, lpos)
     -- DEBUG('m', match1_ast and match1_ast.tag, match1_comment, iswhitespace)
 
     -- Find and highlight.

@@ -40,6 +40,17 @@ _G.mlc = {} -- make gg happy
 
 local M = {}
 
+--[=TESTSUITE
+-- utilities
+local ops = {}
+ops['=='] = function(a,b) return a == b end
+local function check(opname, a, b)
+  local op = assert(ops[opname])
+  if not op(a,b) then
+    error("fail == " .. tostring(a) .. " " .. tostring(b))
+  end
+end
+--]=]
 
 -- CATEGORY: debug
 local function DEBUG(...)
@@ -219,7 +230,7 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   -- Find smallest AST node containing src range above.  May also
   -- be contained in (smaller) comment or whitespace.
   local match_ast, match_comment, iswhitespace =
-      M.smallest_ast_containing_range(top_ast, tokenlist, src, src_fpos, src_lpos)
+      M.smallest_ast_containing_range(top_ast, tokenlist, src_fpos, src_lpos)
   DEBUG('invalidate-smallest:', match_ast and (match_ast.tag or 'notag'), match_comment, iswhitespace)
 
   -- Determine which (ast, comment, or whitespace) to match, and get its pos range in src and bsrc.
@@ -232,7 +243,18 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
     srcm_fpos, srcm_lpos = match_comment.fpos, match_comment.lpos
   else
     mast, mtype = match_ast, 'ast'
-    srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
+    repeat
+      srcm_fpos, srcm_lpos = M.ast_pos_range(mast, tokenlist)
+      if not srcm_fpos then
+        if mast == top_ast then
+          srcm_fpos, srcm_lpos = 1, #src
+          break
+        else
+          M.ensure_parents_marked(top_ast)
+          mast = mast.parent
+        end
+      end
+    until srcm_fpos
   end
   bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
 
@@ -260,11 +282,12 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
     return srcm_fpos, srcm_lpos, bsrcm_fpos, bsrcm_lpos, mast, mtype
   end
 
-  -- Find smallest containing statement block that will compile.
+  -- Find smallest containing statement block that will compile (or top_ast).
   while 1 do
     match_ast = M.get_containing_statementblock(match_ast, top_ast)
     if match_ast == top_ast then
-      return nil, nil, nil, nil, top_ast, 'full'  -- entire AST invalidated
+      return 1,#src, 1, #bsrc, match_ast, 'statblock'
+         -- entire AST invalidated
     end
     local srcm_fpos, srcm_lpos = M.ast_pos_range(match_ast, tokenlist)
     local bsrcm_fpos, bsrcm_lpos = range_transform(srcm_fpos, srcm_lpos)
@@ -313,7 +336,7 @@ local function tinsertlist(t, i, bt)
   for ti = oldtlen, i, -1 do t[ti + #bt] = t[ti] end -- shift
   for bi = 1, #bt do t[bi + delta] = bt[bi] end -- fill
 end
---[[TESTSUITE:
+--[=[TESTSUITE:
 local function _tinsertlist(t, i, bt)
   for bi=#bt,1,-1 do table.insert(t, i, bt[bi]) end
 end -- equivalent but MUCH less efficient for large tables
@@ -328,7 +351,7 @@ local t = {4,5}; tinsertlist(t, 1, {2,3}); assert(table.concat(t)=='2345')
 local t = {2,5}; tinsertlist(t, 2, {3,4}); assert(table.concat(t)=='2345')
 local t = {2,3}; tinsertlist(t, 3, {4,5}); assert(table.concat(t)=='2345')
 print 'DONE'
---]]
+--]=]
 
 
 
@@ -412,7 +435,7 @@ local isterminal = {Nil=true, Dots=true, True=true, False=true, Number=true, Str
   Dots=true, Id=true}
 local function compare_tokens_(atoken, btoken) return atoken.fpos < btoken.fpos end
 function M.ast_to_tokenlist(top_ast, src)
-  local tokens = {}
+  local tokens = {} -- {nbytes=#src}
   local isseen = {}
   M.walk(top_ast, function(ast)
     if isterminal[ast.tag] then -- Extract terminal
@@ -449,7 +472,7 @@ function M.ast_to_tokenlist(top_ast, src)
 end
 
 
--- Gets tokenlist range [fidx,lidx] covered by ast/tokenlist.  Returns nil,nil if not found.
+-- Gets tokenlist range [fidx,lidx] covered by ast.  Returns nil,nil if not found.
 -- CATEGORY: AST/tokenlist query
 function M.ast_idx_range_in_tokenlist(tokenlist, ast)
   -- Get list of primary nodes under ast.
@@ -468,31 +491,51 @@ end
 
 
 -- Get index range in tokenlist overlapped by character position range [fpos, lpos].
--- Partially overlapped tokens are included.  If position range between tokens, then fidx is last token and lidx is first token
--- (which implies lidx = fidx - 1)
+-- For example, `do ff() end` with range ` ff() ` would match tokens `ff()`.
+-- Tokens partly inside range are counted, so range `f()` would match tokens `ff()`.
+-- If lidx = fidx - 1, then position range is whitespace between tokens lidx (on left)
+-- and fidx (on right), and this may include token pseudoindices 0 (start of file) and
+-- #tokenlist+1 (end of file).
+-- Note: lpos == fpos - 1 indicates zero-width range between chars lpos and fpos.
 -- CATEGORY: tokenlist query
 function M.tokenlist_idx_range_over_pos_range(tokenlist, fpos, lpos)
-  -- note: careful with zero-width range (lpos == fpos - 1)
+  -- Find first/last indices of tokens overlapped (even partly) by position range.
   local fidx, lidx
   for idx=1,#tokenlist do
     local token = tokenlist[idx]
     --if (token.fpos >= fpos and token.fpos <= lpos) or (token.lpos >= fpos and token.lpos <= lpos) then -- token overlaps range
-    if fpos <= token.lpos and lpos >= token.fpos then -- range overlaps token
+    if fpos <= token.lpos and lpos >= token.fpos then -- range overlaps token (even partially)
       if not fidx then fidx = idx end
       lidx = idx
     end
   end
   if not fidx then -- on fail, check between tokens
-    for idx=1,#tokenlist+1 do
+    for idx=1,#tokenlist+1 do  -- between idx-1 and idx
       local tokfpos, toklpos = tokenlist[idx-1] and tokenlist[idx-1].lpos, tokenlist[idx] and tokenlist[idx].fpos
       if (not tokfpos or fpos > tokfpos) and (not toklpos or lpos < toklpos) then -- range between tokens
         return idx, idx-1
       end
     end
   end
-  assert(fidx and lidx) --Q:ok if no tokens?
   return fidx, lidx
 end
+--[=[TESTSUITE
+local function test(...)
+  return table.concat({M.tokenlist_idx_range_over_pos_range(...)}, ',')
+end
+check('==', test({}, 2, 2), "1,0")  -- no tokens
+check('==', test({{tag='Id', fpos=1, lpos=1}}, 2, 2), "2,1")  -- right of one token
+check('==', test({{tag='Id', fpos=3, lpos=3}}, 2, 2), "1,0")  -- left of one token
+check('==', test({{tag='Id', fpos=3, lpos=4}}, 2, 3), "1,1")  -- left partial overlap one token
+check('==', test({{tag='Id', fpos=3, lpos=4}}, 4, 5), "1,1")  -- right partial overlap one token
+check('==', test({{tag='Id', fpos=3, lpos=6}}, 4, 5), "1,1")  -- partial inner overlap one token
+check('==', test({{tag='Id', fpos=3, lpos=6}}, 3, 6), "1,1")  -- exact overlap one token
+check('==', test({{tag='Id', fpos=4, lpos=5}}, 3, 6), "1,1")  -- extra overlap one token
+check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=5, lpos=6}}, 4, 4), "2,1")  -- between tokens, " " exact
+check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=5, lpos=6}}, 4, 3), "2,1")  -- between tokens, "" on left
+check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=5, lpos=6}}, 5, 4), "2,1")  -- between tokens, "" on right
+check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=4, lpos=5}}, 4, 3), "2,1")  -- between tokens, "" exact
+--]=]
 
 -- Remove tokens in tokenlist covered by ast. 
 -- CATEGORY: tokenlist manipulation
@@ -522,19 +565,20 @@ local function insert_tokenlist(tokenlist, btokenlist)
 end
 
 
--- Get character position range covered by ast in tokenlist.  Returns nil,nil if not found
+-- Get character position range covered by ast in tokenlist.  Returns nil,nil on not found.
 -- CATEGORY: AST/tokenlist query
 function M.ast_pos_range(ast, tokenlist) -- IMPROVE:style: ast_idx_range_in_tokenlist has params reversed
   local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
   if fidx then
     return tokenlist[fidx].fpos, tokenlist[lidx].lpos
-    else
+  else
     return nil, nil
   end
 end
 
 
 -- Gets string representation of AST node.  nil if none.
+-- IMPROVE: what if node is empty block?
 -- CATEGORY: AST/tokenlist query
 function M.ast_to_text(ast, tokenlist, src) -- IMPROVE:style: ast_idx_range_in_tokenlist has params reversed
   local fpos, lpos = M.ast_pos_range(ast, tokenlist)
@@ -551,11 +595,9 @@ end
 -- completely containing position range [pos1, pos2].
 -- careful: "function" is not part of the `Function node.
 -- If range is inside comment, returns comment also.
--- If corresponding source `src` is specified (may be nil)
--- and range is inside whitespace, then returns true in third return value.
---FIX: maybe src no longer needs to be passed
+-- If range is inside whitespace, then returns true in third return value.
 -- CATEGORY: AST/tokenlist query
-function M.smallest_ast_containing_range(top_ast, tokenlist, src, pos1, pos2)
+function M.smallest_ast_containing_range(top_ast, tokenlist, pos1, pos2)
   local f0idx, l0idx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos1, pos2)
   
   -- Find enclosing AST.
@@ -567,18 +609,8 @@ function M.smallest_ast_containing_range(top_ast, tokenlist, src, pos1, pos2)
   local ast = not (tokenlist[fidx] and tokenlist[lidx]) and top_ast or
       M.common_ast_parent(tokenlist[fidx].ast, tokenlist[lidx].ast, top_ast)
   -- DEBUG('m2', tokenlist[fidx], tokenlist[lidx], top_ast, ast, ast and ast.tag)
-  if src and l0idx == f0idx - 1 then -- e.g.whitespace (FIX-currently includes non-whitespace too)
-    local iswhitespace
-    if pos2 == pos1 - 1  then -- zero length
-      if src:sub(pos2, pos1):match'%s' then iswhitespace = true end -- either right or left %s
-    elseif src:sub(pos1,pos2):match'^%s+$' then
-      iswhitespace = true
-    end
-    if iswhitespace then
-      return ast, nil, true
-    else
-      return ast, nil, nil
-    end
+  if l0idx == f0idx - 1 then -- whitespace
+    return ast, nil, true
   elseif l0idx == f0idx and tokenlist[l0idx].tag == 'Comment' then
     return ast, tokenlist[l0idx], nil
   else
@@ -592,7 +624,6 @@ end
 -- nearest statement block before pos, whichever is smaller, given ast/tokenlist.
 function M.current_statementblock(ast, tokenlist, pos)
   local fidx,lidx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos, pos)
-  if not fidx then return ast, false end
   if fidx > lidx then fidx = lidx end -- use nearest backward
   
   -- Find closest AST node backward
@@ -681,6 +712,7 @@ function M.adjust_lineinfo(tokenlist, pos1, delta)
       token.lpos = token.lpos + delta
     end
   end
+  --tokenlist.nbytes = tokenlist.nbytes + delta
 end
 
 
@@ -773,7 +805,7 @@ end
 -- CATEGORY: AST query
 function M.select_statementblockcomment(ast, tokenlist, fpos, lpos, allowexpand)
 --IMPROVE: rename ast to top_ast
-  local match_ast, comment_ast = M.smallest_ast_containing_range(ast, tokenlist, nil, fpos, lpos)
+  local match_ast, comment_ast = M.smallest_ast_containing_range(ast, tokenlist, fpos, lpos)
   local select_ast = comment_ast or M.get_containing_statementblock(match_ast, ast)
   local nfpos, nlpos = M.ast_pos_range(select_ast, tokenlist)
   --DEBUG('s', nfpos, nlpos, fpos, lpos, match_ast.tag, select_ast.tag)
@@ -889,13 +921,8 @@ function M.dump_tokenlist(tokenlist)
     ts[#ts+1] = 'tok.' .. i .. ': [' .. token.fpos .. ',' .. token.lpos .. '] '
        .. tostring(token[1]) .. ' ' .. tostring(token.ast.tag)
   end
-  return table.concat(ts, '\n')
+  return table.concat(ts, '\n') -- .. 'nbytes=' .. tokenlist.nbytes .. '\n'
 end
-
-
-return M
-
-
 
 
 --FIX:Q: does this handle Unicode ok?
@@ -924,7 +951,7 @@ return M
 --  has no lineinfo on {}.  This is contrary to the Metalua
 --  spec: `Local{ {ident+} {expr+}? }.
 --  Other things like `self` also generate no lineinfo.
---  The ast2.lineinfo test above avoids this.
+--  The ast2.lineinfo  above avoids this.
 
 --FIX:Metalua: Metalua shouldn't overwrite ipairs/pairs.  Note: Metalua version
 --  doesn't set errorlevel correctly.
@@ -948,16 +975,6 @@ return M
 
 
 --[=[TESTSUITE
--- utilities
-local ops = {}
-ops['=='] = function(a,b) return a == b end
-local function check(opname, a, b)
-  local op = assert(ops[opname])
-  if not op(a,b) then
-    error("fail == " .. tostring(a) .. " " .. tostring(b))
-  end
-end
-
 -- test longest_prefix/longest_postfix
 local function pr(text1, text2)
   local lastv
@@ -985,6 +1002,11 @@ check('==', pr("ab",""), 0)
 check('==', pr("ab","a"), 1)
 check('==', pr("ab","ab"), 2)
 check('==', pr("abcdefg","abcdefgh"), 7)
+--]=]
 
+----[=[TESTSUITE
 print 'DONE'
 --]=]
+
+
+return M
