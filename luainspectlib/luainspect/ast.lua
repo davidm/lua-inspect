@@ -473,6 +473,7 @@ end
 
 
 -- Gets tokenlist range [fidx,lidx] covered by ast.  Returns nil,nil if not found.
+--FIX:PERFORMANCE:this is slow on large files.
 -- CATEGORY: AST/tokenlist query
 function M.ast_idx_range_in_tokenlist(tokenlist, ast)
   -- Get list of primary nodes under ast.
