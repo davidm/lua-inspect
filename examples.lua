@@ -180,4 +180,8 @@ do
   local xd1 = n1+n2^2 * n2 or 4 -- number
   local xe1 = math.sqrt(n1) -- number
   local xe2 = math:sqrt() -- number (although nonsensical)
+  for ii=1,10 do print(ii) end -- number
+  for a1,a2,a3 in ipairs(t) do print(a1,a2,a3) end -- number, unknown, nil
+  for a1,a2,a3 in pairs(t) do print(a1,a2,a3) end -- unknown, unknown, nil
+  for a1,a2,a3 in it(t) do print(a1,a2,a3) end -- unknown, unknown, unknown
 end

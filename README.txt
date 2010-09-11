@@ -166,6 +166,9 @@ if you prefer neither then append to the wiki page
 
 == Changes ==
 
+20100911
+  [+] core: infer types of for loop variables.
+
 20100827
   [+] core: infer sets involving functions with multiple returns.
      e.g. local a,b = (function() return 1,2 end)()
