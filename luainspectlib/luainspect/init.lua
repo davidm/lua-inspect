@@ -12,6 +12,7 @@ local M = {}
 M.APIVERSION = 0.20100805
 
 local LA = require "luainspect.ast"
+local LD = require "luainspect.dump"
 local LG = require "luainspect.globals"
 local LS = require "luainspect.signatures"
 local T = require "luainspect.types"
@@ -1140,7 +1141,7 @@ function M.get_signature_of_value(value)
         sig = sig .. " no returns"
       else
         for i=1,vals.n do local val = vals[i]
-          ts[#ts+1] = T.istype[val] and tostring(val) or LA.dumpstring(val) --Q:dumpstring too verbose?
+          ts[#ts+1] = T.istype[val] and tostring(val) or LD.dumpstring(val) --Q:dumpstring too verbose?
         end
         sig = sig .. " returns " .. table.concat(ts, ", ")
       end
