@@ -60,7 +60,7 @@ local function DEBUG(...)
 end
 
 
--- Convert character position to row,column position in string src.
+-- Converts character position to row,column position in string src.
 -- Add values are 1-indexed.
 function M.pos_to_linecol(pos, src)
   local linenum = 1
@@ -74,7 +74,7 @@ function M.pos_to_linecol(pos, src)
   return linenum, colnum
 end
 
--- Remove any sheband ("#!") line from Lua source string.
+-- Removes any sheband ("#!") line from Lua source string.
 -- CATEGORY: Lua parsing
 function M.remove_shebang(src)
   local shebang = src:match("^#![^\r\n]*")
@@ -109,7 +109,7 @@ local function ast_from_string_helper(src, filename)
 end
 
 
--- Count number of lines in text.
+-- Counts number of lines in text.
 -- Warning: the decision of whether to count a trailing new-line in a file
 -- or an empty file as a line is a little subjective.  This function currently
 -- defines the line count as 1 plus the number of new line characters.
@@ -491,7 +491,7 @@ function M.ast_idx_range_in_tokenlist(tokenlist, ast)
 end
 
 
--- Get index range in tokenlist overlapped by character position range [fpos, lpos].
+-- Gets index range in tokenlist overlapped by character position range [fpos, lpos].
 -- For example, `do ff() end` with range ` ff() ` would match tokens `ff()`.
 -- Tokens partly inside range are counted, so range `f()` would match tokens `ff()`.
 -- If lidx = fidx - 1, then position range is whitespace between tokens lidx (on left)
@@ -538,7 +538,7 @@ check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=5, lpos=6}}, 5, 4)
 check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=4, lpos=5}}, 4, 3), "2,1")  -- between tokens, "" exact
 --]=]
 
--- Remove tokens in tokenlist covered by ast. 
+-- Removes tokens in tokenlist covered by ast. 
 -- CATEGORY: tokenlist manipulation
 local function remove_ast_in_tokenlist(tokenlist, ast)
   local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
@@ -548,7 +548,7 @@ local function remove_ast_in_tokenlist(tokenlist, ast)
 end
 
 
--- Insert tokens from btokenlist into tokenlist.  Preserves sort.
+-- Inserts tokens from btokenlist into tokenlist.  Preserves sort.
 -- CATEGORY: tokenlist manipulation
 local function insert_tokenlist(tokenlist, btokenlist)
   local ftoken = btokenlist[1]
@@ -701,7 +701,7 @@ function M.replace_statements(top_ast, tokenlist, old_ast, new_ast, new_tokenlis
 end
 
 
--- Adjust lineinfo in tokenlist.
+-- Adjusts lineinfo in tokenlist.
 -- All char positions starting at pos1 are shifted by delta number of chars.
 -- CATEGORY: tokenlist
 function M.adjust_lineinfo(tokenlist, pos1, delta)
@@ -717,7 +717,7 @@ function M.adjust_lineinfo(tokenlist, pos1, delta)
 end
 
 
--- For each node n in ast, set n.parent to parent node of n.
+-- For each node n in ast, sets n.parent to parent node of n.
 -- Assumes ast.parent will be parent_ast (may be nil)
 -- CATEGORY: AST query
 function M.mark_parents(ast, parent_ast)
@@ -737,7 +737,7 @@ function M.ensure_parents_marked(ast)
 end
 
 
--- For each node n in ast, set n.tag2 to context string:
+-- For each node n in ast, sets n.tag2 to context string:
 -- 'Block' - node is block
 -- 'Stat' - node is statement
 -- 'StatBlock' - node is statement and block (i.e. `Do)

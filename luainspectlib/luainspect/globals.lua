@@ -19,7 +19,7 @@ local function definelocal(scope, name, ast)
   scope[name] = ast
 end
 
--- Resolve scoping and usages of variable in AST.
+-- Resolves scoping and usages of variable in AST.
 -- Data Notes:
 --   ast.localdefinition refers to lexically scoped definition of `Id node `ast`.
 --     If ast.localdefinition == ast then ast is a "lexical definition".

@@ -200,7 +200,7 @@ end
 local report = print
 
 
--- Attempt to update AST from editor text and apply decorations.
+-- Attempts to update AST from editor text and apply decorations.
 -- CATEGORY: SciTE GUI + AST
 local function update_ast()
   -- Skip update if text unchanged.
@@ -407,7 +407,7 @@ local function getselectedvariable()
 end
 
 
--- Mark in margin range of 0-indexed lines.
+-- Marks in margin range of 0-indexed lines.
 -- CATEGORY: SciTE GUI
 local function scope_lines(firstline0, lastline0)
   if firstline0 ~= lastline0 then -- multiline
@@ -424,7 +424,7 @@ local function scope_lines(firstline0, lastline0)
 end
 
 
--- Mark in margin range of 0-indexed positions.
+-- Marks in margin range of 0-indexed positions.
 -- CATEGORY: SciTE GUI
 local function scope_positions(fpos0, lpos0)
   local firstline0 = editor:LineFromPosition(fpos0)
@@ -433,7 +433,7 @@ local function scope_positions(fpos0, lpos0)
 end
 
 
--- Respond to UI updates.  This includes moving the cursor.
+-- Responds to UI updates.  This includes moving the cursor.
 -- CATEGORY: SciTE event handler
 function M.OnUpdateUI()
   -- Disable any autocomplete indicators if cursor moved away.
@@ -546,7 +546,7 @@ function M.OnUpdateUI()
 end
 
 
--- Respond to requests for restyling.
+-- Responds to requests for restyling.
 -- Note: if StartStyling is not applied over the entire requested range, than this function is quickly recalled
 --   (which possibly can be useful for incremental updates)
 -- CATEGORY: SciTE event handler
@@ -810,13 +810,13 @@ local function mycshow(list, len)
 end
 
 
--- Convert object to string (no nesting).
+-- Converts object to string (no nesting).
 -- CATEGORY: utility function, string
 local function dump_shallow(o)
   return type(o) == 'string' and string.format('%q', o) or tostring(o)
 end
 
--- Convert table key to string (no nesting)
+-- Converts table key to string (no nesting)
 -- utility function
 local iskeyword_ = {
   ['and']=true, ['break']=true, ['do']=true, ['else']=true, ['elseif']=true,
@@ -829,7 +829,7 @@ local function dump_key_shallow(o)
            or "[" .. dump_shallow(o) .. "]"
 end
 
--- Find index i such that t[i] == e, else returns nil
+-- Finds index i such that t[i] == e, else returns nil
 -- CATEGORY: utility function, tables
 local function tfind(t, e)
   for i=1,#t do
@@ -1004,7 +1004,7 @@ end
 -- IMPROVE: prevent rename to conflicting existing variable.
 
 
--- jump to 0-indexed line in file path.
+-- Jumps to 0-indexed line in file path.
 -- Preferrably jump to exact position if given, else 0-indexed line.
 -- CATEGORY: SciTE helper, navigation
 local function goto_file_line_pos(path, line0, pos0)
@@ -1404,7 +1404,7 @@ style.script_lua.selection.back=#808080
 end
 
 
--- Install a SciTE event handler locally for the current buffer.
+-- Installs a SciTE event handler locally for the current buffer.
 -- If an existing global handler exists (this includes ExtMan handlers),
 -- ensure that is still called also.
 -- CATEGORY: initialization.

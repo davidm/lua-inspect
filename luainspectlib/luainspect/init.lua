@@ -42,7 +42,7 @@ ops['len'] = function(a) return #a end
 ops['unm'] = function(a) return -a end
 
 
--- Perform binary operation.  Supports types.
+-- Performs binary operation.  Supports types.
 local function dobinop(opid, a, b)
   if (a == T.number or b == T.number) and
      (a == T.number or type(a) == 'number' ) and
@@ -83,7 +83,7 @@ local function dobinop(opid, a, b)
 end
 
 
--- Perform unary operation.  Supports types.
+-- Performs unary operation.  Supports types.
 local function dounop(opid, a)
   if opid == 'not' then
     if T.istype[a] then
@@ -133,7 +133,7 @@ local function debugvalue(ast)
 end
 
 
--- Read contents of text file in path, in binary mode.
+-- Reads contents of text file in path, in binary mode.
 -- On error, returns nil and error message.
 local function readfile(path)
   local fh, err = io.open(path, 'rb')
@@ -328,7 +328,7 @@ local unescape = {['d'] = '.'}
 
 
 
--- Set known value on ast to v if ast not pegged.
+-- Sets known value on ast to v if ast not pegged.
 -- CATEGORY: utility function for infer_values.
 local function set_value(ast, v)
   if not ast.isvaluepegged then
@@ -361,7 +361,7 @@ local function tastnewindex(t_ast, k_ast, v_ast)
 end
 
 
--- Get expected number of parameters for function (min, max) values.
+-- Gets expected number of parameters for function (min, max) values.
 -- In case of vararg, max is unknown and set to nil.
 local function function_param_range(ast)
   local names_ast = ast[1]
@@ -460,7 +460,7 @@ function M.require_inspect(name, report)
 end
 
 
--- Mark AST node and all children as dead (ast.isdead).
+-- Marks AST node and all children as dead (ast.isdead).
 local function mark_dead(ast)
   LA.walk(ast, function(bast) bast.isdead = true end)
 end
@@ -573,7 +573,7 @@ local function valuesandtuple(nvalues, ...)
 end
 
 
--- Infer values of variables. Also marks dead code (ast.isdead).
+-- Infers values of variables. Also marks dead code (ast.isdead).
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueself
 -- CATEGORY: code interpretation
@@ -822,7 +822,7 @@ function M.infer_values(top_ast, tokenlist, report)
 end
 
 
--- Label variables with unique identifiers.
+-- Labels variables with unique identifiers.
 -- Sets ast.id, ast.resolvedname
 -- CATEGORY: code interpretation
 function M.mark_identifiers(ast)
@@ -881,7 +881,7 @@ env.boolean = T.boolean
 env.error = T.error
 
 
--- Apply value to all identifiers with name matching pattern.
+-- Applies value to all identifiers with name matching pattern.
 -- This command is callable inside special comments.
 -- CATEGORY: code interpretation / special comment command
 function env.apply_value(pattern, val)
@@ -905,7 +905,7 @@ end
 setfenv(env.apply_value, env)
 
 
--- Evaluate all special comments (i.e. comments prefixed by '!') in code.
+-- Evaluates all special comments (i.e. comments prefixed by '!') in code.
 -- This is similar to luaanalyze.
 -- CATEGORY: code interpretation / special comments
 function M.eval_comments(ast, tokenlist, report)
@@ -1069,7 +1069,7 @@ function M.inspect(top_ast, tokenlist, report)
 end
 
 
--- Resolve identifier to value [*]
+-- Resolves identifier to value [*]
 function M.resolve_id(id, scope, valueglobals, _G)
   local val
   if scope[id] then
@@ -1082,7 +1082,7 @@ function M.resolve_id(id, scope, valueglobals, _G)
   return val
 end
 
--- Resolve prefix chain expression to value. [*]
+-- Resolves prefix chain expression to value. [*]
 -- On error returns nil and error object
 function M.resolve_prefixexp(ids, scope, valueglobals, _G)
   local val = M.resolve_id(ids[1], scope, valueglobals, _G)
@@ -1095,7 +1095,7 @@ function M.resolve_prefixexp(ids, scope, valueglobals, _G)
   return val
 end
 
--- Get local scope at given 1-indexed char position
+-- Gets local scope at given 1-indexed char position
 function M.get_scope(pos1, ast, tokenlist)
   local mast, isafter = LA.current_statementblock(ast, tokenlist, pos1)
   local scope = LG.variables_in_scope(mast, isafter)
@@ -1200,7 +1200,7 @@ function M.is_known_value(ast)
 end
 
 
--- Get details information about value in AST node, as string.
+-- Gets details information about value in AST node, as string.
 function M.get_value_details(ast, tokenlist, src)
   local info = ""
 
