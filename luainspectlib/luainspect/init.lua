@@ -25,21 +25,21 @@ local DETECT_DEADCODE = false -- may require more validation
 
 -- Functional forms of Lua operators.
 local ops = {}
-ops["add"] = function(a,b) return a+b end
-ops["sub"] = function(a,b) return a-b end
-ops["mul"] = function(a,b) return a*b end
-ops["div"] = function(a,b) return a/b end
-ops["mod"] = function(a,b) return a%b end
-ops["pow"] = function(a,b) return a^b end
-ops["concat"] = function(a,b) return a..b end
-ops["eq"] = function(a,b) return a==b end
-ops["lt"] = function(a,b) return a<b end
-ops["le"] = function(a,b) return a<=b end
-ops["and"] = function(a,b) return a and b end
-ops["or"] = function(a,b) return a or b end
-ops["not"] = function(a) return not a end
-ops["len"] = function(a) return #a end
-ops["unm"] = function(a) return -a end
+ops['add'] = function(a,b) return a+b end
+ops['sub'] = function(a,b) return a-b end
+ops['mul'] = function(a,b) return a*b end
+ops['div'] = function(a,b) return a/b end
+ops['mod'] = function(a,b) return a%b end
+ops['pow'] = function(a,b) return a^b end
+ops['concat'] = function(a,b) return a..b end
+ops['eq'] = function(a,b) return a==b end
+ops['lt'] = function(a,b) return a<b end
+ops['le'] = function(a,b) return a<=b end
+ops['and'] = function(a,b) return a and b end
+ops['or'] = function(a,b) return a or b end
+ops['not'] = function(a) return not a end
+ops['len'] = function(a) return #a end
+ops['unm'] = function(a) return -a end
 
 
 -- Perform binary operation.  Supports types.
@@ -1003,9 +1003,9 @@ function M.inspect(top_ast, tokenlist, report)
   -- This allows clicking on `bar` in `foo.bar` to display
   -- the value of `foo.bar` rather than just "bar".
   LA.walk(top_ast, function(ast)
-    if ast.tag == "Index" then
+    if ast.tag == 'Index' then
       ast[2].seevalue = ast
-    elseif ast.tag == "Invoke" then
+    elseif ast.tag == 'Invoke' then
       ast[2].seevalue = {value=ast.valueself, parent=ast}
     end
   end)
