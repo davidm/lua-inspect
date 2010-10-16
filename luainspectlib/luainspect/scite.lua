@@ -30,7 +30,7 @@
  traditionally implemented in C++ (e.g. LexLua.cxx) and can be enabled
  by the user for specific file types (rather than globally) via the
  "lexer.<filepattern>" property.  Lexers can also be written in Lua
- scripts [7] (i.e. OnStyle handler), via the Lua extension interface,
+ scripts [6] (i.e. OnStyle handler), via the Lua extension interface,
  apparently either as Lua startup scripts or Lua extension scripts.
  This differs from C++ lexers, which are not loaded via the extension
  interface.  Lexers are a Scintilla concept. Extensions are a SciTE
@@ -55,7 +55,7 @@
  in the buffer object, which persists across buffer swaps, so the
  really expensive parsing is avoided on buffer swaps.
 
- There is also SciTE ExtMan [8], which is normally (always?) loaded
+ There is also SciTE ExtMan [7], which is normally (always?) loaded
  as a Lua startup script.  This provides various global utility
  functions, as well as a mechanism to multiplex multiple Lua startup
  scripts.  LuaInspect does not use the latter, implementing instead
@@ -69,9 +69,8 @@
  [3] http://www.scintilla.org/SciTEDoc.html
  [4] http://www.scintilla.org/SciTELexer.html
  [5] http://www.scintilla.org/ScintillaDoc.html#LexerObjects
- [6] http://www.scintilla.org/SciTEDoc.html
- [7] http://www.scintilla.org/ScriptLexer.html
- [8] http://lua-users.org/wiki/SciteExtMan
+ [6] http://www.scintilla.org/ScriptLexer.html
+ [7] http://lua-users.org/wiki/SciteExtMan
 ]]
 
 
