@@ -1,6 +1,78 @@
--- luainspect.scite - SciTE text editor plugin
---
--- (c) 2010 David Manura, MIT License.
+--[[
+ luainspect.scite - SciTE text editor plugin
+ (c) 2010 David Manura, MIT License.
+
+ == Background Comments ==
+
+ The interaction between SciTE add-ons like lexers and extensions,
+ including various Lua and C++ formulations of these, may be confusing
+ at first, so here's a summary.
+
+ SciTE has an "extension interface" [1], which allows you to write C++
+ modules that hook into SciTE events on a global level.  SciTE comes
+ with two built-in extensions.  The multiplexing extension
+ (MultiplexExtension.cxx) allows you to plug-in more than one
+ extension.  The Lua extension (LuaExtension.cxx) allows you to write
+ an extension with Lua scripts [2] rather than C++. Extensions in Lua
+ and C++ are fairly similar, but there is an "extension.<filepattern>"
+ property that "is part of the generic SciTE Extension Interface but
+ is currently only used by the Lua Scripting Extension" [3] and that
+ allows an extension script to be applied only when the active buffer
+ is of a specific file type or directory (rather than globally).
+ These are called "Lua extension scripts" in contrast to (global) "Lua
+ startup scripts" ("ext.lua.startup.script" property).  Handler
+ functions in the Lua extension scripts override global handlers in
+ the Lua startup script.  Lua extension scripts supposedly provide a
+ standard and user-configurable way to apply extensions to specific
+ languages.
+
+ Scintilla (not just SciTE) also supports lexers [4-5], which are
+ traditionally implemented in C++ (e.g. LexLua.cxx) and can be enabled
+ by the user for specific file types (rather than globally) via the
+ "lexer.<filepattern>" property.  Lexers can also be written in Lua
+ scripts [7] (i.e. OnStyle handler), via the Lua extension interface,
+ apparently either as Lua startup scripts or Lua extension scripts.
+ This differs from C++ lexers, which are not loaded via the extension
+ interface.  Lexers are a Scintilla concept. Extensions are a SciTE
+ concept.
+
+ LuaInspect is both a lexer and an extension.  It does both
+ syntax highlighting (lexer) as well as event handling (extension) to
+ support intelligent behavior and analysis.  LuaInspect also applies
+ only to Lua files (not globally) and it is implemented in Lua (not
+ C++).  These characteristics entail that LuaInspect be a Lua extension
+ script.  There is one exception though mentioned in the comments above
+ the scite.lua M.install() function in that certain initialization
+ actions are best handled early via a Lua startup script, so scite.lua
+ is called both as a startup script and extension script to do different
+ actions (although the mechanism is a bit awkward).  You could have
+ LuaInspect operate entirely as a Lua startup script, but that
+ could interfere when editing non-Lua files.
+
+ The fact that SciTE reloads extensions scripts on buffer swaps
+ is probably unnecessary but outside of our control.  In any case,
+ overhead should be low.  Note that the AST and token lists are cached
+ in the buffer object, which persists across buffer swaps, so the
+ really expensive parsing is avoided on buffer swaps.
+
+ There is also SciTE ExtMan [8], which is normally (always?) loaded
+ as a Lua startup script.  This provides various global utility
+ functions, as well as a mechanism to multiplex multiple Lua startup
+ scripts.  LuaInspect does not use the latter, implementing instead
+ it's own install_handler mechanism, because LuaInspect is involved
+ in Lua extension scripts rather than Lua startup scripts.
+ install_handler is careful though to ensure that global handlers
+ in any Lua startup script (including ExtMan handlers) are still called.
+
+ [1] http://www.scintilla.org/SciTEExtension.html
+ [2] http://www.scintilla.org/SciTELua.html
+ [3] http://www.scintilla.org/SciTEDoc.html
+ [4] http://www.scintilla.org/SciTELexer.html
+ [5] http://www.scintilla.org/ScintillaDoc.html#LexerObjects
+ [6] http://www.scintilla.org/SciTEDoc.html
+ [7] http://www.scintilla.org/ScriptLexer.html
+ [8] http://lua-users.org/wiki/SciteExtMan
+]]
 
 
 -- Whether to update the AST on every edit (true) or only when the selection
