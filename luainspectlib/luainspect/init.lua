@@ -582,7 +582,14 @@ function M.infer_values(top_ast, tokenlist, report)
   
 
   -- infer values
-  LA.walk(top_ast, nil, function(ast) -- walk up
+  LA.walk(top_ast, function(ast) -- walk down
+    if ast.tag == 'Function' then
+      local paramlist_ast = ast[1]
+      for i=1,#paramlist_ast do local param_ast = paramlist_ast[i]
+        if param_ast.value == nil then param_ast.value = T.universal end
+      end
+    end
+  end, function(ast) -- walk up
     -- process `require` statements.
     if ast.tag == 'Local' or ast.tag == 'Localrec' then
       local vars_ast, values_ast = ast[1], ast[2]
@@ -751,12 +758,6 @@ function M.infer_values(top_ast, tokenlist, report)
         M.debuginfo[val] = info
         ast.value = val
         ast.nocollect = info -- prevents garbage collection while ast exists
-      end
-      if ast.tag == 'Function' then
-        local paramlist_ast = ast[1]
-        for i=1,#paramlist_ast do local param_ast = paramlist_ast[i]
-          if param_ast.value == nil then param_ast.value = T.universal end
-        end
       end
     elseif ast.tag == 'Table' then
       if ast.value == nil then -- avoid redefinition
