@@ -20,7 +20,7 @@ local T = require "luainspect.types"
 --! require 'luainspect.typecheck' (context)
  
 local ENABLE_RETURN_ANALYSIS = true
-local DETECT_DEADCODE = false -- may require more validation
+local DETECT_DEADCODE = false -- may require more validation (false positives)
 
 
 -- Functional forms of Lua operators.

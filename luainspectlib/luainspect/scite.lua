@@ -1563,8 +1563,9 @@ without ``) to your SciTE Lua startup script (i.e. the file identified in your
   editor.IndicFore[INDICATOR_MASKING] = 0x0000ff
   editor.IndicStyle[INDICATOR_WARNING] = INDIC_SQUIGGLE  -- IMPROVE: combine with above?
   editor.IndicFore[INDICATOR_WARNING] = 0x008080
-  editor.IndicStyle[INDICATOR_DEADCODE] = INDIC_DIAGONAL  -- IMPROVE: combine with above?
+  editor.IndicStyle[INDICATOR_DEADCODE] = INDIC_ROUNDBOX
   editor.IndicFore[INDICATOR_DEADCODE] = 0x808080
+  editor.IndicAlpha[INDICATOR_DEADCODE] = 0x80
   --  editor.IndicStyle[INDICATOR_INVALIDATED] = INDIC_SQUIGGLE
   --  editor.IndicFore[INDICATOR_INVALIDATED] = 0x0000ff
   
