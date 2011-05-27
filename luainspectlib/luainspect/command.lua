@@ -9,7 +9,7 @@ package.path = package.path .. ';luainspectlib/?.lua'
 
 local LA = require "luainspect.ast"
 local LI = require "luainspect.init"
-local LH = require "luainspect.html"
+local LC = require "luainspect.csv"
 
 local function loadfile(filename)
   local fh = assert(io.open(filename, 'r'))
@@ -38,7 +38,7 @@ if ast then
   LI.inspect(ast, tokenlist, src, report)
   LI.mark_related_keywords(ast, tokenlist, src)
 
-  local ast = LH.ast_to_html(ast, src, tokenlist)
+  local ast = LC.ast_to_csv(ast, src, tokenlist)
 
   io.stdout:write(ast)
 else
