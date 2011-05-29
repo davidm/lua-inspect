@@ -28,6 +28,13 @@ function describe(token)
     if token.tag == 'Id' or ast.isfield then
       local class = 'id'
 
+      if ast.id then
+        class = class .. ",id" .. ast.id
+      elseif ast.id then
+        class = class .. ",id" .. ast.localdefinition.id
+      end
+
+
       if ast.localdefinition then
         class = class .. ',local'
         if ast.functionlevel > ast.localdefinition.functionlevel then
@@ -67,16 +74,6 @@ function describe(token)
         end
       end
 
-      if ast.id then
-        class = class .. ",id" .. ast.id
-      elseif ast.id then
-        class = class .. ",id" .. ast.localdefinition.id
-      end
-
-      if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
-        local name = ast.resolvedname
-        class = class .. "," .. LS.global_signatures[name]
-      end
       return class
     end
   end
