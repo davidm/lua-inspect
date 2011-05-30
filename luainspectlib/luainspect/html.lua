@@ -97,8 +97,6 @@ function M.ast_to_html(ast, src, tokenlist)
       
       if ast.id then
         class = class .. " id" .. ast.id
-      elseif ast.id then
-        class = class .. " id" .. ast.localdefinition.id
       end
 
       if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
