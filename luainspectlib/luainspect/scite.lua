@@ -354,7 +354,7 @@ local function update_ast()
 
         if not(old_type == 'comment' or old_type == 'whitespace') then
           LI.uninspect(buffer.ast)
-          LI.inspect(buffer.ast, buffer.tokenlist, report) --IMPROVE: don't do full inspection
+          LI.inspect(buffer.ast, buffer.tokenlist, buffer.src, report) --IMPROVE: don't do full inspection
         end
       else --full
         -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newsrc`, then
@@ -363,7 +363,7 @@ local function update_ast()
       
         buffer.tokenlist = tokenlist
         buffer.ast = ast
-        LI.inspect(buffer.ast, buffer.tokenlist, report)
+        LI.inspect(buffer.ast, buffer.tokenlist, buffer.src, report)
       end
       if LUAINSPECT_DEBUG then
         DEBUG(LA.dump_tokenlist(buffer.tokenlist))
@@ -1225,7 +1225,7 @@ function M.force_reinspect()
     LI.uninspect(buffer.ast)
     LI.clear_cache()
     collectgarbage() -- note package.loaded was given weak keys.
-    LI.inspect(buffer.ast, buffer.tokenlist, report)
+    LI.inspect(buffer.ast, buffer.tokenlist, buffer.src, report)
   end
 end
 --IMPROVE? possibly should reparse AST as well in case AST got corrupted.

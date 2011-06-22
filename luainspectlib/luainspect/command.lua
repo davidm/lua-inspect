@@ -35,7 +35,7 @@ local ast, err, linenum, colnum, linenum2 = LA.ast_from_string(src, path)
 --require "metalua.table2"; table.print(ast, 'hash', 50)
 if ast then
   local tokenlist = LA.ast_to_tokenlist(ast, src)
-  LI.inspect(ast, tokenlist, report)
+  LI.inspect(ast, tokenlist, src, report)
   LI.mark_related_keywords(ast, tokenlist, src)
 
   local ast = LH.ast_to_html(ast, src, tokenlist)

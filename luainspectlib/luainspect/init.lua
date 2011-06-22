@@ -445,7 +445,7 @@ function M.require_inspect(name, report)
     local err; mast, err = LA.ast_from_string(msrc, mpath)
     if mast then
       local mtokenlist = LA.ast_to_tokenlist(mast, msrc)
-      M.inspect(mast, mtokenlist, report)
+      M.inspect(mast, mtokenlist, msrc, report)
       vinfo = chunk_return_value(mast)
     else
       vinfo = T.error(err)
@@ -577,7 +577,7 @@ end
 --FIX/WARNING - this probably needs more work
 -- Sets top_ast.valueglobals, ast.value, ast.valueself
 -- CATEGORY: code interpretation
-function M.infer_values(top_ast, tokenlist, report)
+function M.infer_values(top_ast, tokenlist, src, report)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
   
 
@@ -731,6 +731,16 @@ function M.infer_values(top_ast, tokenlist, report)
         else
           -- Attempt infer from return statements in function source.
           local info = M.debuginfo[func]
+          if not info then -- try match from dynamic debug info
+            local dinfo = type(func) == 'function' and debug.getinfo(func)
+            if dinfo then
+              local source, linedefined = dinfo.source, dinfo.linedefined
+              if source and linedefined then
+                local sourceline = source .. ':' .. linedefined
+                info = M.debuginfo[sourceline]
+              end
+            end
+          end
           local retvals = info and info.retvals
           if retvals then
             ast.valuelist = retvals; ast.value = ast.valuelist[1]
@@ -750,12 +760,25 @@ function M.infer_values(top_ast, tokenlist, report)
         local val = function() x=nil end
         local fpos = LA.ast_pos_range(ast, tokenlist)
         local source = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
+        local linenum = LA.pos_to_linecol(fpos, src)
         local retvals
         if ENABLE_RETURN_ANALYSIS then
           retvals = get_func_return_values(ast) --Q:move outside of containing conditional?
         end
-        local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist, retvals=retvals}
+        local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist, retvals=retvals, top_ast = top_ast}
         M.debuginfo[val] = info
+        local sourceline = '@' .. source .. ':' .. linenum
+        if M.debuginfo[sourceline] == nil then
+          M.debuginfo[sourceline] = info  -- store by sourceline too for quick lookup from dynamic debug info
+        else
+          if M.debuginfo[sourceline].fast ~= ast then
+            -- Two functions on the same source line cannot necessarily be disambiguated.
+            -- Unfortuntely, Lua debuginfo lacks exact character position.
+            --   http://lua-users.org/lists/lua-l/2010-08/msg00273.html
+            -- So, just disable info if ambiguous.  Note: a slight improvement is to use the lastlinedefined.
+            M.debuginfo[sourceline] = false 
+          end
+        end
         ast.value = val
         ast.nocollect = info -- prevents garbage collection while ast exists
       end
@@ -943,6 +966,14 @@ end
 -- Note: does not undo mark_tag2 and mark_parents (see replace_statements).
 -- CATEGORY: code interpretation
 function M.uninspect(top_ast)
+  -- remove ast from M.debuginfo 
+  for k, info in pairs(M.debuginfo) do
+    if info and info.top_ast == top_ast then
+      M.debuginfo[k] = nil
+    end
+  end
+
+  -- Clean ast.
   LA.walk(top_ast, function(ast)
     -- undo inspect_globals.globals
     ast.localdefinition = nil
@@ -986,8 +1017,11 @@ end
 -- Main inspection routine.  Inspects top_ast/tokenlist.
 -- Error/status messages are sent to function `report`.
 -- CATEGORY: code interpretation
-function M.inspect(top_ast, tokenlist, report)
+function M.inspect(top_ast, tokenlist, src, report)
   --DEBUG: local t0 = os.clock()
+  if not report then -- compat for older version of lua-inspect
+    assert('inspect signature changed; please upgrade your code')
+  end
   
   report = report or function() end
   
@@ -997,8 +1031,8 @@ function M.inspect(top_ast, tokenlist, report)
 
   M.eval_comments(top_ast, tokenlist, report)
   
-  M.infer_values(top_ast, tokenlist, report)
-  M.infer_values(top_ast, tokenlist, report) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
+  M.infer_values(top_ast, tokenlist, src, report)
+  M.infer_values(top_ast, tokenlist, src, report) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
   
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
