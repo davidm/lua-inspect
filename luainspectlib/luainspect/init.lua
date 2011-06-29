@@ -768,16 +768,19 @@ function M.infer_values(top_ast, tokenlist, src, report)
         local info = {fpos=fpos, source="@" .. source, fast=ast, tokenlist=tokenlist, retvals=retvals, top_ast = top_ast}
         M.debuginfo[val] = info
         local sourceline = '@' .. source .. ':' .. linenum
-        if M.debuginfo[sourceline] == nil then
-          M.debuginfo[sourceline] = info  -- store by sourceline too for quick lookup from dynamic debug info
-        else
-          if M.debuginfo[sourceline].fast ~= ast then
+        local oldinfo = M.debuginfo[sourceline]
+        if oldinfo then
+          if oldinfo.fast ~= ast then
             -- Two functions on the same source line cannot necessarily be disambiguated.
             -- Unfortuntely, Lua debuginfo lacks exact character position.
             --   http://lua-users.org/lists/lua-l/2010-08/msg00273.html
             -- So, just disable info if ambiguous.  Note: a slight improvement is to use the lastlinedefined.
             M.debuginfo[sourceline] = false 
           end
+        else
+          if oldinfo == nil then
+            M.debuginfo[sourceline] = info  -- store by sourceline too for quick lookup from dynamic debug info
+          end  -- else false (do nothing)
         end
         ast.value = val
         ast.nocollect = info -- prevents garbage collection while ast exists
