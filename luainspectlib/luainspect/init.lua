@@ -154,9 +154,21 @@ end
 
 -- Loads source code of given module name.
 -- Returns code followed by path.
+-- note: will also search in the directory `spath` and its parents.
+--   This should preferrably be an absolute path or it might not work correctly.
+--   It must be slash terminated.
 -- CATEGORY: utility/package
-local function load_module_source(name)
-  for spec in package.path:gmatch'[^;]+' do
+local function load_module_source(name, spath)
+  -- Append parent directories to list of paths to search.
+  local package_path = package.path
+  local ppath = spath
+  repeat
+    package_path = package_path .. ';' .. ppath .. '?.lua;' .. ppath .. '?/init.lua'
+    local nsub
+    ppath, nsub = ppath:gsub('[^\\/]+[\\/]$', '')
+  until nsub == 0
+
+  for spec in package_path:gmatch'[^;]+' do
     local testpath = plain_gsub(spec, '%?', (name:gsub('%.', '/')))
     local src, err_ = readfile(testpath)
     if src then return src, testpath end
@@ -430,7 +442,7 @@ local function chunk_return_value(ast)
 end
       
 -- Version of require that does source analysis (inspect) on module.
-function M.require_inspect(name, report)
+function M.require_inspect(name, report, spath)
   local plinfo = M.package_loaded[name]
   if plinfo == REQUIRE_SENTINEL then
      warn(report, "loop in require when loading " .. name)
@@ -439,7 +451,7 @@ function M.require_inspect(name, report)
   if plinfo then return plinfo[1] end
   status(report, 'loading:' .. name)
   M.package_loaded[name] = REQUIRE_SENTINEL -- avoid recursion on require loops
-  local msrc, mpath = load_module_source(name)
+  local msrc, mpath = load_module_source(name, spath)
   local vinfo, mast
   if msrc then
     local err; mast, err = LA.ast_from_string(msrc, mpath)
@@ -710,7 +722,8 @@ function M.infer_values(top_ast, tokenlist, src, report)
         end
         -- Any call to require is handled specially (source analysis).
         if func == require and type(argvalues[1]) == 'string' then
-          local val = M.require_inspect(argvalues[1], report)
+          local spath = ast.lineinfo.first[4] -- a HACK? relies on AST lineinfo
+          local val = M.require_inspect(argvalues[1], report, spath:gsub('[^\\/]+$', ''))
           if known(val) and val ~= nil then
             ast.value = val
             found = true
