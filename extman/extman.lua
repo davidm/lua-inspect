@@ -671,7 +671,9 @@ end
 -- (Nicolas)
 if GTK then
     function scite_DirectoryExists(path)
-        return os.execute('test -d "'..path..'"') == 0
+        local result = os.execute('test -d "'..path..'"')
+        if result == -1 then return true end -- FIX: why this return -1 on SciTE 2.2.5/Ubuntu?
+        return result == 0
     end
 else
     -- what is the Win32 equivalent??
