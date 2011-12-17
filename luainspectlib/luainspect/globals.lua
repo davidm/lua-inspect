@@ -25,7 +25,7 @@ end
 --     If ast.localdefinition == ast then ast is a "lexical definition".
 --     If ast.localdefinition == nil, then variable is global.
 --   ast.functionlevel is the number of functions the AST is contained in.
---     ast.functionlevel is defined iff ast is a lexical definition. 
+--     ast.functionlevel is defined iff ast is a lexical definition.
 --   ast.isparam is true iff ast is a lexical definition and a function parameter.
 --   ast.isset is true iff ast is a lexical definition and exists an assignment on it.
 --   ast.isused is true iff ast is a lexical definition and has been referred to.
@@ -153,7 +153,7 @@ local function traverse(ast, scope, globals, level, functionlevel)
       definelocal(parentscope, name, name_ast)
       name_ast.localdefinition = name_ast
       name_ast.functionlevel = functionlevel
-    end  
+    end
   elseif ast.tag == 'Index' then
     if ast[2].tag == 'String' then
       ast[2].isfield = true

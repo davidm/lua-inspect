@@ -56,7 +56,7 @@ function pretty_print(...)
 	end
 	end
 end
-  
+
  scite_OnOutputLine (function (line)
 	line = strip_prompt(line)
    table.insert(commands,1,line)
@@ -65,9 +65,9 @@ end
     end
     if sub(line,1,1) == '=' then
         line = 'pretty_print('..sub(line,2)..')'
-    end    
+    end
     local f,err = loadstring(line,'local')
-    if not f then 
+    if not f then
       print(err)
     else
       local ok,res = pcall(f)
@@ -75,7 +75,7 @@ end
          if res then print('result= '..res) end
       else
          print(res)
-      end      
+      end
     end
     trace(prompt)
     return true

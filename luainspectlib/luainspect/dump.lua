@@ -39,7 +39,7 @@ function M.dumpstring(o, isseen, indent, key)
     else isseen[o] = true end -- avoid recursion
 
     local used = {}
-    
+
     local tag = o.tag
     local s = '{'
     if type(o.tag) == 'string' then

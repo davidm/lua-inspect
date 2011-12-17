@@ -283,16 +283,16 @@ local function update_ast()
   clockbegin 't1'
 
   local err, linenum, colnum, linenum2
-  
+
   -- Update AST.
   local errfpos0, errlpos0
   if newsrc == buffer.src then -- returned to previous good version
     -- note: nothing to do besides display
-  else  
+  else
    -- note: loadstring and metalua don't parse shebang
    local newmsrc = LA.remove_shebang(newsrc)
 
-   -- Quick syntax check.   
+   -- Quick syntax check.
    -- loadstring is much faster than Metalua, so try that first.
    -- Furthermore, Metalua accepts a superset of the Lua grammar.
    local f; f, err, linenum, colnum, linenum2 = LA.loadstring(newmsrc)
@@ -328,8 +328,8 @@ local function update_ast()
       local tokenlist = ast and LA.ast_to_tokenlist(ast, compilesrc)
         -- note: ast nil if whitespace
       --print(LA.dump_tokenlist(tokenlist))
-      
-   
+
+
       buffer.src = newsrc
       if isincremental and old_type ~= 'full' then
         -- Adjust line numbers.
@@ -338,7 +338,7 @@ local function update_ast()
         if ast then
           LA.adjust_lineinfo(tokenlist, 1, pos2f-1)
         end
- 
+
         -- Inject AST
         if old_type == 'whitespace' then
           -- nothing
@@ -360,7 +360,7 @@ local function update_ast()
         -- old(FIX-REMOVE?): careful: if `buffer.tokenlist` variable exists in `newsrc`, then
         --   `LI.inspect` may attach its previous value into the newly created
         --   `buffer.tokenlist`, eventually leading to memory overflow.
-      
+
         buffer.tokenlist = tokenlist
         buffer.ast = ast
         LI.inspect(buffer.ast, buffer.tokenlist, buffer.src, report)
@@ -381,7 +381,7 @@ local function update_ast()
    end
   end
   clockend 't4'
-  
+
   -- Apply styling
   if err then
      local pos = linenum and editor:PositionFromLine(linenum-1) + colnum - 1
@@ -414,7 +414,7 @@ local function update_ast()
        end
      end
   else
-    
+
     --old: editor:CallTipCancel()
     editor.IndicatorCurrent = INDICATOR_ERROR
     editor:IndicatorClearRange(0, editor.Length)
@@ -426,7 +426,7 @@ local function update_ast()
 
     if ANNOTATE_ALL_LOCALS then annotate_all_locals() end
   end
-  
+
   -- Do auto-completion.
   -- WARNING:FIX:the implementations here are currently rough.
   if AUTOCOMPLETE_SYNTAX and errfpos0 then
@@ -448,7 +448,7 @@ local function update_ast()
       more = '}'
       editor:InsertText(errlpos0+1, more)
       editor:IndicatorFillRange(errlpos0+1, #more)
-    end 
+    end
     if ssrc:match'%([^%)]*$' then
       more = ')'
       editor:InsertText(errlpos0+1, more)
@@ -514,7 +514,7 @@ function M.OnUpdateUI()
       editor:IndicatorClearRange(0, editor.Length)
     end
   end
-  
+
   -- This updates the AST when the selection is moved to a different line.
   if not UPDATE_ALWAYS then
     local currentline = editor:LineFromPosition(editor.Anchor)
@@ -525,7 +525,7 @@ function M.OnUpdateUI()
   end
 
   if buffer.src ~= editor:GetText() then return end -- skip if AST is not up-to-date
-  
+
   -- check if selection if currently on identifier
   local selectedtoken, id = getselectedvariable()
 
@@ -559,7 +559,7 @@ function M.OnUpdateUI()
     end
 
     scope_positions(ftoken.fpos-1, ltoken.lpos-1)
-    
+
     -- identify any local definition masked by any selected local definition.
     local ast = selectedtoken -- cast: `Id tokens are AST nodes.
     if ast.localmasking then
@@ -574,7 +574,7 @@ function M.OnUpdateUI()
       end
     end
   end
-  
+
   -- Highlight related keywords.
   do
     editor.IndicatorCurrent = INDICATOR_KEYWORD
@@ -596,7 +596,7 @@ function M.OnUpdateUI()
         editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
       end
     end
-    
+
     -- Mark range of lines covered by item on selection.
     if not id then
       local fpos, lpos = LA.ast_pos_range(match1_ast, buffer.tokenlist)
@@ -650,7 +650,7 @@ function M.OnStyle(styler)
   -- WARNING: updating marker causes another style event to be called immediately.
   -- Therefore, we take care to only update marker when marker state needs changed
   -- and correct the count when we do.
- 
+
   --IMPROVE: could metalua libraries parse text across multiple calls to
   --`OnStyle` to reduce long pauses with big files?  Maybe use coroutines.
 
@@ -674,7 +674,7 @@ function M.OnStyle(styler)
   debug_recursion = debug_recursion + 1
   if debug_recursion ~= 1 then print('warning: OnStyle recursion', debug_recursion) end
       -- folding previously triggered recursion leading to odd effects; make sure this is gone
-  
+
   -- Apply SciTE styling
   editor.StyleHotSpot[S_LOCAL] = true
   editor.StyleHotSpot[S_LOCAL_MUTATE] = true
@@ -705,7 +705,7 @@ function M.OnStyle(styler)
     while token and i > token.lpos do
       nexttoken()
     end
-    
+
     if token and i >= token.fpos and i <= token.lpos then
       local ast = token.ast
       if token.tag == 'Id' then
@@ -762,7 +762,7 @@ function M.OnStyle(styler)
     styler:Forward()
     i = i + #styler:Current()  -- support Unicode
   end
-  styler:EndStyling()  
+  styler:EndStyling()
 
   -- Apply indicators in token list.
   -- Mark masking local variables and warnings.
@@ -794,7 +794,7 @@ function M.OnStyle(styler)
       editor:IndicatorFillRange(fpos-1, lpos-fpos+1)
     end
   end
-  
+
   -- Apply folding.
   if ENABLE_FOLDING then
     clockbegin 'f1'
@@ -850,7 +850,7 @@ function M.OnStyle(styler)
     -- #     styler:SetLevelAt(0,1 + SC_FOLDLEVELHEADERFLAG)
     -- #  Setting levels only on lines being styled may reduce though not eliminate recursion.
     -- #  Iterating in reverse may reduce though not eliminate recursion.
-    -- #  Disabling folding completely eliminates recursion.  
+    -- #  Disabling folding completely eliminates recursion.
     --print'DEBUG:-'  -- test for recursion
   end
 
@@ -861,7 +861,7 @@ end
 -- CATEGORY: SciTE event handler
 function M.OnDoubleClick()
   if buffer.src ~= editor:GetText() then return end -- skip if AST is not up-to-date
-  
+
   -- check if selection if currently on identifier
   local token = getselectedvariable()
   if token and token.ast then
@@ -967,7 +967,7 @@ end
 function M.OnChar(c)
   -- FIX: how do we make this event only occur for Lua buffers?
   -- Hack below probably won't work with multiple Lua-based lexers.
-  if editor.Lexer ~= 0 then return end    
+  if editor.Lexer ~= 0 then return end
 
   -- Auto-complete variable names.
   -- note: test ./: not effective
@@ -976,7 +976,7 @@ function M.OnChar(c)
   then
     M.autocomplete_variable(nil, 1)
   end
-  
+
   -- Ignore character typed over autocompleted text.
   -- Q: is this the best way to ignore/delete current char?
   if AUTOCOMPLETE_SYNTAX and editor:IndicatorValueAt(INDICATOR_AUTOCOMPLETE, editor.CurrentPos) == 1 then
@@ -1051,7 +1051,7 @@ end
 -- CATEGORY: SciTE command
 function M.rename_selected_variable(newname)
   local selectedtoken = getselectedvariable()
-  
+
   if selectedtoken and selectedtoken.ast then
     local id = selectedtoken.ast.id
     editor:BeginUndoAction()
@@ -1136,7 +1136,7 @@ local function inspect_value(o, prevmenu)
       -- note: \t ensure list is remains sorted.
     local selectidx
     local function menu()
-      editor.AutoCIgnoreCase = true 
+      editor.AutoCIgnoreCase = true
       scite_UserListShow(list, 1, function(text)
         selectidx = tfind(list, text)
         if selectidx then
@@ -1193,9 +1193,9 @@ end
 function M.show_all_variable_uses()
   local stoken = getselectedvariable()
   if not stoken or not stoken.ast then return end
-  
+
   local pos0of = {}
-  
+
   editor.AutoCSeparator = 1
   local infos = {}
   for _,token in ipairs(buffer.tokenlist) do
@@ -1209,7 +1209,7 @@ function M.show_all_variable_uses()
       end
     end
   end
-  --editor:UserListShow(1, table.concat(infos, "\1"))  
+  --editor:UserListShow(1, table.concat(infos, "\1"))
   scite_UserListShow(infos, 1, function(text)
     local linenum1 = tonumber(text:match("^%d+"))
     if set_mark then set_mark() end -- if ctagsdx.lua available
@@ -1235,7 +1235,7 @@ end
 -- CATEGORY: SciTE command
 function M.list_warnings()
   if not buffer.ast then return end
-  
+
   local warnings = LI.list_warnings(buffer.tokenlist, buffer.src)
 
   if #warnings > 0 then
@@ -1252,7 +1252,7 @@ end
 -- Executing multiple times selects larger statements containing current statement.
 -- CATEGORY: SciTE command
 function M.select_statementblockcomment()
-  if buffer.src ~= editor:GetText() then return end  -- skip if AST not up-to-date  
+  if buffer.src ~= editor:GetText() then return end  -- skip if AST not up-to-date
 
   -- Get selected position range.
   -- caution: SciTE appears to have an odd behavior where if SetSel
@@ -1363,7 +1363,7 @@ style.script_lua.compiler_error=fore:#800000,back:#ffffc0
 # Styles 34 and 35 are used to display matching and non-matching braces respectively.
 # Style 36 is used for displaying control characters. This is not a full style as the foreground and background colours for control characters are determined by their lexical state rather than this style.
 # Style 37 is used for displaying indentation guides. Only the fore and back are used.
-# A * can be used instead of a lexer to indicate a global style setting. 
+# A * can be used instead of a lexer to indicate a global style setting.
 #style.script_lua.32=back:#000000
 #style.script_lua.33=
 #style.script_lua.33=
@@ -1432,7 +1432,7 @@ style.script_lua.selection.back=#808080
   -- than selection.back (which SciTE may predefine to a non-blank value).  It would be
   -- preferrable if SciTE would allow this script to define default properties before properties
   -- are read from property files.
-  
+
   scite_Command("Rename all instances of selected variable|*luainspect_rename_selected_variable $(1)|*.lua|Ctrl+Alt+R")
   scite_Command("Go to definition of selected variable|luainspect_goto_definition|*.lua|Ctrl+Alt+D")
   scite_Command("Show all variable uses|luainspect_show_all_variable_uses|*.lua|Ctrl+Alt+U")
@@ -1453,7 +1453,7 @@ style.script_lua.selection.back=#808080
   _G.luainspect_autocomplete_variable = M.autocomplete_variable
   _G.luainspect_list_warnings = M.list_warnings
 
-  
+
   -- Allow finding modules.
   table.insert(package.loaders, mysearcher)
   if PATH_APPEND ~= '' then
@@ -1469,8 +1469,8 @@ style.script_lua.selection.back=#808080
   local oldmt = getmetatable(package.loaded)
   local mt = oldmt  or {}
   if not mt.__mode then mt.__mode = 'v' end
-  if not oldmt then setmetatable(package.loaded, mt) end 
-  
+  if not oldmt then setmetatable(package.loaded, mt) end
+
   _G.luainspect_installed = true
 end
 
@@ -1568,8 +1568,8 @@ without ``) to your SciTE Lua startup script (i.e. the file identified in your
   editor.IndicAlpha[INDICATOR_DEADCODE] = 0x80
   --  editor.IndicStyle[INDICATOR_INVALIDATED] = INDIC_SQUIGGLE
   --  editor.IndicFore[INDICATOR_INVALIDATED] = 0x0000ff
-  
-      
+
+
 end
 
 

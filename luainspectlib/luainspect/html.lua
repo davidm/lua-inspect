@@ -94,7 +94,7 @@ function M.ast_to_html(ast, src, tokenlist)
           desc_html = desc_html .. ' unrecognized'
         end
       end
-      
+
       if ast.id then
         class = class .. " id" .. ast.id
       end

@@ -4,7 +4,7 @@
 -- nested syntactic structure obtained from the parse.
 -- A separate linear ordered list of tokens represents the syntactic structure
 -- from the lexing, including line information (character positions only not row/columns),
--- comments, and keywords, which is originally built from the lineinfo attributes 
+-- comments, and keywords, which is originally built from the lineinfo attributes
 -- injected by Metalua into the AST (IMPROVE: it probably would be simpler
 -- to obtain this from the lexer directly rather then inferring it from the parsing).
 -- During AST manipulations, the lineinfo maintained in the AST is ignored
@@ -226,7 +226,7 @@ function M.invalidated_code(top_ast, tokenlist, src, bsrc, preserve)
   local npost = math.min(#src-npre, longest_postfix(src, bsrc))
       -- note: min avoids overlap ambiguity
   local src_fpos, src_lpos = 1 + npre, #src - npost
-  
+
   -- Find smallest AST node containing src range above.  May also
   -- be contained in (smaller) comment or whitespace.
   local match_ast, match_comment, iswhitespace =
@@ -369,10 +369,10 @@ function M.get_keywords(ast, src)
   -- Put children in lexical order.
   -- Some binary operations have arguments reversed from lexical order.
   -- For example, `a > b` becomes `Op{'lt', `Id 'b', `Id 'a'}
-  local oast = 
+  local oast =
     (ast.tag == 'Op' and #ast == 3 and ast[2].lineinfo.first[3] > ast[3].lineinfo.first[3])
     and {ast[1], ast[3], ast[2]} or ast
-  
+
   local i = 0
   while i <= #ast do
     -- j is node following i that has lineinfo
@@ -394,7 +394,7 @@ function M.get_keywords(ast, src)
       --DEBUG('first', ast.tag, first[3], src:sub(first[3], first[3]+3))
       lpos = (c and #c > 0 and c[1][2] or first[3]) - 1
     end
-    
+
     -- Find keyword in range.
     local spos = fpos
     repeat
@@ -415,9 +415,9 @@ function M.get_keywords(ast, src)
     until not spos or spos > lpos
     -- note: finds single keyword.  in `local function` returns only `local`
     --DEBUG(i,j ,'test[' .. src:sub(fpos, lpos) .. ']')
-    
+
     i = j  -- next
-   
+
     --DESIGN:Lua: comment: string.match accepts a start position but not a stop position
   end
   return list
@@ -538,7 +538,7 @@ check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=5, lpos=6}}, 5, 4)
 check('==', test({{tag='Id', fpos=2, lpos=3}, {tag='Id', fpos=4, lpos=5}}, 4, 3), "2,1")  -- between tokens, "" exact
 --]=]
 
--- Removes tokens in tokenlist covered by ast. 
+-- Removes tokens in tokenlist covered by ast.
 -- CATEGORY: tokenlist manipulation
 local function remove_ast_in_tokenlist(tokenlist, ast)
   local fidx, lidx  = M.ast_idx_range_in_tokenlist(tokenlist, ast)
@@ -600,7 +600,7 @@ end
 -- CATEGORY: AST/tokenlist query
 function M.smallest_ast_containing_range(top_ast, tokenlist, pos1, pos2)
   local f0idx, l0idx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos1, pos2)
-  
+
   -- Find enclosing AST.
   M.ensure_parents_marked(top_ast)
   local fidx, lidx = f0idx, l0idx
@@ -626,10 +626,10 @@ end
 function M.current_statementblock(ast, tokenlist, pos)
   local fidx,lidx = M.tokenlist_idx_range_over_pos_range(tokenlist, pos, pos)
   if fidx > lidx then fidx = lidx end -- use nearest backward
-  
+
   -- Find closest AST node backward
   while fidx >= 1 and tokenlist[fidx].tag == 'Comment' do fidx=fidx-1 end
-  
+
   if fidx < 1 then return ast, false end
   local mast = tokenlist[fidx].ast
   if not mast then return ast, false end
@@ -642,7 +642,7 @@ function M.current_statementblock(ast, tokenlist, pos)
     end
   end
 
-  return mast, isafter  
+  return mast, isafter
 end
 
 -- Gets index of bast in ast (nil if not found).
@@ -771,7 +771,7 @@ function M.mark_tag2(ast, context)
           or ast.tag == 'Function'  and i == 1
         then
           nextcontext = 'Explist'
-        else 
+        else
           nextcontext = 'Block'
         end
       else
@@ -882,7 +882,7 @@ end
 
 --CAUTION:Metalua: The lineinfo on Metalua comments is inconsistent with other
 --   nodes
-        
+
 --CAUTION:Metalua: lineinfo of table in `f{}` is [3,2], of `f{ x,y }` it's [4,6].
 --  This is inconsistent with `x={}` which is [3,4] and `f""` which is [1,2]
 --  for the string.
