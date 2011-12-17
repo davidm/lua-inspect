@@ -18,7 +18,7 @@ local LS = require "luainspect.signatures"
 local T = require "luainspect.types"
 
 --! require 'luainspect.typecheck' (context)
- 
+
 local ENABLE_RETURN_ANALYSIS = true
 local DETECT_DEADCODE = false -- may require more validation (false positives)
 
@@ -250,7 +250,7 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
     ast = ancestor_ast
   end
 
-  --  keywords in statement/block.    
+  --  keywords in statement/block.
   if iskeystat[ast.tag] then
     local keywords = {}
     for i=1,#tokenlist do
@@ -299,9 +299,9 @@ function M.related_keywords(ast, top_ast, tokenlist, src)
           end
         end
       end
-      f(ast)        
+      f(ast)
     end
-    
+
     return keywords, ast
   end
   return nil, ast
@@ -394,7 +394,7 @@ local function call_arg_range(ast)
       return #ast-2, nil
     else
       return #ast-1, #ast-1
-    end    
+    end
   else
     if #ast >= 2 and
       (ast[#ast].tag == 'Dots' or ast[#ast].tag == 'Call' or ast[#ast].tag == 'Invoke')
@@ -440,7 +440,7 @@ local function chunk_return_value(ast)
       end
   return vinfo
 end
-      
+
 -- Version of require that does source analysis (inspect) on module.
 function M.require_inspect(name, report, spath)
   local plinfo = M.package_loaded[name]
@@ -495,7 +495,7 @@ local function get_func_returns(f_ast)
       if ast.tag ~= 'If' and isalwaysreturn[cast] then isdead = true end
         -- subsequent statements in block never executed
     end end
-    
+
     -- Code on walking up AST: propagate children to parents
     if ast.tag == 'Return' then
       returns[#returns+1] = ast
@@ -591,7 +591,7 @@ end
 -- CATEGORY: code interpretation
 function M.infer_values(top_ast, tokenlist, src, report)
   if not top_ast.valueglobals then top_ast.valueglobals = {} end
-  
+
 
   -- infer values
   LA.walk(top_ast, function(ast) -- walk down
@@ -788,7 +788,7 @@ function M.infer_values(top_ast, tokenlist, src, report)
             -- Unfortuntely, Lua debuginfo lacks exact character position.
             --   http://lua-users.org/lists/lua-l/2010-08/msg00273.html
             -- So, just disable info if ambiguous.  Note: a slight improvement is to use the lastlinedefined.
-            M.debuginfo[sourceline] = false 
+            M.debuginfo[sourceline] = false
           end
         else
           if oldinfo == nil then
@@ -982,7 +982,7 @@ end
 -- Note: does not undo mark_tag2 and mark_parents (see replace_statements).
 -- CATEGORY: code interpretation
 function M.uninspect(top_ast)
-  -- remove ast from M.debuginfo 
+  -- remove ast from M.debuginfo
   for k, info in pairs(M.debuginfo) do
     if info and info.top_ast == top_ast then
       M.debuginfo[k] = nil
@@ -1001,30 +1001,30 @@ function M.uninspect(top_ast)
     ast.previous = nil
     ast.localmasked = nil
     ast.localmasking = nil
-  
+
     -- undo mark_identifiers
     ast.id = nil
     ast.resolvedname = nil
-    
+
     -- undo infer_values
     ast.value = nil
     ast.valueself = nil
     ast.valuelist = nil
     ast.isdead = nil   -- via get_func_returns
     ast.isvaluepegged = nil
-    
+
     -- undo walk setting ast.seevalue
     ast.seevalue = nil
-    
+
     -- undo walk setting ast.definedglobal
     ast.definedglobal = nil
 
     -- undo notes
     ast.note = nil
-    
+
     ast.nocollect = nil
   end)
-  
+
   -- undo infer_values
   top_ast.valueglobals = nil
 end
@@ -1038,18 +1038,18 @@ function M.inspect(top_ast, tokenlist, src, report)
   if not report then -- compat for older version of lua-inspect
     assert('inspect signature changed; please upgrade your code')
   end
-  
+
   report = report or function() end
-  
+
   local globals = LG.globals(top_ast)
- 
+
   M.mark_identifiers(top_ast)
 
   M.eval_comments(top_ast, tokenlist, report)
-  
+
   M.infer_values(top_ast, tokenlist, src, report)
   M.infer_values(top_ast, tokenlist, src, report) -- two passes to handle forward declarations of globals (IMPROVE: more passes?)
-  
+
   -- Make some nodes as having values related to its parent.
   -- This allows clicking on `bar` in `foo.bar` to display
   -- the value of `foo.bar` rather than just "bar".
@@ -1075,7 +1075,7 @@ function M.inspect(top_ast, tokenlist, src, report)
     local ok, o = pcall(eval_name_helper, name)
     if ok then return o else return nil end
   end
-  
+
   LA.walk(top_ast, function(ast)
     if ast.tag == 'Id' or ast.isfield then
       local vname = ast[1]
@@ -1258,7 +1258,7 @@ function M.get_value_details(ast, tokenlist, src)
   if not ast then return '?' end
 
   local vast = ast.seevalue or ast
-  
+
   if ast.localdefinition then
     if not ast.localdefinition.isused then info = info .. "unused " end
     if ast.localdefinition.isset then info = info .. "mutable " end
@@ -1292,13 +1292,13 @@ function M.get_value_details(ast, tokenlist, src)
   end
 
   info = info .. "\nvalue: " .. tostring(vast.value) .. " "
- 
+
   local sig = M.get_signature(vast)
   if sig then
     local kind = sig:find '%w%s*%b()$'  and 'signature' or 'description'
     info = info .. "\n" .. kind .. ": " .. sig .. " "
   end
-  
+
   local fpos, fline, path = M.ast_to_definition_position(ast, tokenlist)
   if fpos or fline then
     local fcol
@@ -1308,14 +1308,14 @@ function M.get_value_details(ast, tokenlist, src)
     local location = path .. ":" .. (fline) .. (fcol and ":" .. fcol or "")
     info = info .. "\nlocation defined: " .. location .. " "
   end
-  
+
   -- Render warning notes attached to calls/invokes.
   local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
                     and vast.parent.note
   if note then
     info = info .. "\nWARNING: " .. note .. " "
   end
-  
+
   return info
 end
 

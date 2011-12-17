@@ -92,7 +92,7 @@ allows ExtMan to find LuaInspect, and you will need to adjust this if
 you move LuaInspect somewhere else relative to ExtMan.
 
 Dependencies:
-  Tested with SciTE version 2.12/2.20 (older versions might not work).  
+  Tested with SciTE version 2.12/2.20 (older versions might not work).
   Requires http://lua-users.org/wiki/SciteExtMan (version included).
     Note: ExtMan's ctagsdx.lua is recommended (allows "goto mark"
     command to return to previous location following a "go to
