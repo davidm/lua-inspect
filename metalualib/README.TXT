@@ -122,7 +122,7 @@ Simplification of the install and structure:
 - This release is included in Lua for Windows, so it now couldn't get simpler
   for MS-Windows users!
 
-- Metalua is written in pure Lua again, thus making it platform-independant. 
+- Metalua is written in pure Lua again, thus making it platform-independant.
   No more mandatory C libraries. Pluto interface might be back, as an option,
   in a future version, but it's not worth the install trouble involved by
   DLL dependencies.
@@ -143,13 +143,13 @@ Other changes:
 
 - some new extensions: xloop, xmatch, improved match.
 
-- ASTs now keep track of the source extract that generated them (API is not 
+- ASTs now keep track of the source extract that generated them (API is not
   mature though, it will be changed and broken).
 
-- improved table printer: support of a plain-Lua mode, alternative indentation 
+- improved table printer: support of a plain-Lua mode, alternative indentation
   mode for deeply-nested tables.
 
-- added a generic table serializer, which handles shared and recursive 
+- added a generic table serializer, which handles shared and recursive
   sub-tables correctly.
 
 - gg API has been made slightly more flexible, as a first step towards a
@@ -256,11 +256,11 @@ Notworthy changes from 0.3 to 0.4
     a puzzling bug report; again, hygiene is hard).
 
 
-- AST grammar overhaul: 
+- AST grammar overhaul:
   The whole point of being alpha is to fix APIs with a more relaxed
   attitude towards backward compatibility. I think and hope it's the
   last AST revision, so here is it:
-  - `Let{...} is now called `Set{...} 
+  - `Let{...} is now called `Set{...}
     (Functional programmers would expect 'Let' to introduce an
     immutable binding, and assignment isn't immutable in Lua)
   - `Key{ key, value } in table literals is now written `Pair{ key, value }
@@ -277,7 +277,7 @@ Notworthy changes from 0.3 to 0.4
   - The operators which haven't a metatable counterpart are
     deprecated: 'ne', 'ge', 'gt'.
 
- 
+
 - Overhaul of the code walking library:
   - the API has been simplified: the fancy predicates proved more
     cumbersome to use than a bit of pattern matching in the visitors.

@@ -11,7 +11,7 @@
     3: </span><span class='comment'>-- (c) 2010 David Manura, MIT License.
     4: </span>
     5: local <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span> = {}
-    6: 
+    6:
     7: <span class='comment'>-- boilerplate/utility
     8: </span><span class='comment'>-- LUA_PATH=&quot;?.lua;/path/to/metalua/src/compiler/?.lua;/path/to/metalua/src/lib/?.lua&quot;
     9: </span><span class='comment'>-- import modules -- order is important
@@ -27,7 +27,7 @@
    19: </span><span class='id global probablydefined id3' id='id3'>_G</span><span class='info'>global probably-defined<br>(table)</span>.<span class='id field probablydefined id4' id='id4'>mlc</span><span class='info'>field probably-defined</span> = {} <span class='comment'>-- make gg happy
    20: </span>
    21: local <span class='id local constbind id5' id='id5'>inspect_globals</span><span class='info'>local defined-line:21</span> = <span class='id global probablydefined id2' id='id2'>require</span><span class='info'>global probably-defined<br>require (modname)</span> <span class='string'>&quot;luainspect.globals&quot;</span>
-   22: 
+   22:
    23: <span class='comment'>-- Converts Lua source string to Lua AST (via mlp/gg)
    24: </span>function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='id field possiblyundefined id6' id='id6'>ast_from_string</span><span class='info'>field undefined?</span>(<span class='id local param constbind id7' id='id7'>src</span><span class='info'>local param defined-line:24</span>, <span class='id local param mutatebind id8' id='id8'>filename</span><span class='info'>local param mutate-bind defined-line:24</span>)
    25:   <span class='id local param mutatebind id8' id='id8'>filename</span><span class='info'>local param mutate-bind defined-line:24</span> = <span class='id local param mutatebind id8' id='id8'>filename</span><span class='info'>local param mutate-bind defined-line:24</span> or <span class='string'>'(string)'</span>
@@ -35,7 +35,7 @@
    27:   local  <span class='id local constbind id13' id='id13'>ast</span><span class='info'>local defined-line:27</span> = <span class='id global probablydefined id10' id='id10'>mlp</span><span class='info'>global probably-defined</span>.<span class='id field probablydefined id14' id='id14'>chunk</span><span class='info'>field probably-defined</span>(<span class='id local constbind id9' id='id9'>lx</span><span class='info'>local defined-line:26</span>)
    28:   return <span class='id local constbind id13' id='id13'>ast</span><span class='info'>local defined-line:27</span>
    29: end
-   30: 
+   30:
    31: <span class='comment'>-- Walks AST `ast` in arbitrary order, visiting each node `n`, executing `f(n)`.
    32: </span>function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='id field possiblyundefined id15' id='id15'>walk</span><span class='info'>field undefined?</span>(<span class='id local param constbind id16' id='id16'>ast</span><span class='info'>local param defined-line:32</span>, <span class='id local param constbind id17' id='id17'>f</span><span class='info'>local param defined-line:32</span>)
    33:   <span class='id global probablydefined id18' id='id18'>assert</span><span class='info'>global probably-defined<br>assert (v [, message])</span>(<span class='id global probablydefined id19' id='id19'>type</span><span class='info'>global probably-defined<br>type (v)</span>(<span class='id local param constbind id16' id='id16'>ast</span><span class='info'>local param defined-line:32</span>) == <span class='string'>'table'</span>)
@@ -48,14 +48,14 @@
    40:     end
    41:   end
    42: end
-   43: 
+   43:
    44: local <span class='id local constbind id24' id='id24'>unescape</span><span class='info'>local defined-line:44</span> = {[<span class='string'>'d'</span>] = <span class='string'>'.'</span>}
-   45: 
+   45:
    46: function <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>.<span class='id field possiblyundefined id25' id='id25'>inspect</span><span class='info'>field undefined?</span>(<span class='id local param constbind id26' id='id26'>ast</span><span class='info'>local param defined-line:46</span>)
    47:   local <span class='id local constbind id27' id='id27'>globals</span><span class='info'>local defined-line:47</span> = <span class='id local upvalue constbind id5' id='id5'>inspect_globals</span><span class='info'>local upvalue defined-line:21</span>.<span class='id field possiblyundefined id28' id='id28'>globals</span><span class='info'>field undefined?</span>(<span class='id local param constbind id26' id='id26'>ast</span><span class='info'>local param defined-line:46</span>)
-   48: 
+   48:
    49:   local <span class='id local constbind id29' id='id29'>notes</span><span class='info'>local defined-line:49</span> = {}
-   50: 
+   50:
    51:   <span class='comment'>-- Label variables with unique identifiers.
    52: </span>  local <span class='id local mutatebind id30' id='id30'>id</span><span class='info'>local mutate-bind defined-line:52</span> = 0
    53:   local <span class='id local constbind id31' id='id31'>seen_globals</span><span class='info'>local defined-line:53</span> = {}
@@ -76,7 +76,7 @@
    68:           <span class='id local upvalue constbind id31' id='id31'>seen_globals</span><span class='info'>local upvalue defined-line:53</span>[<span class='id local constbind id42' id='id42'>name</span><span class='info'>local defined-line:65</span>] = <span class='id local upvalue mutatebind id30' id='id30'>id</span><span class='info'>local upvalue mutate-bind defined-line:52</span>
    69:         end
    70:         <span class='id local param constbind id32' id='id32'>ast</span><span class='info'>local param defined-line:54</span>.<span class='id field possiblyundefined id37' id='id37'>id</span><span class='info'>field undefined?</span> = <span class='id local upvalue constbind id31' id='id31'>seen_globals</span><span class='info'>local upvalue defined-line:53</span>[<span class='id local constbind id42' id='id42'>name</span><span class='info'>local defined-line:65</span>]
-   71: 
+   71:
    72:         <span class='comment'>-- also resolve name
    73: </span>        local <span class='id local constbind id43' id='id43'>parentresolvedname</span><span class='info'>local defined-line:73</span> = <span class='id local param constbind id32' id='id32'>ast</span><span class='info'>local param defined-line:54</span>.<span class='id field possiblyundefined id40' id='id40'>parent</span><span class='info'>field undefined?</span>.<span class='id field possiblyundefined id44' id='id44'>resolvedname</span><span class='info'>field undefined?</span>
    74:         if <span class='id local constbind id43' id='id43'>parentresolvedname</span><span class='info'>local defined-line:73</span> then
@@ -89,13 +89,13 @@
    81:           <span class='id local upvalue constbind id31' id='id31'>seen_globals</span><span class='info'>local upvalue defined-line:53</span>[<span class='id local constbind id46' id='id46'>name</span><span class='info'>local defined-line:78</span>] = <span class='id local upvalue mutatebind id30' id='id30'>id</span><span class='info'>local upvalue mutate-bind defined-line:52</span>
    82:         end
    83:         <span class='id local param constbind id32' id='id32'>ast</span><span class='info'>local param defined-line:54</span>.<span class='id field possiblyundefined id37' id='id37'>id</span><span class='info'>field undefined?</span> = <span class='id local upvalue constbind id31' id='id31'>seen_globals</span><span class='info'>local upvalue defined-line:53</span>[<span class='id local constbind id46' id='id46'>name</span><span class='info'>local defined-line:78</span>]
-   84: 
+   84:
    85:         <span class='comment'>-- also resolve name
    86: </span>        <span class='id local param constbind id32' id='id32'>ast</span><span class='info'>local param defined-line:54</span>.<span class='id field possiblyundefined id45' id='id45'>resolvedname</span><span class='info'>field undefined?</span> = <span class='id local param constbind id32' id='id32'>ast</span><span class='info'>local param defined-line:54</span>[1]
    87:       end
    88:     end
    89:   end)
-   90: 
+   90:
    91:   local function <span class='id local constbind id47' id='id47'>eval_name_helper</span><span class='info'>local defined-line:91</span>(<span class='id local param constbind id48' id='id48'>name</span><span class='info'>local param defined-line:91</span>)
    92:     local <span class='id local mutatebind id49' id='id49'>var</span><span class='info'>local mutate-bind defined-line:92</span> = <span class='id global probablydefined id3' id='id3'>_G</span><span class='info'>global probably-defined<br>(table)</span>
    93:     for <span class='id local mutatebind id50' id='id50'>part</span><span class='info'>local mutate-bind defined-line:93</span> in (<span class='id local param constbind id48' id='id48'>name</span><span class='info'>local param defined-line:91</span> .. <span class='string'>'.'</span>):<span class='string'>gmatch</span>(<span class='string'>&quot;([^.]*)%.&quot;</span>) do
@@ -110,7 +110,7 @@
   102:     local <span class='id local constbind id54' id='id54'>ok</span><span class='info'>local defined-line:102</span>, <span class='id local constbind id55' id='id55'>o</span><span class='info'>local defined-line:102</span> = <span class='id global probablydefined id56' id='id56'>pcall</span><span class='info'>global probably-defined<br>pcall (f, arg1, Å∑Å∑Å∑)</span>(<span class='id local upvalue constbind id47' id='id47'>eval_name_helper</span><span class='info'>local upvalue defined-line:91</span>, <span class='id local param constbind id53' id='id53'>name</span><span class='info'>local param defined-line:101</span>)
   103:     if <span class='id local constbind id54' id='id54'>ok</span><span class='info'>local defined-line:102</span> then return <span class='id local constbind id55' id='id55'>o</span><span class='info'>local defined-line:102</span> else return nil end
   104:   end
-  105: 
+  105:
   106:   <span class='comment'>-- Create notes.
   107: </span>  local <span class='id local constbind id57' id='id57'>seen_comment</span><span class='info'>local defined-line:107</span> = {}
   108:   <span class='id local upvalue constbind id1' id='id1'>M</span><span class='info'>local upvalue defined-line:5</span>.<span class='id field possiblyundefined id15' id='id15'>walk</span><span class='info'>field undefined?</span>(<span class='id local param constbind id26' id='id26'>ast</span><span class='info'>local param defined-line:46</span>, function(<span class='id local param constbind id58' id='id58'>ast</span><span class='info'>local param defined-line:108</span>)
@@ -131,7 +131,7 @@
   123:       local <span class='id local constbind id76' id='id76'>lchar</span><span class='info'>local defined-line:123</span> = <span class='id local param constbind id58' id='id58'>ast</span><span class='info'>local param defined-line:108</span>.<span class='id field possiblyundefined id61' id='id61'>lineinfo</span><span class='info'>field undefined?</span>.<span class='id field possiblyundefined id66' id='id66'>last</span><span class='info'>field undefined?</span>[3]
   124:       <span class='id global probablydefined id73' id='id73'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='id field probablydefined id74' id='id74'>insert</span><span class='info'>field probably-defined<br>table.insert (table, [pos,] value)</span>(<span class='id local upvalue constbind id29' id='id29'>notes</span><span class='info'>local upvalue defined-line:49</span>, {<span class='id local constbind id75' id='id75'>fchar</span><span class='info'>local defined-line:122</span>, <span class='id local constbind id76' id='id76'>lchar</span><span class='info'>local defined-line:123</span>, <span class='string'>ast</span>=<span class='id local param constbind id58' id='id58'>ast</span><span class='info'>local param defined-line:108</span>, <span class='string'>type</span>=<span class='string'>'string'</span>})
   125:     end
-  126: 
+  126:
   127:     <span class='comment'>-- comments
   128: </span>    if <span class='id local param constbind id58' id='id58'>ast</span><span class='info'>local param defined-line:108</span>.<span class='id field possiblyundefined id61' id='id61'>lineinfo</span><span class='info'>field undefined?</span> then
   129:       local <span class='id local constbind id77' id='id77'>commentss</span><span class='info'>local defined-line:129</span> = {}
@@ -148,16 +148,16 @@
   140:       end
   141:     end
   142:   end)
-  143: 
-  144: 
+  143:
+  144:
   145:   <span class='id global probablydefined id73' id='id73'>table</span><span class='info'>global probably-defined<br>(table) table manipulation library</span>.<span class='id field probablydefined id88' id='id88'>sort</span><span class='info'>field probably-defined<br>table.sort (table [, comp])</span>(<span class='id local constbind id29' id='id29'>notes</span><span class='info'>local defined-line:49</span>, function(<span class='id local param constbind id89' id='id89'>a</span><span class='info'>local param defined-line:145</span>,<span class='id local param constbind id90' id='id90'>b</span><span class='info'>local param defined-line:145</span>) return <span class='id local param constbind id89' id='id89'>a</span><span class='info'>local param defined-line:145</span>[1] &lt; <span class='id local param constbind id90' id='id90'>b</span><span class='info'>local param defined-line:145</span>[1] end)
-  146: 
+  146:
   147:   return <span class='id local constbind id29' id='id29'>notes</span><span class='info'>local defined-line:49</span>
   148: end
-  149: 
+  149:
   150: return <span class='id local constbind id1' id='id1'>M</span><span class='info'>local defined-line:5</span>
-  151: 
-  152: 
-  153: 
-  154: 
+  151:
+  152:
+  153:
+  154:
 </pre></body></html>
