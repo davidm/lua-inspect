@@ -1,15 +1,13 @@
--- luainspect.csv - Convert AST to CSV using LuaInspect info embedded.
+-- luainspect.delimited - Convert AST to delimited text using LuaInspect info embedded.
 --
 
 --! require 'luainspect.typecheck' (context)
 
 local M = {}
 
-local LS = require"luainspect.signatures"
 local T = require"luainspect.types"
 
-function M.ast_to_csv(ast, src, tokenlist)
-  local start = 1
+function M.ast_to_delimited(ast, src, tokenlist)
   local fmt_tokens = {}
   for _, token in ipairs(tokenlist) do
     local fchar, lchar = token.fpos, token.lpos

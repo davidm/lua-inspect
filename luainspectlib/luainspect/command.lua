@@ -27,16 +27,16 @@ end
 local function report(s) io.stderr:write(s, "\n") end
 
 -- parse flags
-local fmt = arg[1] and table.remove(arg, 1):match'^%-f(.*)' or 'csv'
+local fmt = arg[1] and table.remove(arg, 1):match'^%-f(.*)' or 'delimited'
 if fmt == '' and arg[1] then bflag = table.remove(arg, 1) end
 local ast_to_text =
-  (fmt == 'csv') and require 'luainspect.csv'.ast_to_csv or
+  (fmt == 'delimited') and require 'luainspect.delimited'.ast_to_delimited or
   (fmt == 'html') and require 'luainspect.html'.ast_to_html or
   fail('invalid format specified, -f'..fmt)
 
 local path = unpack(arg)
 if not path then
-  fail("inspect.lua [-f {csv|html}>] <path.lua>")
+  fail("inspect.lua [-f {delimited|html}>] <path.lua>")
 end
 
 local src = loadfile(path)

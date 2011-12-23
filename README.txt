@@ -69,7 +69,7 @@ Example:
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua -fcsv examples.lua > test-output/examples.csv
+  $ lua luainspectlib/luainspect/command.lua -fdelimited examples.lua > test-output/examples.csv
 
 == Installation in SciTE ==
 
