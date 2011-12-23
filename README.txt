@@ -63,7 +63,13 @@ extman/* - SciTE extman.
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua  examples.lua > test-output/examples.html
+  $ lua luainspectlib/luainspect/command.lua -fhtml  examples.lua > test-output/examples.html
+
+== Command-line Usage (delimited CSV output) ==
+
+Example:
+
+  $ lua luainspectlib/luainspect/command.lua -fcsv examples.lua > test-output/examples.csv
 
 == Installation in SciTE ==
 
@@ -151,6 +157,7 @@ Steve Donovan for discussions on design, SciTE and ExtMan.
 Fabien Fleutot for Metalua and discussions.
 SciTE suggestions/fixes by Tymur Gubayev.
 Peter Odding for VIM editor support [2].
+Jon Akhtar - csv output and IntelliJ discussions.
 
 == Bugs ==
 

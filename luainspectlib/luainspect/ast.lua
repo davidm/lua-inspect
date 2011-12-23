@@ -921,7 +921,7 @@ check('==', pr("ab","ab"), 2)
 check('==', pr("abcdefg","abcdefgh"), 7)
 --]=]
 
-----[=[TESTSUITE
+--[=[TESTSUITE
 print 'DONE'
 --]=]
 

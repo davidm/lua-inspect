@@ -1,4 +1,4 @@
-#!/bin/env lua
+#!/usr/bin/env lua
 
 -- luainspect.command - LuaInspect command-line interface.
 -- This file can be invoked from the command line
@@ -9,7 +9,6 @@ package.path = package.path .. ';luainspectlib/?.lua'
 
 local LA = require "luainspect.ast"
 local LI = require "luainspect.init"
-local LC = require "luainspect.csv"
 
 local function loadfile(filename)
   local fh = assert(io.open(filename, 'r'))
@@ -18,15 +17,26 @@ local function loadfile(filename)
   return data
 end
 
+local function fail(err)
+  io.stderr:write(err, '\n')
+  os.exit(1)
+end
 
 -- Warning/status reporting function.
 -- CATEGORY: reporting + AST
 local function report(s) io.stderr:write(s, "\n") end
 
-local path = ...
+-- parse flags
+local fmt = arg[1] and table.remove(arg, 1):match'^%-f(.*)' or 'csv'
+if fmt == '' and arg[1] then bflag = table.remove(arg, 1) end
+local ast_to_text =
+  (fmt == 'csv') and require 'luainspect.csv'.ast_to_csv or
+  (fmt == 'html') and require 'luainspect.html'.ast_to_html or
+  fail('invalid format specified, -f'..fmt)
+
+local path = unpack(arg)
 if not path then
-  io.stderr:write("inspect.lua <path.lua>")
-  os.exit(1)
+  fail("inspect.lua [-f {csv|html}>] <path.lua>")
 end
 
 local src = loadfile(path)
@@ -38,9 +48,9 @@ if ast then
   LI.inspect(ast, tokenlist, src, report)
   LI.mark_related_keywords(ast, tokenlist, src)
 
-  local ast = LC.ast_to_csv(ast, src, tokenlist)
+  local output = ast_to_text(ast, src, tokenlist)
 
-  io.stdout:write(ast)
+  io.stdout:write(output)
 else
   io.stderr:write("syntax error: ", err)
   os.exit(1)
