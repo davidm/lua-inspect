@@ -2,8 +2,9 @@ Change Log.
 
 20111224
   [+] html/delimited: export type information (in same manner as SciTE)
-  [*] html: improve line number CSS treatment, e.g. don't include in copy/paste
+  [*] html: improve line number CSS treatment. e.g. don't include in copy/paste
   [+] html: highlight range of lines of scope of selected variable (like in SciTE).
+  [+] command: add 'luainspect' front-end script in top directory.
   [+] command: add options for output name and html library path
 
 20100911

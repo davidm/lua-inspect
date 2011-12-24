@@ -9,8 +9,9 @@ For further details, see http://lua-users.org/wiki/LuaInspect .
 
 == Status ==
 
-WARNING: This code is not yet stable.  It is usable but you
-may need to sometimes fix things yourself.  Many additional
+WARNING: Some of this code might not yet be stable or complete,
+particularly with regards to inferencing.  It is usable for daily code editing
+but you may need to sometimes fix things yourself.  Many additional
 features could be added too.
 
 == Features ==
@@ -63,15 +64,16 @@ extman/* - SciTE extman.
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua -fhtml -lhtmllib examples.lua > examples.html
+  $ ./luainspect -fhtml -lhtmllib examples.lua > examples.html
 
-(Alternately just run "lua test.lua".)
+(Alternately just run "lua test.lua".  You should also do "lua luainspect"
+rather than "./luainspect" on Windows.)
 
 == Command-line Usage (delimited CSV output) ==
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua -fdelimited examples.lua > test-output/examples.csv
+  $ ./luainspect -fdelimited examples.lua > test-output/examples.csv
 
 == Installation in SciTE ==
 

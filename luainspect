@@ -1,0 +1,17 @@
+#!/usr/bin/env lua
+
+-- Set Lua library paths.
+-- based on findbin -- https://gist.github.com/1342365
+-- and lib -- https://gist.github.com/1342319
+local function findbin()
+  local script = arg and arg[0] or ''
+  local bin = script:gsub('[/\\]?[^/\\]+$', '') -- remove file name
+  if bin == '' then bin = '.' end
+  return bin
+end
+local bin = findbin()
+package.path = package.path..';'..bin..'/metalualib/?.lua'
+package.path = package.path..';'..bin..'/luainspectlib/?.lua'
+
+require 'luainspect.command'
+
