@@ -27,8 +27,16 @@ end
 local function report(s) io.stderr:write(s, "\n") end
 
 -- parse flags
-local fmt = arg[1] and table.remove(arg, 1):match'^%-f(.*)' or 'delimited'
-if fmt == '' and arg[1] then bflag = table.remove(arg, 1) end
+local function getopt(c)
+  if arg[1] then
+    local x = arg[1]:match('^%-'..c..'(.*)')
+    if x then table.remove(arg, 1)
+      if x == '' and arg[1] then x = arg[1]; table.remove(arg, 1) end
+      return x
+    end
+  end
+end
+local fmt = getopt 'f' or 'delimited'
 local ast_to_text =
   (fmt == 'delimited') and require 'luainspect.delimited'.ast_to_delimited or
   (fmt == 'html') and require 'luainspect.html'.ast_to_html or
