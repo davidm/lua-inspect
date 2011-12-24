@@ -116,20 +116,21 @@ function M.ast_to_html(ast, src, tokenlist)
   return snip_html
  end)
 
- local function add_linenums(src_html)
+ 
+ local function get_line_numbers_html(src)
   local out_htmls = {}
   local linenum = 1
-  for line in src_html:gmatch("[^\n]*\n?") do
+  for line in src:gmatch("[^\n]*\n?") do
     if line == "" then break end
-    table.insert(out_htmls, string.format("%5d: ", linenum) .. line)
+    table.insert(out_htmls, string.format("%d:\n", linenum))
     linenum = linenum + 1
   end
   return table.concat(out_htmls)
  end
+ 
+ local line_numbers_html = get_line_numbers_html(src)
 
- src_html = add_linenums(src_html)
-
- src_html = [[
+  src_html = [[
  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
   "http://www.w3.org/TR/html4/strict.dtd">
 <html>
@@ -140,8 +141,15 @@ function M.ast_to_html(ast, src, tokenlist)
   <script src="luainspect.js" type="text/javascript"></script>
   <link rel="stylesheet" type="text/css" href="luainspect.css">
 </head>
-<body><pre>
-]] .. src_html .. "</pre></body></html>"
+<body>
+
+<div class="lua-source">
+<pre class="lua-source-linenumbers">]] .. line_numbers_html .. [[</pre>
+<pre class="lua-source-content"><code>]] .. src_html .. [[</code></pre>
+<div class="lua-source-clear"></div>
+</div>
+
+</body></html>]]
 
  return src_html
 end

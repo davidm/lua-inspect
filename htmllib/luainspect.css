@@ -22,4 +22,8 @@
 
 .info { position: absolute; display: none; padding: 0.5em; background-color: #f0f0f0; border: 1px solid #808080; margin: 1.5em 0.5em }
 
-
+.lua-source { line-height: 14pt; font-size:12pt; font-size:90% }
+.lua-source-linenumbers { float: left; }
+.lua-source-content { float: left; margin-left: 1em; }
+.lua-source-clear { clear: both; }
+/* line-height: http://stackoverflow.com/questions/1427426/text-not-aligning-in-html-using-css */

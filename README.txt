@@ -173,6 +173,9 @@ if you prefer neither then append to the wiki page
 
 == Changes ==
 
+20111224
+  [*] html: improve line number CSS treatment, e.g. don't include in copy/paste
+
 20100911
   [+] core: infer types of for loop variables.
 
