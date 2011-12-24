@@ -31,7 +31,7 @@ local function annotate_source(src, ast, tokenlist, emit)
   return table.concat(fmt_srcs)
 end
 
-function M.ast_to_html(ast, src, tokenlist)
+function M.ast_to_html(ast, src, tokenlist, options)
   local src_html = annotate_source(src, ast, tokenlist, function(snip_src, token)
   local snip_html = escape_html(snip_src)
   if token then
@@ -130,6 +130,9 @@ function M.ast_to_html(ast, src, tokenlist)
  
  local line_numbers_html = get_line_numbers_html(src)
 
+ options = options or {}
+ local libpath = options.libpath or '.'
+ 
   src_html = [[
  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
   "http://www.w3.org/TR/html4/strict.dtd">
@@ -137,9 +140,9 @@ function M.ast_to_html(ast, src, tokenlist)
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title></title>
-  <script src="jquery-1.4.2.min.js" type="text/javascript"></script>
-  <script src="luainspect.js" type="text/javascript"></script>
-  <link rel="stylesheet" type="text/css" href="luainspect.css">
+  <script src="]]..libpath..[[/jquery-1.4.2.min.js" type="text/javascript"></script>
+  <script src="]]..libpath..[[/luainspect.js" type="text/javascript"></script>
+  <link rel="stylesheet" type="text/css" href="]]..libpath..[[/luainspect.css">
 </head>
 <body>
 

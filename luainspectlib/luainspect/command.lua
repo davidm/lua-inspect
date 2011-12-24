@@ -17,6 +17,12 @@ local function loadfile(filename)
   return data
 end
 
+local function writefile(filename, output)
+  local fh = assert(io.open(filename, 'wb'))
+  fh:write(output)
+  fh:close()
+end
+
 local function fail(err)
   io.stderr:write(err, '\n')
   os.exit(1)
@@ -41,10 +47,17 @@ local ast_to_text =
   (fmt == 'delimited') and require 'luainspect.delimited'.ast_to_delimited or
   (fmt == 'html') and require 'luainspect.html'.ast_to_html or
   fail('invalid format specified, -f'..fmt)
+local libpath = getopt 'l' or '.'
+local outpath = getopt 'o' or '-'
 
 local path = unpack(arg)
 if not path then
-  fail("inspect.lua [-f {delimited|html}>] <path.lua>")
+  fail[[
+inspect.lua [options] <path.lua>
+  -f {delimited|html} - output format
+  -l path   path to library sources (e.g. luainspect.css/js), for html only
+  -o path   output path (defaults to standard output (-)
+]]
 end
 
 local src = loadfile(path)
@@ -56,9 +69,13 @@ if ast then
   LI.inspect(ast, tokenlist, src, report)
   LI.mark_related_keywords(ast, tokenlist, src)
 
-  local output = ast_to_text(ast, src, tokenlist)
+  local output = ast_to_text(ast, src, tokenlist, {libpath=libpath})
 
-  io.stdout:write(output)
+  if outpath == '-' then
+    io.stdout:write(output)
+  else
+    writefile(outpath, output)
+  end
 else
   io.stderr:write("syntax error: ", err)
   os.exit(1)

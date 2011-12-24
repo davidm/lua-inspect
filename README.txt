@@ -63,7 +63,9 @@ extman/* - SciTE extman.
 
 Example:
 
-  $ lua luainspectlib/luainspect/command.lua -fhtml  examples.lua > test-output/examples.html
+  $ lua luainspectlib/luainspect/command.lua -fhtml -lhtmllib examples.lua > examples.html
+
+(Alternately just run "lua test.lua".)
 
 == Command-line Usage (delimited CSV output) ==
 
@@ -175,6 +177,7 @@ if you prefer neither then append to the wiki page
 
 20111224
   [*] html: improve line number CSS treatment, e.g. don't include in copy/paste
+  [+] command: add options for output name and html library path
 
 20100911
   [+] core: infer types of for loop variables.
