@@ -1251,7 +1251,7 @@ function M.is_known_value(ast)
 end
 
 
--- Gets details information about value in AST node, as string.
+-- Gets detailed information about value in AST node, as string.
 function M.get_value_details(ast, tokenlist, src)
   local info = ""
 
