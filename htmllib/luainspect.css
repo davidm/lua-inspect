@@ -5,10 +5,10 @@
 .id.local.param { color: #000040 }
 .id.local.upvalue { color: #0000ff }
 .id.local.unused { color: #ffffff; background-color: #000080 }
-.id.global.recognized { color: #800000 }
-.id.global.unrecognized { color: white; background-color: red }
-.id.field.recognized { color: #600000 }
-.id.field.unrecognized { color: #c00000 }
+.id.global.known { color: #800000 }
+.id.global.unknown { color: white; background-color: red }
+.id.field.known { color: #600000 }
+.id.field.unknown { color: #c00000 }
 .id.mutatebind { font-style: italic }
 .comment { color: #008000 }
 .string { color: #00c000 }

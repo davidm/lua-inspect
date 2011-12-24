@@ -1251,52 +1251,56 @@ function M.is_known_value(ast)
 end
 
 
+-- Gets list of variable attributes for AST node.
+function M.get_var_attributes(ast)
+  local vast = ast.seevalue or ast
+  local attributes = {}
+  if ast.localdefinition then
+    attributes[#attributes+1] = "local"
+    if ast.localdefinition.functionlevel < ast.functionlevel then
+      attributes[#attributes+1] = 'upvalue'
+    end
+    if ast.localdefinition.isparam then
+      attributes[#attributes+1] = "param"
+    end
+    if not ast.localdefinition.isused then attributes[#attributes+1] = 'unused' end
+    if ast.localdefinition.isset then attributes[#attributes+1] = 'mutatebind'
+    else attributes[#attributes+1] = 'constbind' end
+    if ast.localmasking then
+      attributes[#attributes+1] = "masking"
+    end
+    if ast.localmasked then
+      attributes[#attributes+1] = "masked"
+    end
+  elseif ast.tag == 'Id' then -- global
+    attributes[#attributes+1] = (M.is_known_value(vast) and "known" or "unknown")
+    attributes[#attributes+1] = "global"
+  elseif ast.isfield then
+    attributes[#attributes+1] = (M.is_known_value(vast) and "known" or "unknown")
+    attributes[#attributes+1] = "field"
+  else
+    attributes[#attributes+1] = "FIX" -- shouldn't happen?
+  end
+  return attributes
+end
+
+
 -- Gets detailed information about value in AST node, as string.
 function M.get_value_details(ast, tokenlist, src)
-  local info = ""
+  local lines = {}
 
   if not ast then return '?' end
 
   local vast = ast.seevalue or ast
 
-  if ast.localdefinition then
-    if not ast.localdefinition.isused then info = info .. "unused " end
-    if ast.localdefinition.isset then info = info .. "mutable " end
-    if ast.localdefinition.functionlevel < ast.functionlevel then
-      info = info .. "upvalue "
-    elseif ast.localdefinition.isparam then
-      info = info .. "function parameter "
-    else
-      info = info .. "local "
-    end
+  lines[#lines+1] = "attributes: " .. table.concat(M.get_var_attributes(ast), " ")
 
-    if ast.localmasking then
-      info = info .. "masking "
-      local fpos = LA.ast_pos_range(ast.localmasking, tokenlist)
-      if fpos then
-        local linenum = LA.pos_to_linecol(fpos, src)
-        info = info .. "definition at line " .. linenum .. " "
-      end
-    end
-    if ast.localmasked then
-      info = info .. "masked "
-    end
-  elseif ast.tag == 'Id' then -- global
-    info = info .. (M.is_known_value(vast) and "known" or "unknown")
-    info = info .. " global "
-  elseif ast.isfield then
-    info = info .. (M.is_known_value(vast) and "known" or "unknown")
-    info = info .. " field "
-  else
-    info = info .. "? "
-  end
-
-  info = info .. "\nvalue: " .. tostring(vast.value) .. " "
+  lines[#lines+1] = "value: " .. tostring(vast.value)
 
   local sig = M.get_signature(vast)
   if sig then
     local kind = sig:find '%w%s*%b()$'  and 'signature' or 'description'
-    info = info .. "\n" .. kind .. ": " .. sig .. " "
+    lines[#lines+1] = kind .. ": " .. sig
   end
 
   local fpos, fline, path = M.ast_to_definition_position(ast, tokenlist)
@@ -1306,17 +1310,25 @@ function M.get_value_details(ast, tokenlist, src)
       fline, fcol = LA.pos_to_linecol(fpos, src)
     end
     local location = path .. ":" .. (fline) .. (fcol and ":" .. fcol or "")
-    info = info .. "\nlocation defined: " .. location .. " "
+    lines[#lines+1] = "location defined: " .. location
+  end
+  
+  if ast.localdefinition and ast.localmasking then
+      local fpos = LA.ast_pos_range(ast.localmasking, tokenlist)
+      if fpos then
+        local linenum = LA.pos_to_linecol(fpos, src)
+        lines[#lines+1] = "masking definition at line: " .. linenum
+      end
   end
 
   -- Render warning notes attached to calls/invokes.
   local note = vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
                     and vast.parent.note
   if note then
-    info = info .. "\nWARNING: " .. note .. " "
+    lines[#lines+1] = "WARNING: " .. note
   end
 
-  return info
+  return table.concat(lines, "\n")
 end
 
 

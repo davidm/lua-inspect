@@ -6,8 +6,7 @@
 
 local M = {}
 
-local LS = require "luainspect.signatures"
-local T = require "luainspect.types"
+local LI = require "luainspect.init"
 
 -- FIX!!! improve: should be registered utility function
 local function escape_html(s)
@@ -37,85 +36,22 @@ function M.ast_to_html(ast, src, tokenlist, options)
   if token then
     local ast = token.ast
     if token.tag == 'Id' or ast.isfield then
-      local class = 'id'
-      local desc_html = escape_html(class)
-
-      if ast.localdefinition then
-        class = class .. ' local'
-        desc_html = desc_html .. ' local'
-        if ast.functionlevel > ast.localdefinition.functionlevel then
-          class = class .. ' upvalue'
-          desc_html = desc_html .. ' upvalue'
-        end
-        if not ast.localdefinition.isused then
-          class = class .. ' unused'
-        end
-        if ast.localdefinition.isset then
-          class = class .. ' mutatebind'
-          desc_html = desc_html .. ' mutate-bind'
-        else
-          class = class .. ' constbind'
-        end
-        if ast.isparam then
-          class = class .. ' param'
-          desc_html = desc_html .. ' param'
-        end
-        if ast.localmasking then
-          class = class .. ' masking'
-          desc_html = desc_html .. ' masking'
-        end
-        if ast.localmasked then
-          class = class .. ' masked'
-          desc_html = desc_html .. ' masked'
-        end
-        if ast.localdefinition.lineinfo then
-          local linenum = ast.localdefinition.lineinfo.first[1]
-          desc_html = desc_html .. ' defined-line:' .. linenum
-        end
-      elseif ast.isfield then
-        class = class .. ' field'
-        desc_html = desc_html .. ' field'
-        local val = ast.seevalue.value
-        if ast.definedglobal or val ~= T.universal and not T.iserror[val] and val ~= nil then
-          class = class .. ' recognized'
-          desc_html = desc_html .. ' recognized'
-        else
-          class = class .. ' unrecognized'
-          desc_html = desc_html .. ' unrecognized'
-        end
-      else -- global
-        class = class .. ' global'
-        desc_html = desc_html .. ' global'
-        if ast.definedglobal then
-          class = class .. ' recognized'
-          desc_html = desc_html .. ' recognized'
-        else
-          class = class .. ' unrecognized'
-          desc_html = desc_html .. ' unrecognized'
-        end
-      end -- localdefinition
-      
-        if ast.lineinfo then
-          local linenum = ast.lineinfo.first[1]
-          desc_html = desc_html .. ' used-line:' .. linenum
-        end
-
-      if ast.id then
-        class = class .. " id" .. ast.id
+      local class = 'id '
+      class = class .. table.concat(LI.get_var_attributes(ast), " ")
+      if ast.id then class = class.." id"..ast.id end
+      local desc_html = escape_html(LI.get_value_details(ast, tokenlist, src))
+      if ast.lineinfo then
+        local linenum = ast.lineinfo.first[1]
+        desc_html = desc_html .. '\nused-line:' .. linenum
       end
-
-      if ast.resolvedname and LS.global_signatures[ast.resolvedname] then
-        local name = ast.resolvedname
-        desc_html = desc_html .. "<br>" .. escape_html(LS.global_signatures[name])
-      end
-      return "<span class='" .. class .. "'>" .. snip_html .. "</span><span class='info'>" .. desc_html .. "</span>"
+      return "<span class='"..class.."'>"..snip_html.."</span><span class='info'>"..desc_html.."</span>"
     elseif token.tag == 'Comment' then
-      return "<span class='comment'>" .. snip_html .. "</span>"
+      return "<span class='comment'>"..snip_html.."</span>"
     elseif token.tag == 'String' then -- note: excludes ast.isfield
-      return "<span class='string'>" .. snip_html .. "</span>"
+      return "<span class='string'>"..snip_html.."</span>"
     elseif token.tag == 'Keyword' then
-      local id = token.keywordid and 'idk' .. tostring(token.keywordid) or ''
-      return "<span class='keyword " .. id .. "'>" .. snip_html .. "</span>"
+      local id = token.keywordid and 'idk'..tostring(token.keywordid) or ''
+      return "<span class='keyword "..id.."'>"..snip_html.."</span>"
     end
   end
   return snip_html

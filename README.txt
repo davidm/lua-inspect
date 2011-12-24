@@ -28,10 +28,10 @@ features could be added too.
            and defined-ness of members of imported modules
           (`local mt = require "math"; math.sqrtt(2) -- undefined`)
         * infers signatures of functions (including local, global, and module functions)
-        * checks number of function arguments against signatures (SciTE only)
+        * checks number of function arguments against signatures
         * cross-references variables (locals and module fields) with their definitions and uses
 	  (pink highlight), identifies range of lines/scope where the local is defined
-	   (SciTE and HTML), and supports jump-to-definition and jump-to-uses (SciTE only)
+	   and (SciTE only) supports jump-to-definition and jump-to-uses
         * identifies all keywords in selected block (underline)
         * evaluate special comments (prefixed by '!') to inject semantic information into analysis
            (similar to luaanalyze / lint).
