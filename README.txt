@@ -31,7 +31,7 @@ features could be added too.
         * checks number of function arguments against signatures (SciTE only)
         * cross-references variables (locals and module fields) with their definitions and uses
 	  (pink highlight), identifies range of lines/scope where the local is defined
-	   (currently SciTE only), and supports jump-to-definition and jump-to-uses (SciTE only)
+	   (SciTE and HTML), and supports jump-to-definition and jump-to-uses (SciTE only)
         * identifies all keywords in selected block (underline)
         * evaluate special comments (prefixed by '!') to inject semantic information into analysis
            (similar to luaanalyze / lint).

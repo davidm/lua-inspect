@@ -2,6 +2,7 @@ Change Log.
 
 20111224
   [*] html: improve line number CSS treatment, e.g. don't include in copy/paste
+  [+] html: highlight range of lines of scope of selected variable (like in SciTE).
   [+] command: add options for output name and html library path
 
 20100911

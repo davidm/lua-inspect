@@ -93,7 +93,12 @@ function M.ast_to_html(ast, src, tokenlist, options)
           class = class .. ' unrecognized'
           desc_html = desc_html .. ' unrecognized'
         end
-      end
+      end -- localdefinition
+      
+        if ast.lineinfo then
+          local linenum = ast.lineinfo.first[1]
+          desc_html = desc_html .. ' used-line:' .. linenum
+        end
 
       if ast.id then
         class = class .. " id" .. ast.id
@@ -122,7 +127,7 @@ function M.ast_to_html(ast, src, tokenlist, options)
   local linenum = 1
   for line in src:gmatch("[^\n]*\n?") do
     if line == "" then break end
-    table.insert(out_htmls, string.format("%d:\n", linenum))
+    table.insert(out_htmls, string.format('<span id="L%d">%d:</span>\n', linenum, linenum))
     linenum = linenum + 1
   end
   return table.concat(out_htmls)
@@ -147,7 +152,7 @@ function M.ast_to_html(ast, src, tokenlist, options)
 <body>
 
 <div class="lua-source">
-<pre class="lua-source-linenumbers">]] .. line_numbers_html .. [[</pre>
+<pre class="lua-source-linenums">]] .. line_numbers_html .. [[</pre>
 <pre class="lua-source-content"><code>]] .. src_html .. [[</code></pre>
 <div class="lua-source-clear"></div>
 </div>
