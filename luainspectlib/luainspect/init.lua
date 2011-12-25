@@ -1281,6 +1281,11 @@ function M.get_var_attributes(ast)
   else
     attributes[#attributes+1] = "FIX" -- shouldn't happen?
   end
+  if vast.parent and (vast.parent.tag == 'Call' or vast.parent.tag == 'Invoke')
+         and vast.parent.note
+  then
+    attributes[#attributes+1] = 'warn'
+  end
   return attributes
 end
 

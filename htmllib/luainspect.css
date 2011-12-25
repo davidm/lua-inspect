@@ -16,6 +16,7 @@
 .keyword.highlight { text-decoration: underline }
 .masking { text-decoration: underline }
 .masked { /*text-decoration: line-through*/ }
+.warn { border-bottom:1px dotted #808000 }
 
 .id.highlight {background-color: #ffe0e0}
 .lua-source-linenums .highlight {background-color: #e0e0e0}
