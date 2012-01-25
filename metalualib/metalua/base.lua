@@ -6,7 +6,7 @@
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-if not metalua then rawset(getfenv(), 'metalua', { }) end
+if not metalua then metalua = {} end --PATCHED.. rawset(getfenv(), 'metalua', { }) end
 metalua.version             = "v-0.5"
 
 if not rawpairs then
