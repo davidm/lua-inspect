@@ -562,7 +562,7 @@ function M.OnUpdateUI()
 
     -- identify any local definition masked by any selected local definition.
     local ast = selectedtoken -- cast: `Id tokens are AST nodes.
-    if ast.localmasking then
+    if ast.localmasking and not ast.isignore then
       local fpos, lpos = LA.ast_pos_range(ast.localmasking, buffer.tokenlist)
       if fpos then
         local maskedlinenum0 = editor:LineFromPosition(fpos-1)
@@ -710,7 +710,7 @@ function M.OnStyle(styler)
       local ast = token.ast
       if token.tag == 'Id' then
         if ast.localdefinition then -- local
-          if not ast.localdefinition.isused then
+          if not ast.localdefinition.isused and not ast.isignore then
             styler:SetState(S_LOCAL_UNUSED)
           elseif ast.localdefinition.functionlevel  < ast.functionlevel then  -- upvalue
             if ast.localdefinition.isset then
@@ -776,7 +776,7 @@ function M.OnStyle(styler)
   for idx=1,#tokenlist do
     local token = tokenlist[idx]
     local ast = token.ast
-    if ast and ast.localmasking then
+    if ast and ast.localmasking and not ast.isignore then
       editor.IndicatorCurrent = INDICATOR_MASKING
       editor:IndicatorFillRange(token.fpos-1, token.lpos - token.fpos + 1)
     end

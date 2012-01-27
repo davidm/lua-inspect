@@ -150,6 +150,9 @@ The LuaInspect code itself uses this:
 The font styles are intended to make the more dangerous
 or questionable code stand out more.
 
+Local variables named '_' are ignored for purposes of unused/masking variable
+reporting.  Typical use case: `for _, v in ipairs(t) do <. . .> end`.
+
 == LICENSE ==
 
 See LICENSE file.

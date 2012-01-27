@@ -997,6 +997,7 @@ function M.uninspect(top_ast)
     ast.isparam = nil
     ast.isset = nil
     ast.isused = nil
+    ast.isignore = nil
     ast.isfield = nil
     ast.previous = nil
     ast.localmasked = nil
@@ -1264,6 +1265,7 @@ function M.get_var_attributes(ast)
       attributes[#attributes+1] = "param"
     end
     if not ast.localdefinition.isused then attributes[#attributes+1] = 'unused' end
+    if ast.isignore then attributes[#attributes+1] = 'ignore' end
     if ast.localdefinition.isset then attributes[#attributes+1] = 'mutatebind'
     else attributes[#attributes+1] = 'constbind' end
     if ast.localmasking then
@@ -1356,7 +1358,7 @@ function M.list_warnings(tokenlist, src)
         local linenum = pos and LA.pos_to_linecol(pos, src)
         warn("local " .. ast[1] .. " masks another local" .. (pos and " on line " .. linenum or ""))
       end
-      if ast.localdefinition == ast and not ast.isused then
+      if ast.localdefinition == ast and not ast.isused and not ast.isignore then
         warn("unused local " .. ast[1])
       end
       if ast.isfield and not(known(ast.seevalue.value) and ast.seevalue.value ~= nil) then

@@ -15,6 +15,7 @@ return function(context)
     isfield=T.boolean, tag2=T.string,
     value=T.universal, valueself=T.number, valuelist=T.table{n=T.number, isvaluepegged=T.boolean},
     resolvedname=T.string, definedglobal=T.boolean, id=T.number, isparam=T.boolean, isset=T.boolean, isused=T.boolean,
+    isignore=T.boolean,
     functionlevel=T.number, localmasked=T.boolean, note=T.string, nocollect=T.table{}, isdead=T.boolean}
      -- FIX: some of these are "boolean or nil" actually
   ast.localdefinition=ast; ast.localmasking = ast

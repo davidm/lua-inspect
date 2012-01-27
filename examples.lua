@@ -49,8 +49,10 @@ do  -- more masking testss
   for cde, cde in pairs{} do local cde end -- not mask, mask, mask
   for def=1,2 do local def end -- not mask, mask
   function abc:def() local self end  -- not mask, mask
+  function abc:def() local self end  -- not mask, mask
   function abc:def(self) end -- not mask, mask
 end
+for _,x in ipairs{} do local _,x = function(_,x)end end -- ignore unused/masking '_'
 
 -- Field accesses
 math.sqrt(math.pi)  -- statically+dynamically defined fields
