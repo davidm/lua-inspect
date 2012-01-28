@@ -161,6 +161,19 @@ local function f(x)
 end
 --test: do return end deadcode()
 
+-- error messages
+do
+  local n
+  local z1,z2 = true,false
+  local xd1 = z1 + z2  -- error, arithmetic on boolean
+  local xd2 = true + 5 -- error, arithmetic on boolean literal
+  local xd3 = n^n  -- error, arithmetic on nil
+  local xd4 = z1.zz  -- error, index bool
+  local xd4b = z1:zz() -- error, index bool in meth call
+  local xd5 = #z1 -- error, len of bool
+  local xd6 = g11 + g22  -- error, arithmetic on global nil
+end
+
 -- type inferences
 do
   local n1, n2 --! context.apply_value('^n.*', number)

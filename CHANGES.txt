@@ -1,5 +1,8 @@
 Change Log.
 
+20120127
+  [*] core: cleanup error messages in inferred values.
+
 20120126
   [+] Ignore locals named '_' in unused/masking variable reporting.
 

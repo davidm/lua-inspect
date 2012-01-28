@@ -24,22 +24,24 @@ local DETECT_DEADCODE = false -- may require more validation (false positives)
 
 
 -- Functional forms of Lua operators.
+-- Note: variable names like _1 are intentional.  These affect debug info and
+-- will display in any error messages.
 local ops = {}
-ops['add'] = function(a,b) return a+b end
-ops['sub'] = function(a,b) return a-b end
-ops['mul'] = function(a,b) return a*b end
-ops['div'] = function(a,b) return a/b end
-ops['mod'] = function(a,b) return a%b end
-ops['pow'] = function(a,b) return a^b end
-ops['concat'] = function(a,b) return a..b end
-ops['eq'] = function(a,b) return a==b end
-ops['lt'] = function(a,b) return a<b end
-ops['le'] = function(a,b) return a<=b end
-ops['and'] = function(a,b) return a and b end
-ops['or'] = function(a,b) return a or b end
-ops['not'] = function(a) return not a end
-ops['len'] = function(a) return #a end
-ops['unm'] = function(a) return -a end
+ops['add'] = function(_1,_2) return _1+_2 end
+ops['sub'] = function(_1,_2) return _1-_2 end
+ops['mul'] = function(_1,_2) return _1*_2 end
+ops['div'] = function(_1,_2) return _1/_2 end
+ops['mod'] = function(_1,_2) return _1%_2 end
+ops['pow'] = function(_1,_2) return _1^_2 end
+ops['concat'] = function(_1,_2) return _1.._2 end
+ops['eq'] = function(_1,_2) return _1==_2 end
+ops['lt'] = function(_1,_2) return _1<_2 end
+ops['le'] = function(_1,_2) return _1<=_2 end
+ops['and'] = function(_1,_2) return _1 and _2 end
+ops['or'] = function(_1,_2) return _1 or _2 end
+ops['not'] = function(_1) return not _1 end
+ops['len'] = function(_1) return #_1 end
+ops['unm'] = function(_1) return -_1 end
 
 
 -- Performs binary operation.  Supports types.
@@ -150,6 +152,50 @@ end
 local function plain_gsub(s, pattern, repl)
   repl = repl:gsub('(%W)', '%%%1')
   return s:gsub(pattern, repl)
+end
+
+-- Infer name of variable or literal that AST node represents.
+-- This is for debugging messages.
+local function infer_name(ast)
+  if ast == nil then return nil
+  elseif ast.tag == 'Id' then return "'"..ast[1].."'"
+  elseif ast.tag == 'Number' then return 'number'
+  elseif ast.tag == 'String' then return 'string'
+  elseif ast.tag == 'True' then return 'true'
+  elseif ast.tag == 'False' then return 'false'
+  elseif ast.tag == 'Nil' then return 'nil'
+  else return nil end
+end
+
+--[[
+ This is like `pcall` but any error string returned does not contain the
+ "chunknamem:currentline: " prefix (based on luaL_where) if the error occurred
+ in the current file.  This avoids error messages in user code (f)
+ being reported as being inside this module if this module calls user code.
+ Also, local variable names _1, _2, etc. in error message are replaced with names
+ inferred (if any) from corresponding AST nodes in list `asts` (note: nil's in asts skip replacement).
+--]]
+local _prefix
+local _clean
+local function pzcall(f, asts, ...)
+  _prefix = _prefix or select(2, pcall(function() error'' end)):gsub(':%d+: *$', '') -- note: specific to current file.
+  _clean = _clean or function(asts, ok, ...)
+    if ok then return true, ...
+    else
+      local err = ...
+      if type(err) == 'string' then
+        if err:sub(1,#_prefix) == _prefix then
+          local more = err:match('^:%d+: *(.*)', #_prefix+1)
+          if more then
+            err = more
+            err = err:gsub([[local '_(%d+)']], function(name) return infer_name(asts[tonumber(name)]) end)
+          end
+        end
+      end
+      return ok, err
+    end
+  end
+  return _clean(asts, pcall(f, ...))
 end
 
 -- Loads source code of given module name.
@@ -334,7 +380,7 @@ end
 
 
 -- function for t[k]
-local function tindex(t, k) return t[k] end
+local function tindex(_1, _2) return _1[_2] end
 
 local unescape = {['d'] = '.'}
 
@@ -360,12 +406,12 @@ end
 -- CATEGORY: utility function for infer_values.
 local function tastnewindex(t_ast, k_ast, v_ast)
   if known(t_ast.value) and known(k_ast.value) and known(v_ast.value) then
-    local t, k, v = t_ast.value, k_ast.value, v_ast.value
-    if t[k] ~= nil and v ~= t[k] then -- multiple values
+    local _1, _2, _3 = t_ast.value, k_ast.value, v_ast.value
+    if _1[_2] ~= nil and _3 ~= _1[_2] then -- multiple values
       return T.universal
     else
-      t[k] = v
-      return v
+      _1[_2] = _3
+      return _3
     end
   else
     return T.universal
@@ -632,7 +678,8 @@ function M.infer_values(top_ast, tokenlist, src, report)
         if var_ast.tag == 'Index' then
           local t_ast, k_ast = var_ast[1], var_ast[2]
           if not T.istype[t_ast.value] then -- note: don't mutate types
-            local ok;  ok, var_ast.value = pcall(tastnewindex, t_ast, k_ast, {value=value})
+            local v_ast = {value=value}
+            local ok;  ok, var_ast.value = pzcall(tastnewindex, {t_ast, k_ast, v_ast}, t_ast, k_ast, v_ast)
             if not ok then var_ast.value = T.error(var_ast.value) end
               --FIX: propagate to localdefinition?
           end
@@ -680,14 +727,14 @@ function M.infer_values(top_ast, tokenlist, src, report)
         if v ~= nil then
           ast.value = v
         else
-          local ok; ok, ast.value = pcall(tindex, _G, ast[1])
+          local ok; ok, ast.value = pzcall(tindex, {{tag='Id', '_G'}, {tag='String', name}}, _G, name)
           if not ok then ast.value = T.error(ast.value) end
         end
       end
     elseif ast.tag == 'Index' then
       local t_ast, k_ast = ast[1], ast[2]
       if (known(t_ast.value) or T.istabletype[t_ast.value]) and known(k_ast.value) then
-        local ok; ok, ast.value = pcall(tindex, t_ast.value, k_ast.value)
+        local ok; ok, ast.value = pzcall(tindex, {t_ast, k_ast}, t_ast.value, k_ast.value)
         if not ok then ast.value = T.error(ast.value) end
       end
     elseif ast.tag == 'Call' or ast.tag == 'Invoke' then
@@ -696,7 +743,7 @@ function M.infer_values(top_ast, tokenlist, src, report)
       if isinvoke then
         local t, k = ast[1].value, ast[2].value
         if known(t) and known(k) then
-          local ok; ok, ast.valueself = pcall(tindex, t, k)
+          local ok; ok, ast.valueself = pzcall(tindex, {ast[1], ast[2]}, t, k)
           if not ok then ast.valueself = T.error(ast.valueself) end
         end
       end
@@ -828,9 +875,9 @@ function M.infer_values(top_ast, tokenlist, src, report)
       local opid, aast, bast = ast[1], ast[2], ast[3]
       local ok
       if bast then
-        ok, ast.value = pcall(dobinop, opid, aast.value, bast.value)
+        ok, ast.value = pzcall(dobinop, {aast, bast}, opid, aast.value, bast.value)
       else
-        ok, ast.value = pcall(dounop, opid, aast.value)
+        ok, ast.value = pzcall(dounop, {aast}, opid, aast.value)
       end
       if not ok then ast.value = T.error(ast.value) end
     elseif ast.tag == 'If' then
@@ -1073,7 +1120,7 @@ function M.inspect(top_ast, tokenlist, src, report)
     return var
   end
   local function eval_name(name)
-    local ok, o = pcall(eval_name_helper, name)
+    local ok, o = pzcall(eval_name_helper, {}, name)
     if ok then return o else return nil end
   end
 
@@ -1137,14 +1184,14 @@ end
 -- Resolves prefix chain expression to value. [*]
 -- On error returns nil and error object
 function M.resolve_prefixexp(ids, scope, valueglobals, _G)
-  local val = M.resolve_id(ids[1], scope, valueglobals, _G)
-  local ok, err = pcall(function()
+  local _1 = M.resolve_id(ids[1], scope, valueglobals, _G)
+  local ok, err = pzcall(function()
     for i=2,#ids do
-      val = val[ids[i]]
+      _1 = _1[ids[i]]
     end
-  end)
+  end, {})
   if err then return nil, err or '?' end
-  return val
+  return _1
 end
 
 -- Gets local scope at given 1-indexed char position
