@@ -16,6 +16,7 @@ local LD = require "luainspect.dump"
 local LG = require "luainspect.globals"
 local LS = require "luainspect.signatures"
 local T = require "luainspect.types"
+local COMPAT = require "luainspect.compat_env"
 
 --! require 'luainspect.typecheck' (context)
 
@@ -150,7 +151,7 @@ end
 -- http://lua-users.org/lists/lua-l/2002-04/msg00118.html
 -- CATEGORY: utility/string
 local function plain_gsub(s, pattern, repl)
-  repl = repl:gsub('(%W)', '%%%1')
+  repl = repl:gsub('(%%)', '%%%%')
   return s:gsub(pattern, repl)
 end
 
@@ -982,14 +983,13 @@ function env.apply_value(pattern, val)
       end
     end
   end
-  f(ast) -- ast from environment
+  f(env.ast) -- ast from environment
   --UNUSED:
   -- for i=env.asti, #env.ast do
   --  local bast = env.ast[i]
   --  if type(bast) == 'table' then f(bast) end
   --end
 end
-setfenv(env.apply_value, env)
 
 
 -- Evaluates all special comments (i.e. comments prefixed by '!') in code.
@@ -998,9 +998,9 @@ setfenv(env.apply_value, env)
 function M.eval_comments(ast, tokenlist, report)
   local function eval(command, ast)
     --DEBUG('!', command:gsub('%s+$', ''), ast.tag)
-    local f, err = loadstring(command)
+    local f, err = COMPAT.load(command, nil, 't', env)
     if f then
-      setfenv(f, env); env.ast = ast
+      env.ast = ast
       local ok, err = pcall(f, ast)
       if not ok then warn(report, err, ': ', command) end
       env.ast = nil

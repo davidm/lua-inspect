@@ -168,7 +168,7 @@ M.argument_counts = {
   [collectgarbage] = {1,2},
   [dofile] = {1},
   [error] = {1,2},
-  [getfenv] = {0,1},
+  [getfenv or false] = {0,1},
   [getmetatable] = {1,1},
   [ipairs] = {1,1},
   [load] = {1,2},
@@ -182,7 +182,7 @@ M.argument_counts = {
   [rawget] = {2,2},
   [rawset] = {3,3},
   [select] = {1, math.huge},
-  [setfenv] = {2,2},
+  [setfenv or false] = {2,2},
   [setmetatable] = {2,2},
   [tonumber] = {1,2},
   [tostring] = {1},
@@ -198,14 +198,14 @@ M.argument_counts = {
   [coroutine.wrap] = {1,1},
   [coroutine.yield] = {0,math.huge},
   [debug.debug] = {0,0},
-  [debug.getfenv] = {1,1},
+  [debug.getfenv or false] = {1,1},
   [debug.gethook] = {0,1},
   [debug.getinfo] = {1,3},
   [debug.getlocal] = {2,3},
   [debug.getmetatable] = {1,1},
   [debug.getregistry] = {0,0},
   [debug.getupvalue] = {2,2},
-  [debug.setfenv] = {2,2},
+  [debug.setfenv or false] = {2,2},
   [debug.sethook] = {2,4},
   [debug.setlocal] = {3,4},
   [debug.setmetatable] = {2,2},
@@ -282,6 +282,7 @@ M.argument_counts = {
   [table.maxn] = {1,1},
   [table.remove] = {1,2},
   [table.sort] = {1,2},
+  [false] = nil -- trick (relies on potentially undefined behavior)
 }
 
 
@@ -303,7 +304,7 @@ M.safe_function = {
   [coroutine.wrap] = true,
   --[coroutine.yield]
   -- [debug.debug]
-  [debug.getfenv] = true,
+  --[debug.getfenv] = true,
   [debug.gethook] = true,
   [debug.getinfo] = true,
   [debug.getlocal] = true,
