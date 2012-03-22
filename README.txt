@@ -55,7 +55,7 @@ features could be added too.
 metalualib/* - Copy of Metalua libraries.
   Based on http://github.com/fab13n/metalua/tree/fcee97b8d0091ceb471902ee457dbccaab98234e
   with a few bug fixes (search for "PATCHED:LuaInspect" in the source).
-luainspectlib/* - LuaInspect libraries.
+lib/* - LuaInspect libraries.
 htmllib/* - HTML resources under here.
 extman/* - SciTE extman.
   Recent version compatible with LuaInspect.

@@ -1310,7 +1310,7 @@ end
 --
 --   local LUAINSPECT_PATH = "c:/lua-inspect"
 --   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
---   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/luainspectlib/?.lua"
+--   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/lib/?.lua"
 --   require "luainspect.scite".install()
 --
 -- from the SciTE Lua startup script, i.e. the file identified in the
