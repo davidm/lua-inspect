@@ -10,7 +10,6 @@ local function findbin()
   return bin
 end
 local bin = findbin()
-package.path = package.path..';'..bin..'/metalualib/?.lua'
 package.path = package.path..';'..bin..'/lib/?.lua'
 
 require 'luainspect.command'

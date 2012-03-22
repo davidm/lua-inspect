@@ -52,9 +52,8 @@ features could be added too.
 
 == Files in this directory ==
 
-metalualib/* - Copy of Metalua libraries.
-  Based on http://github.com/fab13n/metalua/tree/fcee97b8d0091ceb471902ee457dbccaab98234e
-  with a few bug fixes (search for "PATCHED:LuaInspect" in the source).
+lib/metalua/* - Copy of Metalua libraries.
+  Based on https://github.com/fab13n/metalua/commit/83a25645303bc173563ea9c4979977d3ada21f72
 lib/* - LuaInspect libraries.
 htmllib/* - HTML resources under here.
 extman/* - SciTE extman.

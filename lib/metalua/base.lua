@@ -6,14 +6,14 @@
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-if not metalua then metalua = {} end --PATCHED.. rawset(getfenv(), 'metalua', { }) end
+if not metalua then rawset(getfenv(), 'metalua', { }) end
 metalua.version             = "v-0.5"
 
 if not rawpairs then
    rawpairs, rawipairs, rawtype = pairs, ipairs, type
 end
 
-function pairsmt(x) -- PATCHED:LuaInspect [*]
+function pairs(x)
    assert(type(x)=='table', 'pairs() expects a table')
    local mt = getmetatable(x)
    if mt then
@@ -23,7 +23,7 @@ function pairsmt(x) -- PATCHED:LuaInspect [*]
    return rawpairs(x)
 end
 
-function ipairsmt(x) --PATCHED:LuaInspect [*]
+function ipairs(x)
    assert(type(x)=='table', 'ipairs() expects a table')
    local mt = getmetatable(x)
    if mt then
@@ -32,9 +32,6 @@ function ipairsmt(x) --PATCHED:LuaInspect [*]
    end
    return rawipairs(x)
 end
---PATCHED:LuaInspect: [*] For performance, compatibility,
---  and debugging reasons, avoid overriding builtins.
-
 
 --[[
 function type(x)

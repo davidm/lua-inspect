@@ -1309,7 +1309,6 @@ end
 -- This function should be called via something like
 --
 --   local LUAINSPECT_PATH = "c:/lua-inspect"
---   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/metalualib/?.lua"
 --   package.path = package.path .. ";" .. LUAINSPECT_PATH .. "/lib/?.lua"
 --   require "luainspect.scite".install()
 --

@@ -23,20 +23,8 @@
 
 --! require 'luainspect.typecheck' (context)
 
--- boilerplate/utility
--- LUA_PATH="?.lua;/path/to/metalua/src/compiler/?.lua;/path/to/metalua/src/lib/?.lua"
--- import modules -- order is important
-require "lexer"
-require "gg"
-require "mlp_lexer"
-require "mlp_misc"
-require "mlp_table"
-require "mlp_meta"
-require "mlp_expr"
-require "mlp_stat"
---require "mlp_ext"
-_G.mlc = {} -- make gg happy
--- Metalua:IMPROVE: make above imports simpler
+local LEXER = require 'metalua.compiler.parser.lexer'
+local mlp = require 'metalua.compiler.parser.init'
 
 local M = {}
 
@@ -103,7 +91,7 @@ end
 -- CATEGORY: Lua parsing
 local function ast_from_string_helper(src, filename)
   filename = filename or '(string)'
-  local  lx  = mlp.lexer:newstream (src, filename)
+  local  lx  = LEXER.lexer:newstream (src, filename)
   local  ast = mlp.chunk(lx)
   return ast
 end
@@ -370,7 +358,7 @@ function M.get_keywords(ast, src)
   -- Some binary operations have arguments reversed from lexical order.
   -- For example, `a > b` becomes `Op{'lt', `Id 'b', `Id 'a'}
   local oast =
-    (ast.tag == 'Op' and #ast == 3 and ast[2].lineinfo.first[3] > ast[3].lineinfo.first[3])
+    (ast.tag == 'Op' and #ast == 3 and ast[2].lineinfo.first.offset > ast[3].lineinfo.first.offset)
     and {ast[1], ast[3], ast[2]} or ast
 
   local i = 0
@@ -381,18 +369,18 @@ function M.get_keywords(ast, src)
     -- Get position range [fpos,lpos] between subsequent children.
     local fpos
     if i == 0 then  -- before first child
-      fpos = ast.lineinfo.first[3]
+      fpos = ast.lineinfo.first.offset
     else
       local last = oast[i].lineinfo.last; local c = last.comments
-      fpos = (c and #c > 0 and c[#c][3] or last[3]) + 1
+      fpos = (c and #c > 0 and c[#c].offset or last.offset) + 1
     end
     local lpos
     if j == #ast+1 then  -- after last child
-      lpos = ast.lineinfo.last[3]
+      lpos = ast.lineinfo.last.offset
     else
       local first = oast[j].lineinfo.first; local c = first.comments
-      --DEBUG('first', ast.tag, first[3], src:sub(first[3], first[3]+3))
-      lpos = (c and #c > 0 and c[1][2] or first[3]) - 1
+      --DEBUG('first', ast.tag, first.offset, src:sub(first.offset, first.offset+3))
+      lpos = (c and #c > 0 and c[1][2] or first.offset) - 1
     end
 
     -- Find keyword in range.
@@ -441,7 +429,7 @@ function M.ast_to_tokenlist(top_ast, src)
     if isterminal[ast.tag] then -- Extract terminal
       local token = ast
       if ast.lineinfo then
-        token.fpos, token.lpos, token.ast = ast.lineinfo.first[3], ast.lineinfo.last[3], ast
+        token.fpos, token.lpos, token.ast = ast.lineinfo.first.offset, ast.lineinfo.last.offset, ast
         table.insert(tokens, token)
       end
     else -- Extract non-terminal
@@ -460,7 +448,7 @@ function M.ast_to_tokenlist(top_ast, src)
         if not isseen[comment] then
           comment.tag = 'Comment'
           local token = comment
-          token.fpos, token.lpos, token.ast = comment[2], comment[3], comment
+          token.fpos, token.lpos, token.ast = comment.lineinfo.first.offset, comment.lineinfo.last.offset, comment
           table.insert(tokens, token)
           isseen[comment] = true
         end
@@ -860,7 +848,7 @@ end
 --FIX:Metalua: `while 1 do --[[x]] --[[y]] end` returns first > last
 --   lineinfo for contained block
 
---FIX:Metalua: search for "PATCHED:LuaInspect" in the metalualib folder.
+--FIX:Metalua: search for "PATCHED:LuaInspect" in the metalua code.
 
 --FIX?:Metalua: loadstring parses "--x" but metalua omits the comment in the AST
 

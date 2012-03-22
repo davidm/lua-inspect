@@ -3,7 +3,6 @@
 -- luainspect.command - LuaInspect command-line interface.
 -- This file can be invoked from the command line
 
-package.path = package.path .. ';metalualib/?.lua'
 package.path = package.path .. ';lib/?.lua'
 
 
