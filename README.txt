@@ -69,11 +69,14 @@ Example:
 (Alternately just run "lua test.lua".  You should also do "lua luainspect"
 rather than "./luainspect" on Windows.)
 
+You will need to ensure that the JavaScript and CSS files in the
+path after the "-l" argument can be found relative to the HTML file.
+
 == Command-line Usage (delimited CSV output) ==
 
 Example:
 
-  $ ./luainspect -fdelimited examples.lua > test-output/examples.csv
+  $ ./luainspect -fdelimited examples.lua > examples.csv
 
 == Installation in SciTE ==
 
