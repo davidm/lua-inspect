@@ -70,7 +70,8 @@ Example:
 rather than "./luainspect" on Windows.)
 
 You will need to ensure that the JavaScript and CSS files in the
-path after the "-l" argument can be found relative to the HTML file.
+path after the "-l" argument can be found relative to the HTML file;
+otherwise, the page will not display properly.
 
 == Command-line Usage (delimited CSV output) ==
 
