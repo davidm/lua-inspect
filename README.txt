@@ -159,7 +159,7 @@ reporting.  Typical use case: `for _, v in ipairs(t) do <. . .> end`.
 
 == LICENSE ==
 
-See LICENSE file.
+See COPYRIGHT file.
 
 == Credits ==
 
